@@ -1,0 +1,88 @@
+{
+    "app.update.available": "New version available",
+    
+    "tooltip.delete.old.duplicate": "Delete all old / duplicate files",
+    "tooltip.refresh": "Refresh",
+    "tooltip.updateAllFirmWare": "Update all firmware",
+
+    "stats.downloaded": "Downloaded",
+    "stats.used": "Used",
+    "stats.freeSpace": "Free space",
+
+    "download.start": "Start download",
+
+    "state.downloaded": "Downloaded",
+    "state.notDownloaded": "Not downloaded",
+    "state.uncomplete": "Incomplete",
+    "state.updateAvailable": "Update available",
+    "state.unsupported": "Unsupported",
+    "state.downloading": "Downloading",
+    "state.verifying": "Verifying",
+
+    "setting.title": "Settings",
+    "setting.about": "About",
+    "setting.about.version": "Version",
+    "setting.about.checkUpdate": "Check",
+    "setting.checkUpdate.latest": "You are using the latest version",
+
+    "setting.language": "Language",
+    "setting.language.select": "Select language",
+    "setting.language.description": "Choose your preferred display language",
+
+    "setting.download": "Download",
+    "setting.download.downloadPath": "Download path",
+    "setting.download.currentPath": "Current path",
+    "setting.changPath": "Choose path",
+    "setting.useIDM": "Use IDM",
+    "setting.useIDM.description": "Use \"Internet Download Manager\" to download",
+    "setting.idmPath": "IDM path",
+
+    "setting.firmware": "Firmware",
+    "setting.firmware.removeOldFile": "Remove old firmware",
+    "setting.firmware.removeOldFile.description": "Automatically remove old firmware",
+    "setting.firmware.duplicate": "Remove duplicate firmware",
+    "setting.firmware.duplicate.description": "Automatically remove duplicate firmware",
+
+    "button.download": "Download",
+    "button.reDownload": "Re-download",
+    "button.update": "Update",
+    "button.deleteFile": "Delete file",
+    "button.resumeDownload": "Resume",
+    "button.view": "View",
+    "button.verify": "Verify",
+
+    "confirm.deleteFile": "Are you sure you want to delete file $1?",
+
+    "deleteAllFirmware.start": "Checking. Please wait",
+    "deleteAllFirmware.isDeleting": "Deleting in progress. Please wait",
+    "deleteAllFirmware.delete.success": "Deleted $1 files",
+
+    "update.ready": "Download completed. Preparing to update",
+    "update.btn.ready": "Installing...",
+
+    "firmware.update.checking": "Checking, please wait",
+    "firmware.update.found": "Found $1 device(s) with updates. Do you want to update now?",
+    "firmware.update.notfound": "No devices with updates found",
+    "firmware.update.start": "Start update",
+
+    "downloader.start": "Starting download...",
+    "downloader.already.downloading": "File is already downloading",
+
+    "message.unsupported": "This file is no longer supported",
+    "message.deleteFile": "Deleting file $1...",
+    "message.deleteFile.success": "Deleted file $1",
+    "message.download.completed": "File $1 has been downloaded",
+    "message.download.completed.verify": "Verifying the newly downloaded file",
+
+    "detail.latest.title": "Latest version",
+    "detail.latest.version": "Version:",
+    "detail.latest.size": "Size:",
+    "detail.latest.build": "Build:",
+    "detail.latest.release": "Release date:",
+
+    "verify.progress": "Verifying file $1 ($2)",
+    "verify.completed": "Verification completed",
+    "verify.mismatch": "Verification result does not match",
+
+    "placeholder.search": "Search..."
+}

@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html class="dark" lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPSW Manager</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="assets/styles/overlay.css">
+    <link rel="stylesheet" href="assets/styles/page.css">
+    <link rel="stylesheet" href="assets/styles/tooltip.css">
+    <link rel="stylesheet" href="assets/styles/product.css">
+    <link rel="stylesheet" href="assets/styles/index.css">
+    <link rel="stylesheet" href="assets/styles/update.css">
+    <link rel="stylesheet" href="assets/styles/tailwind.css">
+</head>
+
+<body>
+    <header class="p-2.5! w-dvw h-dvh border-b border-(--border-dark) bg-[#111418] sticky top-0 z-1001 max-h-[8vh]
+        [&_section]:size-full
+        [&_section]:mx-auto
+        [&_section]:flex
+        [&_section]:items-center
+        [&_section]:justify-between
+        [&_section]:gap-2
+        [&_section]:animate-[fadeIn_0.3s_ease-out]
+        [&>section>svg]:w-5.75
+        [&>section>svg]:h-5.75
+    ">
+        <section id="topbar">
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="text-[18px] font-bold tracking-[-0.01em]">IPSW Manager</div>
+            </div>
+            <div class="topbar-search">
+                <span class="search-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="m19.485 20.154l-6.262-6.262q-.75.639-1.725.989q-.975.35-1.96.35q-2.402 0-4.066-1.663q-1.664-1.664-1.664-4.065T5.47 5.436q1.663-1.667 4.064-1.667q2.402 0 4.068 1.664q1.666 1.664 1.666 4.067q0 1.042-.369 2.017q-.37.975-.97 1.668l6.262 6.261l-.707.708ZM9.538 14.23q1.99 0 3.361-1.37q1.37-1.37 1.37-3.361q0-1.99-1.37-3.36q-1.37-1.37-3.36-1.37q-1.99 0-3.361 1.37q-1.37 1.37-1.37 3.36q0 1.99 1.37 3.36q1.37 1.37 3.36 1.37Z" />
+                    </svg>
+                </span>
+                <input type="text" class="search-input" id="globalSearchInput" data-t="placeholder.search">
+                <button class="search-clear" id="globalSearchClear">×</button>
+            </div>
+            <div class="flex items-center gap-2 p-1.5!">
+                <button class="topbar-btn has-tooltip tooltip-bottom highlight-glow hidden!" id="app.update.available">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M7 20v-2h10v2H7Zm4-4V7.825L8.4 10.4L7 9l5-5l5 5l-1.4 1.4L13 7.825V16h-2Z" />
+                    </svg>
+                    <span class="tooltip-text" data-t="app.update.available"></span>
+                </button>
+                <button class="topbar-btn" id="downloadsBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M5 21v-1h14v1H5Zm6.98-3.77L6.366 9.789h3.27V3h4.711v6.788h3.27l-5.635 7.443Zm0-1.634l3.574-4.788h-2.208V4h-2.711v6.808H8.427l3.554 4.788Zm.02-4.788Z" />
+                    </svg>
+                </button>
+                <button class="topbar-btn" id="settingsBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="m10.135 21l-.362-2.892q-.479-.145-1.035-.454q-.557-.31-.948-.664l-2.667 1.135l-1.865-3.25l2.305-1.738q-.044-.272-.073-.56q-.028-.287-.028-.558q0-.252.028-.53t.073-.626L3.258 9.125l1.865-3.212L7.771 7.03q.448-.373.97-.673q.52-.3 1.013-.464L10.134 3h3.731l.362 2.912q.575.201 1.016.463q.442.262.909.654l2.725-1.116l1.865 3.212l-2.382 1.796q.082.31.092.568q.01.26.01.511q0 .233-.02.491q-.019.259-.088.626l2.344 1.758l-1.865 3.25l-2.681-1.154q-.467.392-.94.673q-.474.281-.985.444L13.865 21h-3.73Zm1.838-6.5q1.046 0 1.773-.727q.727-.727.727-1.773q0-1.046-.727-1.773q-.727-.727-1.773-.727q-1.052 0-1.776.727T9.473 12q0 1.046.724 1.773q.724.727 1.776.727Z" />
+                    </svg>
+                </button>
+            </div>
+        </section>
+
+        <section id="topbar:selectModel" class="hidden!">
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="text-[18px] font-bold tracking-[-0.01em]" id="overlayTitle">Loading...</div>
+            </div>
+            <nav>
+                <ol class="breadcrumb" id="breadcrumb_selectModel">
+                </ol>
+            </nav>
+            <div class="flex items-center gap-2 p-1.5!">
+                <button class="topbar-btn has-tooltip tooltip-bottom" id="upgradeAllFirmware">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M7 20v-2h10v2H7Zm4-4V7.825L8.4 10.4L7 9l5-5l5 5l-1.4 1.4L13 7.825V16h-2Z" />
+                    </svg>
+                    <span class="tooltip-text" data-t="button.upgrade.firmware"></span>
+                </button>
+
+                <button class="topbar-btn has-tooltip tooltip-bottom" id="deleteAllFirmware">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26">
+                        <path fill="currentColor"
+                            d="M11.5-.031c-1.958 0-3.531 1.627-3.531 3.594V4H4c-.551 0-1 .449-1 1v1H2v2h2v15c0 1.645 1.355 3 3 3h12c1.645 0 3-1.355 3-3V8h2V6h-1V5c0-.551-.449-1-1-1h-3.969v-.438c0-1.966-1.573-3.593-3.531-3.593h-3zm0 2.062h3c.804 0 1.469.656 1.469 1.531V4H10.03v-.438c0-.875.665-1.53 1.469-1.53zM6 8h5.125c.124.013.247.031.375.031h3c.128 0 .25-.018.375-.031H20v15c0 .563-.437 1-1 1H7c-.563 0-1-.437-1-1V8zm2 2v12h2V10H8zm4 0v12h2V10h-2zm4 0v12h2V10h-2z" />
+                    </svg>
+                    <span class="tooltip-text" data-t="tooltip.delete.old.duplicate"></span>
+                </button>
+
+                <button class="topbar-btn has-tooltip tooltip-bottom" id="refreshBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M12.077 19q-2.931 0-4.966-2.033q-2.034-2.034-2.034-4.964q0-2.93 2.034-4.966Q9.146 5 12.077 5q1.783 0 3.338.847q1.556.847 2.508 2.365V5.5q0-.213.144-.356T18.424 5q.213 0 .356.144q.143.143.143.356v3.923q0 .343-.232.576q-.232.232-.576.232h-3.923q-.212 0-.356-.144t-.144-.357q0-.213.144-.356t.356-.143h3.2q-.78-1.496-2.197-2.364Q13.78 6 12.077 6q-2.5 0-4.25 1.75T6.077 12q0 2.5 1.75 4.25t4.25 1.75q1.787 0 3.271-.968q1.485-.969 2.202-2.572q.085-.197.274-.276q.19-.08.388-.013q.211.067.28.275q.07.208-.015.404q-.833 1.885-2.56 3.017Q14.19 19 12.077 19Z" />
+                    </svg>
+                    <span class="tooltip-text" data-t="tooltip.refresh"></span>
+                </button>
+
+                <button class="topbar-btn" id="topbar.closeBtn">×</button>
+            </div>
+        </section>
+    </header>
+
+    <main class="flex items-center justify-center w-full h-[calc(100vh-var(--header-height,20px))] mx-auto pt-6! px-3!
+        [&_section]:animate-[fadeIn_0.5s_ease-in-out]
+    ">
+        <!-- Main -->
+        <section class="size-full overflow-y-auto mx-5!" id="main:selectProduct">
+            <div class="text-center mb-8!">
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <span class="text-[28px] font-bold block mb-1" id="downloadedCount">-</span>
+                        <span class="stat-label" data-t="stats.downloaded"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="text-[28px] font-bold block mb-1" id="storageUsed">-</span>
+                        <span class="stat-label" data-t="stats.used"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="text-[28px] font-bold block mb-1" id="freeSpace">-</span>
+                        <span class="stat-label" data-t="stats.freeSpace"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                <div class="product-card recommended" data-product="iphone">
+                    <div class="product-icon">
+                        <img src="assets/icon/iphone.png" alt="iPhone">
+                    </div>
+                    <div class="product-name">iPhone</div>
+                </div>
+
+                <div class="product-card" data-product="ipad">
+                    <div class="product-icon">
+                        <img src="assets/icon/ipad.png" alt="iPad">
+                    </div>
+                    <div class="product-name">iPad</div>
+                </div>
+
+                <div class="product-card" data-product="watch">
+                    <div class="product-icon">
+                        <img src="assets/icon/watch.png" alt="Apple Watch">
+                    </div>
+                    <div class="product-name">Apple Watch</div>
+                </div>
+
+                <div class="product-card" data-product="mac">
+                    <div class="product-icon">
+                        <img src="assets/icon/mac.png" alt="Mac">
+                    </div>
+                    <div class="product-name">Mac</div>
+                </div>
+
+                <div class="product-card" data-product="realitydevice">
+                    <div class="product-icon">
+                        <img src="assets/icon/vision.png" alt="Vision Pro">
+                    </div>
+                    <div class="product-name">Vision Pro</div>
+                </div>
+
+                <div class="product-card" data-product="tv">
+                    <div class="product-icon">
+                        <img src="assets/icon/tv.png" alt="Apple TV">
+                    </div>
+                    <div class="product-name">Apple TV</div>
+                </div>
+
+                <div class="product-card" data-product="homepod">
+                    <div class="product-icon">
+                        <img src="assets/icon/homepod.png" alt="HomePod">
+                    </div>
+                    <div class="product-name">HomePod</div>
+                </div>
+
+                <div class="product-card" data-product="ipod">
+                    <div class="product-icon">
+                        <img src="assets/icon/ipod.png" alt="iPod">
+                    </div>
+                    <div class="product-name">iPod</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Product & Detail Container -->
+        <section class="hidden size-full flex gap-0 relative" id="main:modelDetailContainer">
+            <!-- Product (Select Model) - Left Side -->
+            <div class="transition-all duration-300 ease-in-out overflow-y-auto shrink-0 h-full pr-2!"
+                id="main:selectModel" style="width: 100%;">
+                <div class="loading" id="loadingText">Loading firmware data...</div>
+                <div class="device-grid" id="deviceGrid"></div>
+            </div>
+
+            <!-- Resizable Divider Button -->
+            <div class="hidden absolute top-1/2 -translate-y-1/2 z-10 cursor-col-resize" id="resizeDivider"
+                style="left: 0%;">
+                <!-- Button Circle -->
+                <div class="relative group">
+                    <!-- Hover Area (wider for easier grabbing) -->
+                    <div class="absolute inset-0 -left-4 -right-4 -top-4 -bottom-4"></div>
+
+                    <!-- Visual Button -->
+                    <div class="w-8 h-8 bg-[#1a2835] border-2 border-[#233648] rounded-full shadow-lg 
+                                flex items-center justify-center
+                                group-hover:bg-[#233648] group-hover:border-blue-500 group-hover:scale-110
+                                transition-all duration-200">
+                        <!-- Icon: Three Dots Vertical -->
+                        <svg class="w-4 h-4 text-[#92adc9] group-hover:text-blue-400" fill="currentColor"
+                            viewBox="0 0 16 16">
+                            <circle cx="8" cy="3" r="1.5" />
+                            <circle cx="8" cy="8" r="1.5" />
+                            <circle cx="8" cy="13" r="1.5" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail - Right Side -->
+            <div class="transition-all duration-300 ease-in-out overflow-y-auto opacity-0 pointer-events-none shrink-0 pl-4! @container
+                [&::-webkit-scrollbar]:hidden
+            " id="main:detail" style="width: 0%;">
+                <div class="min-h-full">
+                    <div class="text-3xl @xl:text-4xl font-bold mb-3!" id="detailTitle">-</div>
+
+                    <div class="relative w-full rounded-2xl bg-card hero-gradient shadow-neon overflow-hidden">
+                        <div
+                            class="p-8! @xl:p-10! flex flex-col @xl:flex-row justify-between items-start @xl:items-center gap-8">
+                            <!-- Left Side: Version Info -->
+                            <div class="space-y-4 max-w-2xl">
+                                <h1 class="text-xl @xl:text-3xl font-bold text-white tracking-tight mb-3!"
+                                    data-t="detail.latest.title"></h1>
+                                <div class="grid grid-cols-[150px_1fr] gap-y-2 text-base @xl:text-lg text-gray-400">
+                                    <!-- Version -->
+                                    <div class="font-medium text-[#9ca3af]" data-t="detail.latest.version"></div>
+                                    <div class="text-white" id="detail.latest.version">-</div>
+                                    <!-- Size -->
+                                    <div class="font-medium text-[#9ca3af]" data-t="detail.latest.size"></div>
+                                    <div class="text-white" id="detail.latest.size">-</div>
+                                    <!-- Build -->
+                                    <div class="font-medium text-[#9ca3af]" data-t="detail.latest.build"></div>
+                                    <div class="text-white" id="detail.latest.build">-</div>
+                                    <!-- Release -->
+                                    <div class="font-medium text-[#9ca3af]" data-t="detail.latest.release"></div>
+                                    <div class="text-white" id="detail.latest.release">-</div>
+                                </div>
+                            </div>
+                            <!-- Right Side: Action Button -->
+                            <div class="shrink-0 flex flex-col gap-3 items-center min-w-50" id="detail.latest.action">
+                                <!-- Action Button -->
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Firmware -->
+                    <div
+                        class="overflow-x-auto rounded-xl border border-[#233648] hero-gradient shadow-neon mt-4! w-full">
+                        <table class="w-full text-left border-collapse
+                            [&>thead>tr>th]:px-6!
+                            [&>thead>tr>th]:py-4!
+                        ">
+                            <thead>
+                                <tr class="bg-[#1a2835] text-[#92adc9] text-xs font-bold uppercase tracking-wider">
+                                    <th class="border-b border-[#233648]">Version</th>
+                                    <th class="border-b border-[#233648]">Build</th>
+                                    <th class="border-b border-[#233648]">Release Date</th>
+                                    <th class="border-b border-[#233648]">Status</th>
+                                    <th class="border-b border-[#233648]">Size</th>
+                                    <th class="border-b border-[#233648]">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail:body" class="divide-y divide-[#233648]
+                                [&>tr>td]:px-6!
+                                [&>tr>td]:py-4!
+                                [&_tr]:h-14
+                            "></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Global Search Overlay -->
+    <div class="global-search-overlay" id="globalSearchOverlay">
+        <div class="search-results-header">
+            <div class="search-results-title" id="globalSearchTitle">Search Results</div>
+            <button class="overlay-control-btn close" id="closeGlobalSearch">×</button>
+        </div>
+        <div class="device-grid" id="globalSearchResults"></div>
+    </div>
+
+    <!-- Download Page -->
+    <div class="settings-page" id="downloadPage">
+        <div class="settings-container">
+            <div class="settings-header">
+                <div class="settings-title">Downloads</div>
+                <button class="overlay-control-btn close" id="closeDownloads">×</button>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-title">Active Downloads</div>
+                <div id="downloadList"></div>
+                <div id="emptyDownloads" class="flex items-center justify-center flex-col">
+                    <span class="text-[3rem]">📭</span>
+                    <span class="text-[#a0aec0]">No active downloads</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Page -->
+    <div class="settings-page" id="settingsPage">
+        <div class="settings-container">
+            <div class="settings-header">
+                <div class="settings-title" data-t="setting.title"></div>
+                <button class="overlay-control-btn close" id="closeSettings">×</button>
+            </div>
+
+            <!-- About -->
+            <div class="settings-section">
+                <div class="section-title" data-t="setting.about">About</div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label" data-t="setting.about.version">Version</div>
+                        <div class="setting-description" id="version">-</div>
+                    </div>
+                    <div class="setting-control">
+                        <button class="setting-button" data-t="setting.about.checkUpdate" id="checkUpdate">Check for
+                            Updates</button>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label">Developer</div>
+                        <div class="setting-description">Nguyễn Kim Phúc</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Language -->
+            <div class="settings-section">
+                <div class="section-title" data-t="setting.language"></div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label" data-t="setting.language.select"></div>
+                        <div class="setting-description" data-t="setting.language.description"></div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="setting-input language-select" id="languageSelect">
+                            <option value="en">English</option>
+                            <option value="vi">Tiếng Việt</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download -->
+            <div class="settings-section">
+                <div class="section-title" data-t="setting.download"></div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label" data-t="setting.download.downloadPath"></div>
+                        <div class="setting-description">
+                            <span data-t="setting.download.currentPath"></span>
+                            <span>:</span>
+                            <span id="currentPath" class="text-[#ffb300] font-bold">-</span>
+                        </div>
+                    </div>
+                    <div class="setting-control">
+                        <button class="setting-button" id="selectPathBtn" data-t="setting.changPath">Change
+                            Path</button>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label" data-t="setting.useIDM">Use IDM</div>
+                        <div class="setting-description" data-t="setting.useIDM.description">Use Internet Download
+                            Manager for downloads</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch" id="useIDM">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label" data-t="setting.idmPath">IDM Path</div>
+                        <div class="setting-description">
+                            <span data-t="setting.download.currentPath">Current Path</span>
+                            <span>:</span>
+                            <span id="idm-currentPath" class="text-[#ffb300] font-bold">-</span>
+                        </div>
+                    </div>
+                    <div class="setting-control">
+                        <button class="setting-button" id="idmSelectPath" data-t="setting.changPath"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Firmware -->
+            <div class="settings-section">
+                <div class="section-title" data-t="setting.firmware">Firmware</div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label" data-t="setting.firmware.removeOldFile">Remove Old Files</div>
+                        <div class="setting-description" data-t="setting.firmware.removeOldFile.description">
+                            Automatically remove old firmware files</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch" id="autoRemoveOldFiles">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label" data-t="setting.firmware.duplicate">Remove Duplicates</div>
+                        <div class="setting-description" data-t="setting.firmware.duplicate.description">Automatically
+                            remove duplicate firmware files</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch" id="autoRemoveDuplicateFiles">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Updater -->
+    <div class="overlay" id="updatePage" style="z-index: 99999;">
+        <div class="popup">
+            <div class="text-center mb-7.5!">
+                <div class="text-[64px] mb-4 animate-[icon-bounce_1s_ease-in-out_infinite]">🚀</div>
+                <h2 class="text-[28px] text-white font-bold mb-3">Update Available</h2>
+                <div
+                    class="inline-block bg-[linear-gradient(135deg,#667eea_0%,#764ba2_100%)] text-white py-2! px-5! rounded-[20px] text-sm font-semibold">
+                    <span class="flex gap-1.5 text-center">
+                        <span>Version</span>
+                        <span id="update-version">-</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="mb-6!">
+                <div class="flex justify-between items-center mb-2.5! font-[14px]">
+                    <span class="text-[#a0aec0] font-medium" id="progressText">Ready to download</span>
+                    <span class="text-[#667eea] font-bold" id="progressPercent">0%</span>
+                </div>
+                <div class="h-3 w-[90%] bg-[#2d3748] rounded-[10px] overflow-hidden relative">
+                    <div class=" h-full w-0 bg-[linear-gradient(90deg,#667eea_0%,#764ba2_100%)] rounded-[10px] relative overflow-hidden transition-[width] duration-300 ease-in-out
+                    
+                    after:content-['']
+                    after:absolute
+                    after:inset-0
+                    after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)]
+                    after:animate-[shimmer_1.5s_infinite]" id="progressFill"></div>
+                </div>
+            </div>
+
+            <button class="download-btn" id="update-download">Download Update</button>
+
+            <div class="status-text" id="statusText"></div>
+        </div>
+
+        <div class="popup">
+            <h3
+                class="text-[18px] font-semibold text-slate-200 mb-4! flex items-center gap-2! before:content-['✨'] before:text-[20px]">
+                What's New</h3>
+            <ul class="list-none bg-[#16213e] rounded-xl p-5! overflow-y-auto w-[90%] h-[80%]
+                [&::-webkit-scrollbar]:w-1.5
+                [&::-webkit-scrollbar-track]:bg-[#0f1419]
+                [&::-webkit-scrollbar-track]:rounded-[3px]
+                [&::-webkit-scrollbar-thumb]:bg-[#2d3748]
+                [&::-webkit-scrollbar-thumb]:rounded-[3px]
+                [&::-webkit-scrollbar-thumb:hover]:bg-[#4a5568]" id="changelog-list"></ul>
+        </div>
+
+        <span class="absolute bottom-12.5 text-[#a0aec0] text-sm pointer-events-none">Nhấn vào đây để đóng</span>
+    </div>
+
+    <!-- Firmware Upgrade Overlay -->
+    <div id="upgradeOverlay" class="upgrade-overlay hidden">
+        <div class="upgrade-container">
+            <!-- Header -->
+            <div class="upgrade-header">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        <polyline points="7.5 4.21 12 6.81 16.5 4.21" />
+                        <polyline points="7.5 19.79 7.5 14.6 3 12" />
+                        <polyline points="21 12 16.5 14.6 16.5 19.79" />
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                        <line x1="12" y1="22.08" x2="12" y2="12" />
+                    </svg>
+                    Firmware Upgrade Manager
+                </h2>
+                <button class="btn-close" id="closeUpgradeOverlay">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Status Summary -->
+            <div class="upgrade-summary">
+                <div class="summary-item">
+                    <span class="label">Đang tải:</span>
+                    <span class="value" id="runningCount">0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Chờ xử lý:</span>
+                    <span class="value" id="pendingCount">0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Hoàn thành:</span>
+                    <span class="value" id="completedCount">0</span>
+                </div>
+            </div>
+
+            <!-- Currently Downloading -->
+            <div class="upgrade-section">
+                <h3>
+                    <span class="status-badge downloading">●</span>
+                    Đang tải xuống
+                </h3>
+                <div id="runningList" class="upgrade-list">
+                    <div class="empty-state">Chưa có tệp nào đang tải</div>
+                </div>
+            </div>
+
+            <!-- Pending Queue (Draggable) -->
+            <div class="upgrade-section">
+                <h3>
+                    <span class="status-badge pending">●</span>
+                    Hàng đợi
+                    <span class="hint">Kéo thả để sắp xếp thứ tự</span>
+                </h3>
+                <div id="pendingList" class="upgrade-list sortable">
+                    <div class="empty-state">Chưa có tệp nào trong hàng đợi</div>
+                </div>
+            </div>
+
+            <!-- Completed -->
+            <div class="upgrade-section">
+                <h3>
+                    <span class="status-badge completed">●</span>
+                    Đã hoàn thành
+                </h3>
+                <div id="completedList" class="upgrade-list">
+                    <div class="empty-state">Chưa có tệp nào hoàn thành</div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="upgrade-actions">
+                <button class="btn btn-secondary" id="pauseAll">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="4" width="4" height="16" />
+                        <rect x="14" y="4" width="4" height="16" />
+                    </svg>
+                    Tạm dừng
+                </button>
+                <button class="btn btn-primary" id="startUpgrade">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                    Bắt đầu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .upgrade-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .upgrade-overlay.hidden {
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .upgrade-container {
+            background: #1a1a1a;
+            border-radius: 12px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .upgrade-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .upgrade-header h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-close:hover {
+            background: #2a2a2a;
+            color: #fff;
+        }
+
+        .upgrade-summary {
+            display: flex;
+            gap: 20px;
+            padding: 16px 24px;
+            background: #0f0f0f;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .summary-item .label {
+            color: #888;
+            font-size: 13px;
+        }
+
+        .summary-item .value {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .upgrade-section {
+            padding: 16px 24px;
+            border-bottom: 1px solid #2a2a2a;
+            overflow-y: auto;
+        }
+
+        .upgrade-section:last-of-type {
+            border-bottom: none;
+            flex: 1;
+        }
+
+        .upgrade-section h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 0 12px 0;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            font-size: 10px;
+        }
+
+        .status-badge.downloading {
+            color: #3b82f6;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .status-badge.pending {
+            color: #f59e0b;
+        }
+
+        .status-badge.completed {
+            color: #10b981;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .hint {
+            margin-left: auto;
+            font-size: 12px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .upgrade-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 60px;
+        }
+
+        .empty-state {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        .upgrade-item {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+        }
+
+        .upgrade-item.draggable {
+            cursor: move;
+        }
+
+        .upgrade-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+
+        .upgrade-item.drag-over {
+            border: 2px dashed #3b82f6;
+            background: #1a2942;
+        }
+
+        .drag-handle {
+            color: #666;
+            cursor: grab;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .item-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-name {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-device {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .item-progress {
+            flex-shrink: 0;
+        }
+
+        .item-progress.progress-bar {
+            width: 100px;
+            height: 4px;
+            background: #3a3a3a;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .item-progress.progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #2563eb);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 11px;
+            color: #888;
+            text-align: right;
+        }
+
+        .upgrade-actions {
+            display: flex;
+            gap: 12px;
+            padding: 20px 24px;
+            border-top: 1px solid #2a2a2a;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: #2a2a2a;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #3a3a3a;
+        }
+    </style>
+    <script type="module" src="renderer/index.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+.has-tooltip {
+    position: relative;
+}
+
+.has-tooltip .tooltip-text {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    background-color: #333;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 6px;
+    white-space: nowrap;
+    z-index: 100000;
+    transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+    font-size: 14px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+}
+
+/* TOOLTIP PHÍA TRÊN (mặc định) */
+.has-tooltip .tooltip-text {
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+}
+
+.has-tooltip .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+}
+
+.has-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* TOOLTIP PHÍA DƯỚI */
+.has-tooltip.tooltip-bottom .tooltip-text {
+    bottom: auto;
+    top: 125%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+}
+
+.has-tooltip.tooltip-bottom .tooltip-text::after {
+    top: auto;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-color: transparent transparent #333 transparent;
+}
+
+.has-tooltip.tooltip-bottom:hover .tooltip-text {
+    transform: translateX(-50%) translateY(0);
+}
+
+/* TOOLTIP BÊN PHẢI */
+.has-tooltip.tooltip-right .tooltip-text {
+    bottom: auto;
+    left: 125%;
+    top: 50%;
+    transform: translateY(-50%) translateX(-10px);
+}
+
+.has-tooltip.tooltip-right .tooltip-text::after {
+    top: 50%;
+    left: auto;
+    right: 100%;
+    transform: translateY(-50%);
+    border-color: transparent #333 transparent transparent;
+}
+
+.has-tooltip.tooltip-right:hover .tooltip-text {
+    transform: translateY(-50%) translateX(0);
+}
+
+/* TOOLTIP BÊN TRÁI */
+.has-tooltip.tooltip-left .tooltip-text {
+    bottom: auto;
+    left: auto;
+    right: 125%;
+    top: 50%;
+    transform: translateY(-50%) translateX(10px);
+}
+
+.has-tooltip.tooltip-left .tooltip-text::after {
+    top: 50%;
+    right: auto;
+    left: 100%;
+    transform: translateY(-50%);
+    border-color: transparent transparent transparent #333;
+}
+
+.has-tooltip.tooltip-left:hover .tooltip-text {
+    transform: translateY(-50%) translateX(0);
+}

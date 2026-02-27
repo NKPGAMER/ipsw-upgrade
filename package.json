@@ -1,0 +1,76 @@
+{
+  "name": "ipsw-manager",
+  "version": "2.1.0",
+  "description": "",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build:main": "tsc -p tsconfig.json",
+    "build:renderer": "tsc -p tsconfig.renderer.json",
+    "build:tailwindcss": "npx @tailwindcss/cli -i ./dist/input.css -o ./dist/assets/styles/tailwind.css",
+    "build": "npm run build:main && npm run build:renderer && npm run build:tailwindcss",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder --publish always",
+
+    "dev:tsc": "tsc -p tsconfig.renderer.json -w",
+    "dev:css": "npx @tailwindcss/cli -i ./dist/input.css -o ./dist/assets/styles/tailwind.css --watch",
+    "dev": "concurrently \"npm run dev:tsc\" \"npm run dev:css\" \"electron .\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.4",
+    "electron-builder": "^26.0.12",
+    "electron-rebuild": "^3.2.9",
+    "electron-reloader": "^1.2.3",
+    "tailwindcss": "^4.1.18",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "electron-store": "^11.0.2",
+    "electron-updater": "^6.6.2",
+    "react": "^19.2.0",
+    "uuid": "^13.0.0"
+  },
+  "build": {
+    "appId": "com.ipsw.manager",
+    "productName": "IPSW Manager",
+    "directories": {
+      "output": "release"
+    },
+    "compression": "maximum",
+    "asar": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "NKPGAMER",
+        "repo": "ipsw-manager",
+        "private": false
+      }
+    ],
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "!**/test/**",
+      "!**/*.log"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "forceCodeSigning": false
+    },
+    "nsis": {
+      "differentialPackage": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
+    }
+  }
+}

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #0f0f23;
+        }
+
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        /* Hiệu ứng particles nền */
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            animation: float 3s infinite ease-in-out;
+        }
+
+        .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 3s; }
+        .particle:nth-child(2) { left: 20%; animation-delay: 0.5s; animation-duration: 4s; }
+        .particle:nth-child(3) { left: 30%; animation-delay: 1s; animation-duration: 3.5s; }
+        .particle:nth-child(4) { left: 40%; animation-delay: 1.5s; animation-duration: 4.5s; }
+        .particle:nth-child(5) { left: 50%; animation-delay: 2s; animation-duration: 3s; }
+        .particle:nth-child(6) { left: 60%; animation-delay: 0.3s; animation-duration: 4s; }
+        .particle:nth-child(7) { left: 70%; animation-delay: 1.2s; animation-duration: 3.5s; }
+        .particle:nth-child(8) { left: 80%; animation-delay: 1.8s; animation-duration: 4.5s; }
+        .particle:nth-child(9) { left: 90%; animation-delay: 0.8s; animation-duration: 3.8s; }
+        .particle:nth-child(10) { left: 15%; animation-delay: 2.2s; animation-duration: 4.2s; }
+
+        .loading-container {
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Spinner wrapper */
+        .spinner-wrapper {
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+
+        /* Spinner chính */
+        .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            border: 6px solid rgba(255, 255, 255, 0.2);
+            border-top: 6px solid white;
+            border-radius: 50%;
+            animation: spin 1.2s linear infinite;
+            box-shadow: 0 0 30px rgba(255,255,255,0.3);
+        }
+
+        /* Các chấm orbit xoay quanh */
+        .orbit-dots {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: orbit 3s linear infinite;
+        }
+
+        .orbit-dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(255,255,255,0.8), 0 0 30px rgba(255,255,255,0.4);
+            animation: dotPulse 1.5s ease-in-out infinite;
+        }
+
+        .orbit-dot:nth-child(1) { 
+            top: 0; 
+            left: 50%; 
+            transform: translateX(-50%);
+            animation-delay: 0s;
+        }
+        .orbit-dot:nth-child(2) { 
+            top: 50%; 
+            right: 0; 
+            transform: translateY(-50%);
+            animation-delay: 0.375s;
+        }
+        .orbit-dot:nth-child(3) { 
+            bottom: 0; 
+            left: 50%; 
+            transform: translateX(-50%);
+            animation-delay: 0.75s;
+        }
+        .orbit-dot:nth-child(4) { 
+            top: 50%; 
+            left: 0; 
+            transform: translateY(-50%);
+            animation-delay: 1.125s;
+        }
+
+
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        @keyframes orbit {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% { 
+                transform: scale(1.4);
+                opacity: 0.7;
+            }
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) scale(1);
+                opacity: 0;
+            }
+        }
+
+
+
+        @media (max-width: 768px) {
+            .spinner-wrapper {
+                width: 70px;
+                height: 70px;
+            }
+
+            .spinner {
+                width: 70px;
+                height: 70px;
+            }
+
+            .orbit-dots {
+                width: 110px;
+                height: 110px;
+            }
+
+            .orbit-dot {
+                width: 10px;
+                height: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="splash-screen">
+        <!-- Particles nền -->
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+        
+        <div class="loading-container">
+            <div class="spinner-wrapper">
+                <div class="spinner"></div>
+                <div class="orbit-dots">
+                    <div class="orbit-dot"></div>
+                    <div class="orbit-dot"></div>
+                    <div class="orbit-dot"></div>
+                    <div class="orbit-dot"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

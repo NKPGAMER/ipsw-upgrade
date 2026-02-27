@@ -1,0 +1,94 @@
+/* =========================
+   PRODUCT GRID
+========================= */
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+@media (min-width: 768px) {
+    .product-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .product-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* =========================
+   PRODUCT CARD (Tailwind-like)
+========================= */
+
+.product-card {
+    position: relative;
+    background: var(--surface-dark);
+    border: 1px solid var(--border-dark);
+    border-radius: 16px;
+    padding: 32px 16px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.25s ease;
+}
+
+.product-card:hover {
+    border-color: var(--primary);
+    background: rgba(19, 127, 236, 0.05);
+    box-shadow: 0 16px 32px rgba(19, 127, 236, 0.18);
+    transform: translateY(-3px);
+}
+
+/* =========================
+   ICON CIRCLE
+========================= */
+
+.product-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 999px;
+    background: #2a3441;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    transition: all 0.25s ease;
+}
+
+.product-card:hover .product-icon {
+    background: var(--primary);
+}
+
+.product-icon img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+
+/* =========================
+   PRODUCT NAME
+========================= */
+
+.product-name {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.product-card.recommended::after {
+    content: "ĐỀ XUẤT";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(19, 127, 236, 0.15);
+    color: var(--primary);
+    letter-spacing: 0.04em;
+}

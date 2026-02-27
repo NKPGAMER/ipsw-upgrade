@@ -1,0 +1,18 @@
+interface d {
+    localFiles: IPSWFile[]
+}
+
+export const data: d = {
+    localFiles: []
+}
+
+export const state = {
+  useIDM: false,
+  IDMPath: "",
+  currentFolder: "",
+  currentProduct: "" as Product,
+  isDeletingFM: false,
+  isUpdateAllFirmware: false,
+  autoRemoveOldFiles: false,
+  autoRemoveDuplicateFiles: false
+}
