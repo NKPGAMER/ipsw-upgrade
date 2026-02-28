@@ -1,6 +1,6 @@
 import { app, contextBridge, FileFilter, ipcRenderer } from 'electron';
 import type { DownloadOptions, DownloadProgress, DownloadRequest } from './modules/download';
-import type { ElectronApi, ElectronDownloaderApi, ElectronStoreApi, ElectronUpdaterApi } from '../@types/preload';
+import type { ElectronApi, ElectronDownloaderApi, ElectronStoreApi, ElectronUpdaterApi } from '../src/preload';
 
 const api: ElectronApi = {
   getDiskSpace: (targetPath?: string) => ipcRenderer.invoke('getDiskSpace', targetPath),

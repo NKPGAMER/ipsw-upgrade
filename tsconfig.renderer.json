@@ -2,9 +2,8 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "ESNext",
-    "outDir": "dist/renderer",
-    "rootDir": "src/renderer",
+    "outDir": "dist",
     "moduleResolution": "bundler"
   },
-  "include": ["src/renderer", "src/@types/preload.d.ts"],
+  "include": ["src"],
 }

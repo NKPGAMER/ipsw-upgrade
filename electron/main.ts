@@ -7,7 +7,8 @@ import { read, write, deleteFile } from "./modules/userData";
 import { scanFolder, createMd5 } from "./modules/localFile";
 import { DownloadManager, DownloadOptions, DownloadRequest } from "./modules/download";
 import { getDiskSpace, formatBytes } from "./modules/disk";
-import { spawn } from "child_process";
+
+import config from "./config";
 
 interface updateInfo {
   status: "no-update" | "update-available" | "error";
@@ -16,13 +17,9 @@ interface updateInfo {
 }
 
 const store = new Store({
-  defaults: {
-    autoRemoveOldFiles: true,
-    autoRemoveDuplicateFiles: true,
-    language: 'vi',
-    ipswFolder: app.getPath('downloads')
-  }
+  defaults: config.defaultAppSettings
 });
+
 const handle = [
   ["get-version", () => app.getVersion()],
   ["updater:check", async (): Promise<updateInfo> => {
@@ -154,7 +151,7 @@ function createWindow() {
     resizable: false
   });
 
-  splash.loadFile("dist/splash.html");
+  splash.loadFile("splash.html");
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -168,14 +165,12 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadFile("dist/index.html");
+  mainWindow.loadFile("index.html");
 
   mainWindow.once("ready-to-show", () => {
-    setTimeout(() => {
-      splash?.close();
-      splash = undefined;
-      mainWindow?.show();
-    }, 200)
+    splash?.close();
+    splash = undefined;
+    mainWindow?.show();
   });
 
   downloadManager = new DownloadManager(mainWindow, 3);
@@ -190,7 +185,7 @@ function createWindow() {
     const task = downloadManager.getActiveDownloads().length;
     if (task > 0) {
       e.preventDefault();
-      
+
       for (const task of downloadManager.getActiveDownloads()) {
         downloadManager.pauseDownload(task.downloadId)
       }
@@ -206,8 +201,8 @@ function createWindow() {
         mainWindow?.destroy();
       } else {
         for (const task of downloadManager.getActiveDownloads()) {
-        downloadManager.resumeDownload(task.downloadId)
-      }
+          downloadManager.resumeDownload(task.downloadId)
+        }
       }
     }
   });
@@ -239,7 +234,7 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+    app.exit()
   }
 });
 

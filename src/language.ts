@@ -5,7 +5,7 @@ async function loadLanguage(lang: string): Promise<void> {
     if (currentLang === lang) return;
     
     try {
-        const res = await fetch(`./locales/${lang}.json`);
+        const res = await fetch(`./assets/locales/${lang}.json`);
         if (!res.ok) throw new Error(`Failed to load language: ${lang}`);
         
         dict = await res.json();
