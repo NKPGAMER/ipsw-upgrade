@@ -36,11 +36,20 @@ interface ElectronApi {
   onMessage: (callback: (message: string) => void) => void;
   onErrorMessage: (callback: (message: string) => void) => void;
 
+  onAppClose: (callback: (options?: {
+    taskCount: number
+  }) => void) => void;
+  sendAppCloseResult: (result: boolean) => void;
+
   userData: {
     deleteFile: (fileName: string) => Promise<boolean>;
     read: (fileName: string) => Promise<string | null>;
     write: (fileName: string, data: string) => Promise<boolean>;
   };
+
+  app: {
+    close: (destroy: boolean) => Promise<void>
+  }
 }
 
 interface ElectronDownloaderApi {
@@ -90,6 +99,20 @@ interface ElectronUpdaterApi {
 
 declare global {
   type Product = 'iphone' | 'ipad' | 'watch' | 'mac' | 'realitydevice' | 'tv' | 'homepod' | 'ipod';
+  type ConfirmVariant = "default" | "danger" | "warning" | "info"
+
+  interface ConfirmOptions {
+  title?: string
+  confirmText?: string
+  cancelText?: string
+  variant?: ConfirmVariant
+}
+
+  interface FileCheckResult {
+    device: string;
+    files: IPSWFile[];
+    count: number;
+  }
 
   interface DiskSpace {
     total: number;
@@ -205,6 +228,7 @@ declare global {
     ipsw_api: {
       devices: string;
       getFirmware: string;
+      releases: string;
     };
 
   }

@@ -45,10 +45,24 @@ const api: ElectronApi = {
     });
   },
 
+  onAppClose(callback) {
+    ipcRenderer.on('onAppClose', (_, event) => {
+      callback(event)
+    })
+  },
+
+  sendAppCloseResult(result) {
+    ipcRenderer.invoke('closeAppResult', result)
+  },
+
   userData: {
     deleteFile: (fileName: string) => ipcRenderer.invoke('user:deleteFile', fileName),
     read: (fileName: string) => ipcRenderer.invoke('user:read', fileName),
     write: (fileName: string, data: string) => ipcRenderer.invoke('user:write', fileName, data),
+  },
+
+  app: {
+    close: (destroy: boolean) => ipcRenderer.invoke('app:close', destroy)
   }
 }
 
@@ -101,5 +115,6 @@ contextBridge.exposeInMainWorld('store', storeApi);
 contextBridge.exposeInMainWorld('updater', updaterApi);
 contextBridge.exposeInMainWorld('ipsw_api', {
   devices: 'https://api.ipsw.me/v4/devices',
-  getFirmware: 'https://api.ipsw.me/v4/device/$id?type=ipsw'
+  getFirmware: 'https://api.ipsw.me/v4/device/$id?type=ipsw',
+  releases: 'https://api.ipsw.me/v4/releases'
 });

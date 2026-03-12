@@ -1,4 +1,61 @@
-const products = ['iphone', 'ipad', 'watch', 'mac', 'realitydevice', 'tv', 'homepod', 'ipod'];
+const metadata = new class {
+    constructor() {
+        this.filename = 'metadata.json';
+    }
+    parse(raw) {
+        if (!raw)
+            return {};
+        try {
+            return JSON.parse(raw);
+        }
+        catch {
+            return {};
+        }
+    }
+    async read(key) {
+        const raw = await window.api.userData.read(this.filename);
+        const data = this.parse(raw);
+        if (key === undefined)
+            return data;
+        return data[key] ?? null;
+    }
+    async write(data) {
+        try {
+            await window.api.userData.write(this.filename, JSON.stringify(data, null, 2));
+            return true;
+        }
+        catch (error) {
+            console.error('[metadata] Failed to write:', error);
+            return false;
+        }
+    }
+    async update(patch) {
+        const current = await this.read();
+        return this.write({ ...current, ...patch });
+    }
+};
+class DataHandle {
+    constructor() {
+        this.devices = [];
+        this.modelData = new Map();
+    }
+    async init() {
+        try {
+            const response = await fetch(window.ipsw_api.releases);
+            if (response.status !== 200) {
+                throw new Error(`Failed to fetch release: ${response.status}`);
+            }
+            const releases = await response.json();
+            const latestRelease = releases[0];
+            if (!latestRelease)
+                return;
+            metadata.read('latestRelease');
+        }
+        catch (err) {
+        }
+    }
+}
+// OLD CODE
 let devices = [];
 const deviceMap = new Map();
 const modelMap = new Map();

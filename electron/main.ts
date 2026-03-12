@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, OpenDialogOptions, FileFilter, IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, OpenDialogOptions, FileFilter, IpcMainInvokeEvent, screen } from "electron";
 import Store from "electron-store";;
 import { autoUpdater, UpdateInfo } from "electron-updater"
 import { join } from "path";
@@ -19,6 +19,10 @@ interface updateInfo {
 const store = new Store({
   defaults: config.defaultAppSettings
 });
+
+let mainWindow: BrowserWindow | undefined;
+let splash: BrowserWindow | undefined;
+let downloadManager: DownloadManager | undefined;
 
 const handle = [
   ["get-version", () => app.getVersion()],
@@ -133,18 +137,25 @@ const handle = [
   }],
 
   ["getDiskSpace", (_: IpcMainInvokeEvent, targetPath?: string) => getDiskSpace(targetPath)],
-  ["formatBytes", (_: IpcMainInvokeEvent, bytes: number, decimals: number) => formatBytes(bytes, decimals)]
+  ["formatBytes", (_: IpcMainInvokeEvent, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
+  ["app:close", (_: IpcMainInvokeEvent, destroy?: boolean) => destroy ? mainWindow?.destroy() : mainWindow?.close()],
+  ["closeAppResult", (_: IpcMainInvokeEvent, result: boolean) => {
+    if (result) {
+      mainWindow?.destroy()
+    } else {
+      if (!downloadManager) return;
+      for (const task of downloadManager.getActiveDownloads()) {
+        downloadManager.resumeDownload(task.downloadId);
+      }
+    }
+  }]
 ];
-
-let mainWindow: BrowserWindow | undefined;
-let splash: BrowserWindow | undefined;
-let downloadManager: DownloadManager | undefined;
 
 function createWindow() {
   // Splash
   splash = new BrowserWindow({
-    width: 400,
-    height: 200,
+    width: 600,
+    height: 400,
     frame: false,
     alwaysOnTop: true,
     transparent: false,
@@ -153,9 +164,11 @@ function createWindow() {
 
   splash.loadFile("splash.html");
 
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 790,
+    width: Math.round(width * 0.92),
+    height: Math.round(height * 0.95),
     show: false,
     transparent: false,
     webPreferences: {
@@ -168,7 +181,7 @@ function createWindow() {
   mainWindow.loadFile("index.html");
 
   mainWindow.once("ready-to-show", () => {
-    splash?.close();
+    splash?.destroy();
     splash = undefined;
     mainWindow?.show();
   });
@@ -179,31 +192,19 @@ function createWindow() {
     mainWindow = undefined;
   });
 
-  mainWindow.on('close', async (e) => {
+  mainWindow.on('close', (e) => {
     if (!downloadManager) return;
+    const downloadTask = downloadManager.getActiveDownloads();
 
-    const task = downloadManager.getActiveDownloads().length;
-    if (task > 0) {
+    if (downloadTask.length > 0) {
       e.preventDefault();
 
-      for (const task of downloadManager.getActiveDownloads()) {
-        downloadManager.pauseDownload(task.downloadId)
+      for (const task of downloadTask) {
+        downloadManager.pauseDownload(task.downloadId);
       }
-
-      const result = await dialog.showMessageBox((mainWindow as BrowserWindow), {
-        type: 'question',
-        buttons: ['Hủy', 'Thoát'],
-        title: 'Xác nhận',
-        message: `Hiện đang có ${task} tệp đang tải. Bạn có chắc chắn muốn thoát?`
-      });
-
-      if (result.response === 1) {
-        mainWindow?.destroy();
-      } else {
-        for (const task of downloadManager.getActiveDownloads()) {
-          downloadManager.resumeDownload(task.downloadId)
-        }
-      }
+      mainWindow?.webContents.send('onAppClose', {
+        taskCount: downloadTask.length
+      })
     }
   });
 
@@ -223,7 +224,8 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-  autoUpdater.checkForUpdates()
+  
+  setTimeout(() => initAutoUpdater(), 2000);
 });
 
 app.on('window-all-closed', () => {
@@ -241,9 +243,12 @@ app.on('activate', () => {
 // ============================================
 // Check Update
 // ============================================
-autoUpdater.autoDownload = false;
 
-autoUpdater.on("update-available", (info) => {
+function initAutoUpdater() {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-available", (info) => {
   mainWindow?.webContents.send("update-available", {
     version: info.version,
     notes: info.releaseNotes
@@ -261,6 +266,9 @@ autoUpdater.on("download-progress", (progress) => {
 
   mainWindow?.webContents.send("update-progress", { percent, transferred, total });
 });
+
+setTimeout(() => autoUpdater.checkForUpdates(), 6000)
+}
 
 // ============================================
 // IPC Handlers

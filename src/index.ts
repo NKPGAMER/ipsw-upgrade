@@ -5,8 +5,6 @@ import elements from "./elements.js";
 import utils from "./core/utils.js";
 import { t, changeLanguage } from './language.js'
 import { data, state } from "./data.js";
-// Import và khởi tạo
-import upgradeUI from "./core/upgradeFirmware.js";
 
 interface detaiData {
   device: Device;
@@ -305,29 +303,13 @@ const detail = new class {
 
     // Tối ưu xử lý related files
     if (modelFiles.length > 1) {
-      await this.handleRelatedFiles(modelFiles.slice(1), firmwares[0].buildid);
-    }
-  }
-
-  private async handleRelatedFiles(relatedFiles: IPSWFile[], latestBuildId: string) {
-    const { oldFiles, dupeFiles } = relatedFiles.reduce((acc, f) => {
-      if (f.name.includes(latestBuildId)) {
-        acc.dupeFiles.push(f);
-      } else {
-        acc.oldFiles.push(f);
+      if (state.autoRemoveOldFiles) {
+        firmwareManager.deleteOldFilesForDevice(device.identifier)
       }
-      return acc;
-    }, { oldFiles: [] as IPSWFile[], dupeFiles: [] as IPSWFile[] });
 
-    const toDelete = [
-      ...(state.autoRemoveOldFiles ? oldFiles : []),
-      ...(state.autoRemoveDuplicateFiles ? dupeFiles : [])
-    ];
-
-    if (toDelete.length > 0) {
-      await Promise.all(toDelete.map(f => window.api.deleteFile(f.path)));
-      utils.showSuccessMessage(`Deleted ${toDelete.length} file${toDelete.length > 1 ? 's' : ''}`, 3000);
-      refresh();
+      if (state.autoRemoveDuplicateFiles) {
+        firmwareManager.deleteDuplicateFilesForDevice(device.identifier)
+      }
     }
   }
 
@@ -416,7 +398,12 @@ const detail = new class {
 
       const reloadBtn = this.createButton(t('button.reDownload'), 'secondary-small');
       reloadBtn.onclick = async () => {
-        if (latestFile && confirm(t('confirm.reDownloadFile'))) {
+        if (latestFile && await utils.customConfirm(t('confirm.reDownloadFile'), {
+          variant: 'info',
+          title: t('confirm.title'),
+          confirmText: t('button.reDownload'),
+          cancelText: t("confirm.btn.cancel"),
+        })) {
           await window.api.deleteFile(latestFile.path);
           await this.handleDownload(device, firmware);
         }
@@ -424,7 +411,12 @@ const detail = new class {
 
       const deleteBtn = this.createButton(t('button.deleteFile'), 'secondary-small');
       deleteBtn.onclick = async () => {
-        if (latestFile && confirm(t('confirm.deleteFile').replace('$1', latestFile.name))) {
+        if (latestFile && await utils.customConfirm(t('confirm.deleteFile').replace('$1', latestFile.name), {
+          variant: 'warning',
+          title: t('confirm.title'),
+          confirmText: t('confirm.btn.delete'),
+          cancelText: t("confirm.btn.cancel"),
+        })) {
           await this.deleteFileAndRefresh(latestFile.path, latestFile.name);
         }
       };
@@ -438,7 +430,12 @@ const detail = new class {
   private renderDownloadedActions(device: Device, firmware: Firmware, latestFile?: IPSWFile) {
     const deleteBtn = this.createButton(t('button.deleteFile'), 'danger');
     deleteBtn.onclick = async () => {
-      if (latestFile && confirm(t('confirm.deleteFile').replace('$1', latestFile.name))) {
+      if (latestFile && await utils.customConfirm(t('confirm.deleteFile').replace('$1', latestFile.name), {
+        variant: 'warning',
+        title: t('confirm.title'),
+        confirmText: t('confirm.btn.delete'),
+        cancelText: t("confirm.btn.cancel"),
+      })) {
         await this.deleteFileAndRefresh(latestFile.path, latestFile.name);
       }
     };
@@ -481,7 +478,12 @@ const detail = new class {
     const deleteBtn = this.createButton(t('button.deleteFile'), 'danger-small');
     deleteBtn.classList.add('mt-2');
     deleteBtn.onclick = async () => {
-      if (latestFile && confirm(t('confirm.deleteFile').replace('$1', latestFile.name))) {
+      if (latestFile && await utils.customConfirm(t('confirm.deleteFile').replace('$1', latestFile.name), {
+        variant: 'warning',
+        title: t('confirm.title'),
+        confirmText: t('confirm.btn.delete'),
+        cancelText: t("confirm.btn.cancel"),
+      })) {
         await this.deleteFileAndRefresh(latestFile.path, latestFile.name);
       }
     };
@@ -733,7 +735,12 @@ const downloadManager = {
   },
 
   cancelDownload: async (downloadId: string) => {
-    if (confirm('Are you sure you want to cancel this download?')) {
+    if (await utils.customConfirm(t('confirm.cancelDownload'), {
+      variant: 'danger',
+      title: t('confirm.title'),
+      confirmText: t('confirm.btn.ok'),
+      cancelText: t("confirm.btn.cancel"),
+    })) {
       await window.downloader?.cancelDownload?.(downloadId);
     }
   }
@@ -1029,19 +1036,23 @@ const initEventListeners = () => {
     utils.showErrorMessage(`[Download Fail]\n- Model ${request.device.name}\nError: ${error}`, 8000);
   });
 
-  // window.api.onMessage((message) => {
-  //   utils.showSuccessMessage(message)
-  // });
+  window.api.onAppClose(async (data) => {
+    await utils.closeAllConfirm();
+    const r = await utils.customConfirm(t('confirm.closeApp').replace('$1', `${data?.taskCount}`), {
+      variant: 'danger',
+      title: t('confirm.title.exit'),
+      confirmText: t('confirm.btn.exit'),
+      cancelText: t('confirm.btn.cancel')
+    });
 
-  // window.api.onErrorMessage((message) => {
-  //   utils.showErrorMessage(message)
-  // });
+    window.api.sendAppCloseResult(r)
+  })
 
   elements.topbar.upgrade?.addEventListener('click', () => {
     elements.updater.page.classList.add('active');
   })
 
-  elements.topbar.upgradeAllFirmware.addEventListener('click', async () => upgradeUI.show())
+  // elements.topbar.upgradeAllFirmware.addEventListener('click', async () => null)
 
   // Downloads page
   elements.downloads.btn?.addEventListener('click', UI.download.show);
@@ -1067,6 +1078,21 @@ const initEventListeners = () => {
   elements.globalSearch.closeBtn.addEventListener('click', () => UI.globalSearch.close());
 
   elements.overlay.deleteAllFirmware.addEventListener('click', async () => {
+    // try {
+    //   // Disable Button
+    //   elements.overlay.deleteAllFirmware.disabled = true;
+    // } finally {
+    //   // Enable Button
+    //   elements.overlay.deleteAllFirmware.disabled = false;
+    // }
+
+
+    if (!await utils.customConfirm(t('confirm.removeRedundantFiles'), {
+      title: t('confirm.title'),
+      confirmText: t('confirm.btn.delete'),
+      cancelText: t("confirm.btn.cancel"),
+      variant: "danger"
+    })) return;
     try {
       if (state.isDeletingFM) {
         utils.showErrorMessage(t('deleteAllFirmware.isDeleting'))
@@ -1210,8 +1236,6 @@ const initEventListeners = () => {
 // Main initialization
 document.addEventListener("DOMContentLoaded", async () => {
   loadDevices();
-  upgradeUI.init();
-
   const [savedFolder, useIDM, IDMPath, autoRemoveOldFile, autoRemoveDuplicateFile, language, version] = await Promise.all([
     window.store.get('ipswFolder'),
     window.store.get('useIDM'),

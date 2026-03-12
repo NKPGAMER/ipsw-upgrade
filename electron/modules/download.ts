@@ -61,12 +61,12 @@ class DownloadManager {
 
   private handleNetworkLost(): void {
     console.log('[Network] Pausing all active downloads due to network loss');
-    
+
     this.activeTasks.forEach((task) => {
       if (task.progress.status === 'downloading' && task.mode === 'node') {
         task.progress.status = 'paused';
         task.progress.pausedByNetwork = true;
-        
+
         if (task.controller) {
           task.controller.abort();
         }
@@ -88,12 +88,12 @@ class DownloadManager {
 
   private handleNetworkRestored(): void {
     console.log('[Network] Resuming downloads after network restoration');
-    
+
     this.activeTasks.forEach((task) => {
       if (task.progress.status === 'paused' && task.progress.pausedByNetwork) {
         task.progress.status = 'downloading';
         task.progress.pausedByNetwork = false;
-        
+
         // Gửi thông báo đến frontend
         this.mainWindow.webContents.send('download-network-restored', {
           device: task.request.device,
@@ -112,11 +112,11 @@ class DownloadManager {
   private startStuckCheckMonitor(): void {
     this.stuckCheckTimer = setInterval(() => {
       const now = Date.now();
-      
+
       this.activeTasks.forEach((task) => {
         // Không kiểm tra stuck cho IDM
         if (task.options.useIDM) return;
-        
+
         if (task.progress.status !== 'downloading') return;
 
         const timeSinceLastCheck = now - task.lastSizeCheck;
@@ -125,13 +125,13 @@ class DownloadManager {
           // Kiểm tra xem file có thay đổi không
           if (task.lastSize === task.progress.downloadedSize) {
             // File không thay đổi
-            
+
             // Kiểm tra xem có kết nối mạng không
             if (this.isOnline) {
               // Có mạng nhưng file không tải tiếp
               // => Retry: hủy và tải lại từ byte hiện tại
               console.log(`[Retry] Download stuck for ${task.request.fileName}, retrying from byte ${task.progress.downloadedSize}`);
-              
+
               this.retryDownload(task);
             } else {
               // Không có mạng => đã được xử lý bởi network monitor
@@ -197,15 +197,15 @@ class DownloadManager {
 
     const filePath = join(request.path, request.fileName);
     let resumeFrom = 0;
-    
+
     if (existsSync(filePath)) {
       const fileKey = this.getFileKey(request);
-      
+
       if (request.continue) {
         try {
           const stats = await fs.stat(filePath);
           resumeFrom = stats.size;
-          
+
           console.log(`[Resume] File exists with size: ${resumeFrom} bytes, continuing download...`);
           this.downloadedFiles.delete(fileKey);
         } catch (err) {
@@ -229,27 +229,27 @@ class DownloadManager {
 
     if (request.priority) {
       this.removeFromQueue(request);
-      
+
       if (this.activeTasks.size >= this.maxConcurrentDownloads) {
         const nonPriorityTask = this.findNonPriorityTask();
         if (nonPriorityTask) {
           this.pauseAndQueueTask(nonPriorityTask);
         }
       }
-      
+
       return this.startDownload(request, mergedOptions, resumeFrom);
     }
 
     if (this.activeTasks.size >= this.maxConcurrentDownloads) {
-      const isInQueue = this.queuedTasks.some(task => 
+      const isInQueue = this.queuedTasks.some(task =>
         this.isSameFile(task.request, request)
       );
-      
+
       if (isInQueue) {
         console.log(`File is already in queue: ${request.fileName}`);
         return 'already-in-queue';
       }
-      
+
       this.queuedTasks.push({ request, options: mergedOptions });
       return 'queued';
     }
@@ -306,15 +306,15 @@ class DownloadManager {
 
   private async downloadWithNode(task: DownloadTask, resumeFrom: number = 0): Promise<void> {
     const { request, progress, options } = task;
-    
+
     if (resumeFrom === 0 && task.resumeFrom > 0) {
       resumeFrom = task.resumeFrom;
     }
-    
+
     task.controller = new AbortController();
     const protocol = progress.url.startsWith('https') ? https : http;
 
-    const fileStream = createWriteStream(progress.filePath, 
+    const fileStream = createWriteStream(progress.filePath,
       resumeFrom > 0 ? { flags: 'a' } : { flags: 'w' }
     );
     task.stream = fileStream;
@@ -335,7 +335,7 @@ class DownloadManager {
       // Handle redirects
       if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 303 || response.statusCode === 307 || response.statusCode === 308) {
         const redirectUrl = response.headers.location;
-        
+
         if (!redirectUrl) {
           this.handleDownloadError(task, 'Redirect without location header');
           return;
@@ -397,17 +397,17 @@ class DownloadManager {
 
         const currentTime = Date.now();
         const timeDiff = (currentTime - startTime) / 1000;
-        
+
         if (timeDiff > 0.5) {
           const sizeDiff = progress.downloadedSize - lastDownloadedSize;
           progress.speed = sizeDiff / timeDiff;
           startTime = currentTime;
           lastDownloadedSize = progress.downloadedSize;
-          
+
           // Cập nhật lastSize và lastSizeCheck để stuck monitor biết
           task.lastSize = progress.downloadedSize;
           task.lastSizeCheck = currentTime;
-          
+
           this.sendProgress(progress);
         }
       });
@@ -477,13 +477,13 @@ class DownloadManager {
       task.folderWatcher = watch(targetFolder, (eventType, filename) => {
         if (eventType === 'rename' && filename) {
           const filePath = join(targetFolder, filename);
-          
+
           if (filename.endsWith('.ipsw') && filename === targetFileName) {
             setTimeout(async () => {
               if (existsSync(filePath)) {
                 try {
                   const stats = await fs.stat(filePath);
-                  
+
                   if (stats.size > 0) {
                     console.log(`Detected file: ${filename}, starting stability check...`);
                     this.startFileStabilityCheck(task, filePath);
@@ -528,7 +528,7 @@ class DownloadManager {
     const { options, progress } = task;
     const checkInterval = options.fileStableCheckInterval || 2000;
     const totalSize = task.request.firmware.filesize;
-    
+
     let previousSize = 0;
 
     const checkStability = async () => {
@@ -543,11 +543,11 @@ class DownloadManager {
         const currentSize = stats.size;
 
         if (currentSize === previousSize && currentSize > 0) {
-          if (currentSize === totalSize) {        
+          if (currentSize === totalSize) {
             progress.downloadedSize = currentSize;
             progress.totalSize = currentSize;
             progress.progress = 100;
-            
+
             this.cleanupFolderWatcher(task);
             this.handleDownloadComplete(task);
             return;
@@ -590,7 +590,7 @@ class DownloadManager {
 
   private pauseAndQueueTask(task: DownloadTask): void {
     console.log(`Pausing non-priority task: ${task.request.fileName}`);
-    
+
     if (task.controller) {
       task.controller.abort();
     }
@@ -600,14 +600,14 @@ class DownloadManager {
     if (task.idmProcess) {
       task.idmProcess.kill();
     }
-    
+
     this.cleanupFolderWatcher(task);
-    
+
     this.queuedTasks.unshift({
       request: task.request,
       options: task.options,
     });
-    
+
     this.activeTasks.delete(task.id);
   }
 
@@ -616,7 +616,7 @@ class DownloadManager {
     this.queuedTasks = this.queuedTasks.filter(
       task => !this.isSameFile(task.request, request)
     );
-    
+
     if (this.queuedTasks.length < initialLength) {
       console.log(`Removed ${request.fileName} from queue`);
     }
@@ -624,7 +624,7 @@ class DownloadManager {
 
   pauseDownload(downloadId: string): void {
     const task = this.activeTasks.get(downloadId);
-    if (!task || task.progress.status !== 'downloading') return;
+    if (!task || task.progress.status !== 'downloading' || task.idmProcess) return;
 
     task.progress.status = 'paused';
 
@@ -636,26 +636,17 @@ class DownloadManager {
       task.stream.end();
     }
 
-    if (task.idmProcess) {
-      task.idmProcess.kill('SIGSTOP');
-    }
-
     this.sendProgress(task.progress);
   }
 
   resumeDownload(downloadId: string): void {
     const task = this.activeTasks.get(downloadId);
-    if (!task || task.progress.status !== 'paused') return;
+    if (!task || task.progress.status !== 'paused' || task.idmProcess) return;
 
     task.progress.status = 'downloading';
     task.progress.pausedByNetwork = false;
-
-    if (task.options.useIDM && task.idmProcess) {
-      task.idmProcess.kill('SIGCONT');
-    } else {
-      const resumeFrom = task.progress.downloadedSize;
-      this.downloadWithNode(task, resumeFrom);
-    }
+    const resumeFrom = task.progress.downloadedSize;
+    this.downloadWithNode(task, resumeFrom);
 
     this.sendProgress(task.progress);
   }
@@ -698,7 +689,7 @@ class DownloadManager {
     task.progress.progress = 100;
     task.progress.isResuming = false;
     task.progress.pausedByNetwork = false;
-    
+
     this.sendProgress(task.progress);
     this.cleanupFolderWatcher(task);
 
@@ -726,7 +717,7 @@ class DownloadManager {
     task.progress.error = error;
     task.progress.isResuming = false;
     task.progress.pausedByNetwork = false;
-    
+
     this.sendProgress(task.progress);
     this.cleanupFolderWatcher(task);
 
@@ -787,14 +778,14 @@ class DownloadManager {
 
   private isFileDownloading(request: DownloadRequest): boolean {
     const fileKey = this.getFileKey(request);
-    
+
     for (const task of this.activeTasks.values()) {
       const taskKey = this.getFileKey(task.request);
       if (taskKey === fileKey) {
         return true;
       }
     }
-    
+
     return false;
   }
 

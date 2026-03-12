@@ -18,7 +18,77 @@ interface ModelData {
   device: DeviceResponse;
 }
 
-const products: Product[] = ['iphone', 'ipad', 'watch', 'mac', 'realitydevice', 'tv', 'homepod', 'ipod'];
+interface ReleaseResponse {
+  date: string;
+  releases: {
+    name: string;
+    date: string;
+    count: number;
+    type: string;
+  }
+}
+
+const metadata = new class {
+  private readonly filename = 'metadata.json';
+
+  private parse(raw: string | null): Record<string, unknown> {
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+
+  async read(): Promise<Record<string, unknown>>;
+  async read<T = unknown>(key: string): Promise<T | null>;
+  async read<T = unknown>(key?: string): Promise<Record<string, unknown> | T | null> {
+    const raw = await window.api.userData.read(this.filename);
+    const data = this.parse(raw);
+    if (key === undefined) return data;
+    return (data[key] as T) ?? null;
+  }
+
+  async write(data: Record<string, unknown>): Promise<boolean> {
+    try {
+      await window.api.userData.write(this.filename, JSON.stringify(data, null, 2));
+      return true;
+    } catch (error) {
+      console.error('[metadata] Failed to write:', error);
+      return false;
+    }
+  }
+
+  async update(patch: Record<string, unknown>): Promise<boolean> {
+    const current = await this.read();
+    return this.write({ ...current, ...patch });
+  }
+};
+
+class DataHandle {
+  private devices: Device[] = [];
+  private modelData: Map<Device['identifier'], ModelData> = new Map();
+
+  async init() {
+    try {
+      const response = await fetch(window.ipsw_api.releases);
+      if (response.status !== 200) {
+        throw new Error(`Failed to fetch release: ${response.status}`)
+      }
+
+      const releases: ReleaseResponse[] = await response.json();
+      const latestRelease = releases[0];
+
+      if (!latestRelease) return;
+
+      metadata.read('latestRelease')
+    } catch(err) {
+
+    }
+  }
+}
+
+// OLD CODE
 
 let devices: Device[] = [];
 const deviceMap: Map<string, Device> = new Map();

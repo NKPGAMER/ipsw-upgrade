@@ -8,114 +8,119 @@ interface CleanupResult {
 }
 
 interface updateData {
-  device: Device,
-  firmwares: Firmware[],
-  latestFirmware: Firmware
+  device: Device;
+  firmwares: Firmware[];
+  latestFirmware: Firmware;
 }
 
-
 class FirmwareManager {
-  constructor() {}
+  // ── Private helpers ────────────────────────────────────────────────────────
 
-  // Xóa tất cả tệp cũ của một device (giữ lại phiên bản mới nhất)
-  public async deleteOldFilesForDevice(deviceIdentifier: string): Promise<CleanupResult> {
-    const result: CleanupResult = {
-      device: deviceIdentifier,
-      filesDeleted: [],
-      errors: []
-    };
+  private async getDeviceFiles(deviceIdentifier: string) {
+    const deviceData = await loadModelData(deviceIdentifier);
+    const latestFirmware = deviceData.firmwares[0];
+    const latestFileName = utils.getFileNameFromUrl(latestFirmware.url);
+    const allFiles = await utils.findFile(latestFileName, deviceData.firmwares);
+    return { latestFirmware, latestFileName, allFiles };
+  }
 
+  private filterOldFiles(allFiles: IPSWFile[], latestBuildId: string) {
+    return allFiles.filter(f => !f.name.includes(latestBuildId));
+  }
+
+  private filterDuplicateFiles(allFiles: IPSWFile[], latestBuildId: string, latestFileName: string) {
+    return allFiles.filter(f => f.name.includes(latestBuildId) && f.name !== latestFileName);
+  }
+
+  private filterDevices(product?: Product) {
+    const devices = getDevices();
+    return product
+      ? devices.filter(d => d.name.toLowerCase().startsWith(product))
+      : devices;
+  }
+
+  // ── Core operations ────────────────────────────────────────────────────────
+
+  private async checkFilesForDevice(
+    deviceIdentifier: string,
+    filter: (allFiles: IPSWFile[], latestBuildId: string, latestFileName: string) => IPSWFile[],
+    minCount = 0
+  ): Promise<FileCheckResult> {
+    const result: FileCheckResult = { device: deviceIdentifier, files: [], count: 0 };
     try {
-      const deviceData = await loadModelData(deviceIdentifier);
-      const latestFirmware = deviceData.firmwares[0]
-      const latestFileName = utils.getFileNameFromUrl(latestFirmware.url);
-      const deviceFiles = await utils.findFile(latestFileName, deviceData.firmwares);
+      const { latestFirmware, latestFileName, allFiles } = await this.getDeviceFiles(deviceIdentifier);
+      if (allFiles.length <= minCount) return result;
 
-      if (deviceFiles.length === 0) return result;
-      const oldFiles = deviceFiles.filter(f => !f.name.includes(latestFirmware.buildid));
-
-      for (const file of oldFiles) {
-        try {
-          await window.api.deleteFile(file.path);
-          result.filesDeleted.push(file);
-        } catch (error) {
-          result.errors.push(`Failed to delete ${file.name}: ${error}`);
-        }
-      }
-    } catch (error) {
-      result.errors.push(`Failed to process device: ${error}`);
-    }
-
+      const matched = filter(allFiles, latestFirmware.buildid, latestFileName);
+      result.files = matched;
+      result.count = matched.length;
+    } catch { }
     return result;
   }
 
-  // Xóa tất cả tệp trùng lặp của một device (giữ lại một bản duy nhất của mỗi phiên bản)
-  public async deleteDuplicateFilesForDevice(deviceIdentifier: string): Promise<CleanupResult> {
-    const result: CleanupResult = {
-      device: deviceIdentifier,
-      filesDeleted: [],
-      errors: []
-    };
-
+  private async deleteFilesForDevice(
+    deviceIdentifier: string,
+    filter: (allFiles: IPSWFile[], latestBuildId: string, latestFileName: string) => IPSWFile[],
+    minCount = 0
+  ): Promise<CleanupResult> {
+    const result: CleanupResult = { device: deviceIdentifier, filesDeleted: [], errors: [] };
     try {
-      const deviceData = await loadModelData(deviceIdentifier);
-      const latestFirmware = deviceData.firmwares[0]
-      const latestFileName = utils.getFileNameFromUrl(latestFirmware.url);
-      const deviceFiles = await utils.findFile(latestFileName, deviceData.firmwares);
+      const { latestFirmware, latestFileName, allFiles } = await this.getDeviceFiles(deviceIdentifier);
+      if (allFiles.length <= minCount) return result;
 
-      if (deviceFiles.length <= 1) return result;
-      const duplicateFiles = deviceFiles.filter(f => f.name.includes(latestFirmware.buildid) && f.name !== latestFileName);
-
-      if (duplicateFiles.length === 0) return result;
-
-      for (const file of duplicateFiles) {
-        try {
-          await window.api.deleteFile(file.path);
-          result.filesDeleted.push(file);
-        } catch (error) {
-          result.errors.push(`Failed to delete ${file.name}: ${error}`);
-        }
-      }
-    } catch (error) {
-      result.errors.push(`Failed to process device: ${error}`);
+      const targets = filter(allFiles, latestFirmware.buildid, latestFileName);
+      await Promise.allSettled(
+        targets.map(file =>
+          window.api.deleteFile(file.path)
+            .then(() => result.filesDeleted.push(file))
+            .catch(err => result.errors.push(`Failed to delete ${file.name}: ${err}`))
+        )
+      );
+    } catch (err) {
+      result.errors.push(`Failed to process device: ${err}`);
     }
-
     return result;
   }
 
-  // Xóa tất cả tệp cũ của tất cả device
-  public async deleteOldFilesForAllDevices(product?: Product): Promise<CleanupResult[]> {
-    const results: CleanupResult[] = [];
-    let devices = getDevices();
-
-    if (product) {
-      devices = devices.filter(d => d.name.toLowerCase().startsWith(product));
-    }
-
-    for (const device of devices) {
-      const result = await this.deleteOldFilesForDevice(device.identifier);
-      results.push(result);
-    }
-
-    return results;
+  private async runForAllDevices<T>(
+    handler: (id: string) => Promise<T>,
+    product?: Product
+  ): Promise<T[]> {
+    const devices = this.filterDevices(product);
+    return Promise.all(devices.map(d => handler(d.identifier)));
   }
 
-  // Xóa tất cả tệp trùng lặp của tất cả device
-  public async deleteDuplicateFilesForAllDevices(product?: Product): Promise<CleanupResult[]> {
-    const results: CleanupResult[] = [];
-    let devices = getDevices();
-
-    if (product) {
-      devices = devices.filter(d => d.name.toLowerCase().startsWith(product));
-    }
-
-    for (const device of devices) {
-      const result = await this.deleteDuplicateFilesForDevice(device.identifier);
-      results.push(result);
-    }
-
-    return results;
+  public getOldFilesForDevice(id: string) {
+    return this.checkFilesForDevice(id, this.filterOldFiles);
   }
-} 
+
+  public getDuplicateFilesForDevice(id: string) {
+    return this.checkFilesForDevice(id, this.filterDuplicateFiles, 1);
+  }
+
+  public deleteOldFilesForDevice(id: string) {
+    return this.deleteFilesForDevice(id, this.filterOldFiles);
+  }
+
+  public deleteDuplicateFilesForDevice(id: string) {
+    return this.deleteFilesForDevice(id, this.filterDuplicateFiles, 1);
+  }
+
+  public getOldFilesForAllDevices(product?: Product) {
+    return this.runForAllDevices(id => this.getOldFilesForDevice(id), product);
+  }
+
+  public getDuplicateFilesForAllDevices(product?: Product) {
+    return this.runForAllDevices(id => this.getDuplicateFilesForDevice(id), product);
+  }
+
+  public deleteOldFilesForAllDevices(product?: Product) {
+    return this.runForAllDevices(id => this.deleteOldFilesForDevice(id), product);
+  }
+
+  public deleteDuplicateFilesForAllDevices(product?: Product) {
+    return this.runForAllDevices(id => this.deleteDuplicateFilesForDevice(id), product);
+  }
+}
 
 export default new FirmwareManager();

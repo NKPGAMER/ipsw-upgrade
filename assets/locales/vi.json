@@ -1,5 +1,14 @@
 {
     "app.update.available": "Có phiên bản mới",
+
+    "confirm.title": "Bạn vân muốn tiếp tục?",
+    "confirm.title.exit": "Bạn chắc chắn muốn thoát?",
+    "confirm.removeRedundantFiles": "Thao tác này sẽ xóa các tệp đã cũ và các tệp bị trùng",
+    "confirm.closeApp": "Hiện tại đang có **$1** tệp đang tải. Thoát vào lúc này có thể gây lỗi",
+    "confirm.btn.delete": "Xóa",
+    "confirm.btn.ok": "Ok",
+    "confirm.btn.exit": "Thoát",
+    "confirm.btn.cancel": "Hủy bỏ",
     
     "tooltip.delete.old.duplicate": "Xóa tất cả tệp cũ / trùng lập",
     "tooltip.refresh": "Làm mới",

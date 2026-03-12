@@ -1,94 +1,83 @@
 import { getDevices, loadModelData } from "./dataHandle.js";
 import utils from "./core/utils.js";
 class FirmwareManager {
-    constructor() { }
-    // Xóa tất cả tệp cũ của một device (giữ lại phiên bản mới nhất)
-    async deleteOldFilesForDevice(deviceIdentifier) {
-        const result = {
-            device: deviceIdentifier,
-            filesDeleted: [],
-            errors: []
-        };
+    // ── Private helpers ────────────────────────────────────────────────────────
+    async getDeviceFiles(deviceIdentifier) {
+        const deviceData = await loadModelData(deviceIdentifier);
+        const latestFirmware = deviceData.firmwares[0];
+        const latestFileName = utils.getFileNameFromUrl(latestFirmware.url);
+        const allFiles = await utils.findFile(latestFileName, deviceData.firmwares);
+        return { latestFirmware, latestFileName, allFiles };
+    }
+    filterOldFiles(allFiles, latestBuildId) {
+        return allFiles.filter(f => !f.name.includes(latestBuildId));
+    }
+    filterDuplicateFiles(allFiles, latestBuildId, latestFileName) {
+        return allFiles.filter(f => f.name.includes(latestBuildId) && f.name !== latestFileName);
+    }
+    filterDevices(product) {
+        const devices = getDevices();
+        return product
+            ? devices.filter(d => d.name.toLowerCase().startsWith(product))
+            : devices;
+    }
+    // ── Core operations ────────────────────────────────────────────────────────
+    async checkFilesForDevice(deviceIdentifier, filter, minCount = 0) {
+        const result = { device: deviceIdentifier, files: [], count: 0 };
         try {
-            const deviceData = await loadModelData(deviceIdentifier);
-            const latestFirmware = deviceData.firmwares[0];
-            const latestFileName = utils.getFileNameFromUrl(latestFirmware.url);
-            const deviceFiles = await utils.findFile(latestFileName, deviceData.firmwares);
-            if (deviceFiles.length === 0)
+            const { latestFirmware, latestFileName, allFiles } = await this.getDeviceFiles(deviceIdentifier);
+            if (allFiles.length <= minCount)
                 return result;
-            const oldFiles = deviceFiles.filter(f => !f.name.includes(latestFirmware.buildid));
-            for (const file of oldFiles) {
-                try {
-                    await window.api.deleteFile(file.path);
-                    result.filesDeleted.push(file);
-                }
-                catch (error) {
-                    result.errors.push(`Failed to delete ${file.name}: ${error}`);
-                }
-            }
+            const matched = filter(allFiles, latestFirmware.buildid, latestFileName);
+            result.files = matched;
+            result.count = matched.length;
         }
-        catch (error) {
-            result.errors.push(`Failed to process device: ${error}`);
+        catch { }
+        return result;
+    }
+    async deleteFilesForDevice(deviceIdentifier, filter, minCount = 0) {
+        const result = { device: deviceIdentifier, filesDeleted: [], errors: [] };
+        try {
+            const { latestFirmware, latestFileName, allFiles } = await this.getDeviceFiles(deviceIdentifier);
+            if (allFiles.length <= minCount)
+                return result;
+            const targets = filter(allFiles, latestFirmware.buildid, latestFileName);
+            await Promise.allSettled(targets.map(file => window.api.deleteFile(file.path)
+                .then(() => result.filesDeleted.push(file))
+                .catch(err => result.errors.push(`Failed to delete ${file.name}: ${err}`))));
+        }
+        catch (err) {
+            result.errors.push(`Failed to process device: ${err}`);
         }
         return result;
     }
-    // Xóa tất cả tệp trùng lặp của một device (giữ lại một bản duy nhất của mỗi phiên bản)
-    async deleteDuplicateFilesForDevice(deviceIdentifier) {
-        const result = {
-            device: deviceIdentifier,
-            filesDeleted: [],
-            errors: []
-        };
-        try {
-            const deviceData = await loadModelData(deviceIdentifier);
-            const latestFirmware = deviceData.firmwares[0];
-            const latestFileName = utils.getFileNameFromUrl(latestFirmware.url);
-            const deviceFiles = await utils.findFile(latestFileName, deviceData.firmwares);
-            if (deviceFiles.length <= 1)
-                return result;
-            const duplicateFiles = deviceFiles.filter(f => f.name.includes(latestFirmware.buildid) && f.name !== latestFileName);
-            if (duplicateFiles.length === 0)
-                return result;
-            for (const file of duplicateFiles) {
-                try {
-                    await window.api.deleteFile(file.path);
-                    result.filesDeleted.push(file);
-                }
-                catch (error) {
-                    result.errors.push(`Failed to delete ${file.name}: ${error}`);
-                }
-            }
-        }
-        catch (error) {
-            result.errors.push(`Failed to process device: ${error}`);
-        }
-        return result;
+    async runForAllDevices(handler, product) {
+        const devices = this.filterDevices(product);
+        return Promise.all(devices.map(d => handler(d.identifier)));
     }
-    // Xóa tất cả tệp cũ của tất cả device
-    async deleteOldFilesForAllDevices(product) {
-        const results = [];
-        let devices = getDevices();
-        if (product) {
-            devices = devices.filter(d => d.name.toLowerCase().startsWith(product));
-        }
-        for (const device of devices) {
-            const result = await this.deleteOldFilesForDevice(device.identifier);
-            results.push(result);
-        }
-        return results;
+    getOldFilesForDevice(id) {
+        return this.checkFilesForDevice(id, this.filterOldFiles);
     }
-    // Xóa tất cả tệp trùng lặp của tất cả device
-    async deleteDuplicateFilesForAllDevices(product) {
-        const results = [];
-        let devices = getDevices();
-        if (product) {
-            devices = devices.filter(d => d.name.toLowerCase().startsWith(product));
-        }
-        for (const device of devices) {
-            const result = await this.deleteDuplicateFilesForDevice(device.identifier);
-            results.push(result);
-        }
-        return results;
+    getDuplicateFilesForDevice(id) {
+        return this.checkFilesForDevice(id, this.filterDuplicateFiles, 1);
+    }
+    deleteOldFilesForDevice(id) {
+        return this.deleteFilesForDevice(id, this.filterOldFiles);
+    }
+    deleteDuplicateFilesForDevice(id) {
+        return this.deleteFilesForDevice(id, this.filterDuplicateFiles, 1);
+    }
+    getOldFilesForAllDevices(product) {
+        return this.runForAllDevices(id => this.getOldFilesForDevice(id), product);
+    }
+    getDuplicateFilesForAllDevices(product) {
+        return this.runForAllDevices(id => this.getDuplicateFilesForDevice(id), product);
+    }
+    deleteOldFilesForAllDevices(product) {
+        return this.runForAllDevices(id => this.deleteOldFilesForDevice(id), product);
+    }
+    deleteDuplicateFilesForAllDevices(product) {
+        return this.runForAllDevices(id => this.deleteDuplicateFilesForDevice(id), product);
     }
 }
 export default new FirmwareManager();

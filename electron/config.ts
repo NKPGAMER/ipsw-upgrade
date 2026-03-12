@@ -6,5 +6,7 @@ export default {
         autoRemoveDuplicateFiles: true,
         language: 'vi',
         ipswFolder: app.getPath('downloads')
-    }
+    },
+
+    isDev: !app.isPackaged
 }

@@ -39,10 +39,21 @@ const api = {
             callback(data);
         });
     },
+    onAppClose(callback) {
+        electron_1.ipcRenderer.on('onAppClose', (_, event) => {
+            callback(event);
+        });
+    },
+    sendAppCloseResult(result) {
+        electron_1.ipcRenderer.invoke('closeAppResult', result);
+    },
     userData: {
         deleteFile: (fileName) => electron_1.ipcRenderer.invoke('user:deleteFile', fileName),
         read: (fileName) => electron_1.ipcRenderer.invoke('user:read', fileName),
         write: (fileName, data) => electron_1.ipcRenderer.invoke('user:write', fileName, data),
+    },
+    app: {
+        close: (destroy) => electron_1.ipcRenderer.invoke('app:close', destroy)
     }
 };
 const downloaderApi = {
@@ -91,5 +102,6 @@ electron_1.contextBridge.exposeInMainWorld('store', storeApi);
 electron_1.contextBridge.exposeInMainWorld('updater', updaterApi);
 electron_1.contextBridge.exposeInMainWorld('ipsw_api', {
     devices: 'https://api.ipsw.me/v4/devices',
-    getFirmware: 'https://api.ipsw.me/v4/device/$id?type=ipsw'
+    getFirmware: 'https://api.ipsw.me/v4/device/$id?type=ipsw',
+    releases: 'https://api.ipsw.me/v4/releases'
 });

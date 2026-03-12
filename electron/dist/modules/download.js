@@ -537,7 +537,7 @@ class DownloadManager {
     }
     pauseDownload(downloadId) {
         const task = this.activeTasks.get(downloadId);
-        if (!task || task.progress.status !== 'downloading')
+        if (!task || task.progress.status !== 'downloading' || task.idmProcess)
             return;
         task.progress.status = 'paused';
         if (task.controller) {
@@ -546,24 +546,16 @@ class DownloadManager {
         if (task.stream) {
             task.stream.end();
         }
-        if (task.idmProcess) {
-            task.idmProcess.kill('SIGSTOP');
-        }
         this.sendProgress(task.progress);
     }
     resumeDownload(downloadId) {
         const task = this.activeTasks.get(downloadId);
-        if (!task || task.progress.status !== 'paused')
+        if (!task || task.progress.status !== 'paused' || task.idmProcess)
             return;
         task.progress.status = 'downloading';
         task.progress.pausedByNetwork = false;
-        if (task.options.useIDM && task.idmProcess) {
-            task.idmProcess.kill('SIGCONT');
-        }
-        else {
-            const resumeFrom = task.progress.downloadedSize;
-            this.downloadWithNode(task, resumeFrom);
-        }
+        const resumeFrom = task.progress.downloadedSize;
+        this.downloadWithNode(task, resumeFrom);
         this.sendProgress(task.progress);
     }
     cancelDownload(downloadId) {

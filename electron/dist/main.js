@@ -17,6 +17,9 @@ const config_1 = __importDefault(require("./config"));
 const store = new electron_store_1.default({
     defaults: config_1.default.defaultAppSettings
 });
+let mainWindow;
+let splash;
+let downloadManager;
 const handle = [
     ["get-version", () => electron_1.app.getVersion()],
     ["updater:check", async () => {
@@ -130,25 +133,36 @@ const handle = [
             }
         }],
     ["getDiskSpace", (_, targetPath) => (0, disk_1.getDiskSpace)(targetPath)],
-    ["formatBytes", (_, bytes, decimals) => (0, disk_1.formatBytes)(bytes, decimals)]
+    ["formatBytes", (_, bytes, decimals) => (0, disk_1.formatBytes)(bytes, decimals)],
+    ["app:close", (_, destroy) => destroy ? mainWindow?.destroy() : mainWindow?.close()],
+    ["closeAppResult", (_, result) => {
+            if (result) {
+                mainWindow?.destroy();
+            }
+            else {
+                if (!downloadManager)
+                    return;
+                for (const task of downloadManager.getActiveDownloads()) {
+                    downloadManager.resumeDownload(task.downloadId);
+                }
+            }
+        }]
 ];
-let mainWindow;
-let splash;
-let downloadManager;
 function createWindow() {
     // Splash
     splash = new electron_1.BrowserWindow({
-        width: 400,
-        height: 200,
+        width: 600,
+        height: 400,
         frame: false,
         alwaysOnTop: true,
         transparent: false,
         resizable: false
     });
     splash.loadFile("splash.html");
+    const { width, height } = electron_1.screen.getPrimaryDisplay().workAreaSize;
     mainWindow = new electron_1.BrowserWindow({
-        width: 1280,
-        height: 790,
+        width: Math.round(width * 0.92),
+        height: Math.round(height * 0.95),
         show: false,
         transparent: false,
         webPreferences: {
@@ -159,7 +173,7 @@ function createWindow() {
     });
     mainWindow.loadFile("index.html");
     mainWindow.once("ready-to-show", () => {
-        splash?.close();
+        splash?.destroy();
         splash = undefined;
         mainWindow?.show();
     });
@@ -167,29 +181,18 @@ function createWindow() {
     mainWindow.on('closed', () => {
         mainWindow = undefined;
     });
-    mainWindow.on('close', async (e) => {
+    mainWindow.on('close', (e) => {
         if (!downloadManager)
             return;
-        const task = downloadManager.getActiveDownloads().length;
-        if (task > 0) {
+        const downloadTask = downloadManager.getActiveDownloads();
+        if (downloadTask.length > 0) {
             e.preventDefault();
-            for (const task of downloadManager.getActiveDownloads()) {
+            for (const task of downloadTask) {
                 downloadManager.pauseDownload(task.downloadId);
             }
-            const result = await electron_1.dialog.showMessageBox(mainWindow, {
-                type: 'question',
-                buttons: ['Hủy', 'Thoát'],
-                title: 'Xác nhận',
-                message: `Hiện đang có ${task} tệp đang tải. Bạn có chắc chắn muốn thoát?`
+            mainWindow?.webContents.send('onAppClose', {
+                taskCount: downloadTask.length
             });
-            if (result.response === 1) {
-                mainWindow?.destroy();
-            }
-            else {
-                for (const task of downloadManager.getActiveDownloads()) {
-                    downloadManager.resumeDownload(task.downloadId);
-                }
-            }
         }
     });
     if (!electron_1.app.isPackaged) {
@@ -208,7 +211,7 @@ function createWindow() {
 }
 electron_1.app.whenReady().then(() => {
     createWindow();
-    electron_updater_1.autoUpdater.checkForUpdates();
+    setTimeout(() => initAutoUpdater(), 2000);
 });
 electron_1.app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
@@ -223,22 +226,26 @@ electron_1.app.on('activate', () => {
 // ============================================
 // Check Update
 // ============================================
-electron_updater_1.autoUpdater.autoDownload = false;
-electron_updater_1.autoUpdater.on("update-available", (info) => {
-    mainWindow?.webContents.send("update-available", {
-        version: info.version,
-        notes: info.releaseNotes
+function initAutoUpdater() {
+    electron_updater_1.autoUpdater.autoDownload = true;
+    electron_updater_1.autoUpdater.autoInstallOnAppQuit = true;
+    electron_updater_1.autoUpdater.on("update-available", (info) => {
+        mainWindow?.webContents.send("update-available", {
+            version: info.version,
+            notes: info.releaseNotes
+        });
     });
-});
-electron_updater_1.autoUpdater.on("update-downloaded", () => {
-    mainWindow?.webContents.send("update-ready");
-});
-electron_updater_1.autoUpdater.on("download-progress", (progress) => {
-    const percent = Math.round(progress.percent);
-    const transferred = (progress.transferred / 1024 / 1024).toFixed(2);
-    const total = (progress.total / 1024 / 1024).toFixed(2);
-    mainWindow?.webContents.send("update-progress", { percent, transferred, total });
-});
+    electron_updater_1.autoUpdater.on("update-downloaded", () => {
+        mainWindow?.webContents.send("update-ready");
+    });
+    electron_updater_1.autoUpdater.on("download-progress", (progress) => {
+        const percent = Math.round(progress.percent);
+        const transferred = (progress.transferred / 1024 / 1024).toFixed(2);
+        const total = (progress.total / 1024 / 1024).toFixed(2);
+        mainWindow?.webContents.send("update-progress", { percent, transferred, total });
+    });
+    setTimeout(() => electron_updater_1.autoUpdater.checkForUpdates(), 6000);
+}
 // ============================================
 // IPC Handlers
 // ============================================
