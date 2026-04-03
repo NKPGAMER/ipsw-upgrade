@@ -21,15 +21,9 @@ const ensureDir = async (filePath) => {
 };
 exports.ensureDir = ensureDir;
 async function write(fileName, data) {
-    try {
-        const filePath = resolvePath(fileName);
-        ensureDir(filePath);
-        await fs_1.promises.writeFile(filePath, typeof data !== 'string' ? JSON.stringify(data, null, 2) : data, "utf-8");
-        return true;
-    }
-    catch {
-        return false;
-    }
+    const filePath = resolvePath(fileName);
+    await ensureDir(filePath);
+    await fs_1.promises.writeFile(filePath, typeof data !== 'string' ? JSON.stringify(data, null, 2) : data, "utf-8");
 }
 async function read(fileName) {
     const filePath = resolvePath(fileName);
@@ -37,10 +31,9 @@ async function read(fileName) {
         return null;
     return fs_1.promises.readFile(filePath, "utf-8");
 }
-function deleteFile(fileName) {
+async function deleteFile(fileName) {
     const filePath = resolvePath(fileName);
     if ((0, fs_1.existsSync)(filePath)) {
-        fs_1.promises.unlink(filePath);
+        await fs_1.promises.unlink(filePath);
     }
-    return true;
 }

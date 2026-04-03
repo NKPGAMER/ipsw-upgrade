@@ -1,287 +1,265 @@
-import { app, BrowserWindow, ipcMain, dialog, OpenDialogOptions, FileFilter, IpcMainInvokeEvent, screen } from "electron";
-import Store from "electron-store";;
-import { autoUpdater, UpdateInfo } from "electron-updater"
+import {
+  app, BrowserWindow, ipcMain, dialog,
+  OpenDialogOptions, FileFilter, IpcMainInvokeEvent, screen
+} from "electron";
+import Store from "electron-store";
+import { autoUpdater, UpdateInfo } from "electron-updater";
 import { join } from "path";
-import { promises } from "fs";
-import { read, write, deleteFile } from "./modules/userData";
-import { scanFolder, createMd5 } from "./modules/localFile";
-import { DownloadManager, DownloadOptions, DownloadRequest } from "./modules/download";
+import { AppleDevice } from "./modules/appleDevice";
+import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
+import { scanFolder, createMd5, deleteFile } from "./modules/localFile";
 import { getDiskSpace, formatBytes } from "./modules/disk";
-
+import { InternetService } from "./modules/internetService";
+import { IPSWDownloader } from "./modules/downloader";
 import config from "./config";
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface updateInfo {
+interface UpdateResult {
   status: "no-update" | "update-available" | "error";
   info?: UpdateInfo;
   error?: string;
 }
 
-const store = new Store({
-  defaults: config.defaultAppSettings
-});
+type IpcHandler = [string, (event: IpcMainInvokeEvent, ...args: any[]) => any];
 
-let mainWindow: BrowserWindow | undefined;
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STORE_METHODS = new Set(["get", "set", "has", "delete"] as const);
+type StoreMethod = "get" | "set" | "has" | "delete";
+
+const SPLASH_TIMEOUT_MS  = 10_000;
+const UPDATER_INIT_DELAY = 2_000;
+const UPDATER_CHECK_DELAY = 6_000;
+const MAX_CONCURRENT_DOWNLOADS = 3;
+
+// ─── App State ────────────────────────────────────────────────────────────────
+
+const store = new Store({ defaults: config.defaultAppSettings });
+const internet = new InternetService();
+
+let dl: IPSWDownloader | undefined;
 let splash: BrowserWindow | undefined;
-let downloadManager: DownloadManager | undefined;
+let mainWindow: BrowserWindow | undefined;
+let isReady = false;
 
-const handle = [
-  ["get-version", () => app.getVersion()],
-  ["updater:check", async (): Promise<updateInfo> => {
-    try {
-      const result = await autoUpdater.checkForUpdates();
+// ─── Window Factory ───────────────────────────────────────────────────────────
 
-      if (!result || !result.isUpdateAvailable) return { status: "no-update" };
-
-      return { status: "update-available", info: result.updateInfo };
-    } catch (error) {
-      return { status: "error", error: (error as Error).message }
-    }
-  }],
-
-  ["select-folder", async () => {
-    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-    if (res.canceled) return null;
-    return res.filePaths[0];
-  }],
-
-  ["select-file", async (_: IpcMainInvokeEvent, options?: FileFilter[]) => {
-    const dialogOptions: OpenDialogOptions = {
-      properties: ['openFile']
-    }
-    if (options && options.length > 0) {
-      dialogOptions.filters = [...options]
-    }
-    const result = await dialog.showOpenDialog(dialogOptions);
-    if (result.canceled) return null;
-    return result.filePaths[0];
-  }],
-
-  ["get:files:ipsw", async (_: IpcMainInvokeEvent, folder: string) => {
-    try {
-      return scanFolder(folder);
-    } catch (error: any) {
-      console.error('Error scanning folder:', error);
-      throw new Error(`Failed to scan folder: ${error.message}`);
-    }
-  }],
-
-  ["createMd5", (_: IpcMainInvokeEvent, filePath: string, options?: Md5Options) => createMd5(filePath, options)],
-  ['create-md5', async (event: IpcMainInvokeEvent, filePath: string) => {
-    return await createMd5(filePath, {
-      onProgress: (progress) => {
-        event.sender.send('md5-progress', progress);
-      }
-    });
-  }],
-
-  ["download", async (_: IpcMainInvokeEvent, request: DownloadRequest, options: DownloadOptions) => await downloadManager?.download(request, options)],
-  ["download:pause", (_: IpcMainInvokeEvent, id: string) => { downloadManager?.pauseDownload(id) }],
-  ["download:resume", (_: IpcMainInvokeEvent, id: string) => { downloadManager?.resumeDownload(id) }],
-  ["download:cancel", (_: IpcMainInvokeEvent, id: string) => { downloadManager?.cancelDownload(id) }],
-  ["download:getActiveDownloads", (_: IpcMainInvokeEvent) => downloadManager?.getActiveDownloads()],
-
-  ["delete-file", async (_: IpcMainInvokeEvent, filePath: string) => {
-    try {
-      await promises.unlink(filePath);
-      return { success: true };
-    } catch (err: any) {
-      console.error('Delete file error:', err);
-      return { success: false, error: err.message };
-    }
-  }],
-
-  ['store', (_: IpcMainInvokeEvent, method: string, key: string, value?: any) => {
-    try {
-      if (method === 'get') {
-        return (store as any)[method](key);
-      } else if (method === 'set') {
-        (store as any)[method](key, value);
-        return true;
-      } else if (method === 'has') {
-        return (store as any)[method](key);
-      } else if (method === 'delete') {
-        (store as any)[method](key);
-        return true;
-      }
-    } catch (error: any) {
-      console.error('Store operation error:', error);
-      throw new Error(`Store operation failed: ${error.message}`);
-    }
-  }],
-
-  ["user:write", async (_: IpcMainInvokeEvent, fileName: string, data: any) => {
-    try {
-      return await write(fileName, data);
-    } catch (error: any) {
-      console.error('User write error:', error);
-      return null;
-    }
-  }],
-
-  ["user:read", async (_: IpcMainInvokeEvent, fileName: string) => {
-    try {
-      return await read(fileName);
-    } catch (error: any) {
-      console.error('User read error:', error);
-      return null;
-    }
-  }],
-
-  ["user:deleteFile", (_: IpcMainInvokeEvent, fileName: string) => {
-    try {
-      return deleteFile(fileName);
-    } catch (error: any) {
-      console.error('User delete file error:', error);
-      return false;
-    }
-  }],
-
-  ["getDiskSpace", (_: IpcMainInvokeEvent, targetPath?: string) => getDiskSpace(targetPath)],
-  ["formatBytes", (_: IpcMainInvokeEvent, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
-  ["app:close", (_: IpcMainInvokeEvent, destroy?: boolean) => destroy ? mainWindow?.destroy() : mainWindow?.close()],
-  ["closeAppResult", (_: IpcMainInvokeEvent, result: boolean) => {
-    if (result) {
-      mainWindow?.destroy()
-    } else {
-      if (!downloadManager) return;
-      for (const task of downloadManager.getActiveDownloads()) {
-        downloadManager.resumeDownload(task.downloadId);
-      }
-    }
-  }]
-];
-
-function createWindow() {
-  // Splash
-  splash = new BrowserWindow({
-    width: 600,
-    height: 400,
-    frame: false,
+function createSplashWindow(width: number, height: number): BrowserWindow {
+  const win = new BrowserWindow({
+    width:  Math.round(width  * 0.42),
+    height: Math.round(height * 0.40),
+    frame:       false,
     alwaysOnTop: true,
     transparent: false,
-    resizable: false
+    resizable:   false,
   });
+  win.loadFile("splash.html");
+  return win;
+}
 
-  splash.loadFile("splash.html");
-
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-
-  mainWindow = new BrowserWindow({
-    width: Math.round(width * 0.92),
+function createMainWindow(width: number, height: number): BrowserWindow {
+  const win = new BrowserWindow({
+    width:  Math.round(width  * 0.92),
     height: Math.round(height * 0.95),
     show: false,
     transparent: false,
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
-      nodeIntegration: false
-    }
+      nodeIntegration: false,
+      additionalArguments: [
+        `--app-version=${app.getVersion()}`
+      ]
+    },
+  });
+  win.setMenu(null);
+  return win;
+}
+
+// ─── Initialisation ───────────────────────────────────────────────────────────
+
+async function init(): Promise<void> {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+
+  splash     = createSplashWindow(width, height);
+  mainWindow = createMainWindow(width, height);
+  dl = new IPSWDownloader(mainWindow, {
+  maxConcurrentTasks: 3,
+  maxConnectionsPerTask: 16,
+  initialConnectionsPerTask: 4,
+  chunkSize: 128 * 1024 * 1024 // MB
+})
+
+  loadRenderer(mainWindow);
+  registerMainWindowEvents(mainWindow);
+  initInternet(mainWindow);
+}
+
+function loadRenderer(win: BrowserWindow): void {
+  if (process.env.VITE_DEV_SERVER_URL || !app.isPackaged) {
+    win.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5173/");
+    win.webContents.openDevTools({ mode: "detach" });
+    try { require("electron-reloader")(module, { debug: false, watchRenderer: true }); } catch {}
+  } else {
+    win.loadFile("index.html");
+  }
+}
+
+function registerMainWindowEvents(win: BrowserWindow): void {
+  win.once("ready-to-show", () => {
+    splash?.destroy();
+    splash = undefined;
+    win.show();
+    isReady = true;
   });
 
-  mainWindow.loadFile("index.html");
+  // win.on("close", (e) => {
+  //   e.preventDefault();
+  //   win.webContents.send("onAppClose", { taskCount: activeTasks.length });
+  // });
+}
 
-  mainWindow.once("ready-to-show", () => {
+async function initInternet(win: BrowserWindow): Promise<void> {
+  internet.start();
+
+  internet.on("online", () => win.webContents.send("internet-changed", true));
+  internet.on("offline", () => win.webContents.send("internet-changed", false));
+}
+
+// ─── App Lifecycle ────────────────────────────────────────────────────────────
+
+app.whenReady().then(() => {
+  init();
+  new AppleDevice(mainWindow);
+
+  // Fallback: show main window if `ready-to-show` never fires
+  setTimeout(() => {
+    if (isReady) return;
     splash?.destroy();
     splash = undefined;
     mainWindow?.show();
-  });
+  }, SPLASH_TIMEOUT_MS);
 
-  downloadManager = new DownloadManager(mainWindow, 3);
-
-  mainWindow.on('closed', () => {
-    mainWindow = undefined;
-  });
-
-  mainWindow.on('close', (e) => {
-    if (!downloadManager) return;
-    const downloadTask = downloadManager.getActiveDownloads();
-
-    if (downloadTask.length > 0) {
-      e.preventDefault();
-
-      for (const task of downloadTask) {
-        downloadManager.pauseDownload(task.downloadId);
-      }
-      mainWindow?.webContents.send('onAppClose', {
-        taskCount: downloadTask.length
-      })
-    }
-  });
-
-
-  if (!app.isPackaged) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-    try {
-      require('electron-reloader')(module, {
-        debug: false,
-        watchRenderer: true
-      })
-    } catch { }
-  } else {
-    mainWindow.setMenu(null);
-  }
-}
-
-app.whenReady().then(() => {
-  createWindow();
-  
-  setTimeout(() => initAutoUpdater(), 2000);
+  setTimeout(() => initAutoUpdater(), UPDATER_INIT_DELAY);
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
 });
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    app.exit()
-  }
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) init();
 });
 
-// ============================================
-// Check Update
-// ============================================
+// ─── Auto Updater ─────────────────────────────────────────────────────────────
 
-function initAutoUpdater() {
-  autoUpdater.autoDownload = true;
+function initAutoUpdater(): void {
+  autoUpdater.autoDownload        = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on("update-available", (info) => {
-  mainWindow?.webContents.send("update-available", {
-    version: info.version,
-    notes: info.releaseNotes
-  });
-});
+  const send = (channel: string, payload?: unknown) =>
+    mainWindow?.webContents.send(channel, payload);
 
-autoUpdater.on("update-downloaded", () => {
-  mainWindow?.webContents.send("update-ready");
-});
+  autoUpdater.on("update-available",  ({ version, releaseNotes }) =>
+    send("update-available", { version, notes: releaseNotes }));
 
-autoUpdater.on("download-progress", (progress) => {
-  const percent = Math.round(progress.percent);
-  const transferred = (progress.transferred / 1024 / 1024).toFixed(2);
-  const total = (progress.total / 1024 / 1024).toFixed(2);
+  autoUpdater.on("update-downloaded", () => send("update-ready"));
 
-  mainWindow?.webContents.send("update-progress", { percent, transferred, total });
-});
+  autoUpdater.on("download-progress", ({ percent, transferred, total }) =>
+    send("update-progress", {
+      percent:     Math.round(percent),
+      transferred: (transferred / 1048576).toFixed(2),
+      total:       (total       / 1048576).toFixed(2),
+    }));
 
-setTimeout(() => autoUpdater.checkForUpdates(), 6000)
+  setTimeout(() => autoUpdater.checkForUpdates(), UPDATER_CHECK_DELAY);
 }
 
-// ============================================
-// IPC Handlers
-// ============================================
+// ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
-// Updater
-ipcMain.on("updater:start", () => {
-  autoUpdater.downloadUpdate();
-});
+ipcMain.on("updater:start",   () => autoUpdater.downloadUpdate());
+ipcMain.on("updater:install", () => autoUpdater.quitAndInstall());
 
-ipcMain.on("updater:install", () => {
-  autoUpdater.quitAndInstall();
-});
+const handlers: IpcHandler[] = [
+  // App
+  ["get-version", () => app.getVersion()],
+  ["app-get-online-state", () => internet.isOnline()],
 
-handle.forEach(h => ipcMain.handle(h[0] as string, h[1] as () => any));
+  // Updater
+  ["updater:check", async (): Promise<UpdateResult> => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      if (!result?.isUpdateAvailable) return { status: "no-update" };
+      return { status: "update-available", info: result.updateInfo };
+    } catch (error) {
+      return { status: "error", error: (error as Error).message };
+    }
+  }],
 
+  // Dialogs
+  ["select-folder", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    return canceled ? null : filePaths[0];
+  }],
+
+  ["select-file", async (_: IpcMainInvokeEvent, filters?: FileFilter[]) => {
+    const options: OpenDialogOptions = { properties: ["openFile"] };
+    if (filters?.length) options.filters = filters;
+    const { canceled, filePaths } = await dialog.showOpenDialog(options);
+    return canceled ? null : filePaths[0];
+  }],
+
+  // Files
+  ["get:files:ipsw", async (_: IpcMainInvokeEvent, folder: string) => {
+    try {
+      return scanFolder(folder);
+    } catch (error: any) {
+      throw new Error(`Failed to scan folder: ${error.message}`);
+    }
+  }],
+
+  ["create-md5", (event: IpcMainInvokeEvent, filePath: string) =>
+    createMd5(filePath, {
+      onProgress: (progress) => event.sender.send("md5-progress", progress),
+    })
+  ],
+
+  ["delete-file", (_: IpcMainInvokeEvent, filePath: string) => deleteFile(filePath)],
+
+  // Downloads
+  // add: (fw, sp) => ipcRenderer.invoke('dm-add', fw, sp),
+  //   pause: (id) => ipcRenderer.invoke("dm-pause", id),
+  //   resume: (id) => ipcRenderer.invoke("dm-resume", id),
+  //   cancel: (id) => ipcRenderer.invoke("dm-cancel", id),
+  //   getAllTask: () => ipcRenderer.invoke("dm-getAllTask"),
+  //   getTask: (id) => ipcRenderer.invoke("dm-getTask", id)
+
+  // Persistent store
+  ["store", (_: IpcMainInvokeEvent, method: string, key: string, value?: any) => {
+    if (!STORE_METHODS.has(method as StoreMethod)) return;
+    return method === "set"
+      ? (store as any).set(key, value)
+      : (store as any)[method](key);
+  }],
+
+  // User data
+  ["user:write",      (_: IpcMainInvokeEvent, fileName: string, data: any) => write(fileName, data)],
+  ["user:read",       (_: IpcMainInvokeEvent, fileName: string)            => read(fileName)],
+  ["user:deleteFile", (_: IpcMainInvokeEvent, fileName: string)            => userDataDeleteFile(fileName)],
+
+  // Disk
+  ["getDiskSpace",  (_: IpcMainInvokeEvent, targetPath?: string)              => getDiskSpace(targetPath)],
+  ["formatBytes",   (_: IpcMainInvokeEvent, bytes: number, decimals: number)  => formatBytes(bytes, decimals)],
+
+  // Close confirmation
+  // ["closeAppResult", (_: IpcMainInvokeEvent, confirmed: boolean) => {
+  //   if (confirmed) {
+  //     mainWindow?.destroy();
+  //   } else {
+  //     downloadManager?.getActiveDownloads()
+  //       .forEach(({ downloadId }) => downloadManager?.resumeDownload(downloadId));
+  //   }
+  // }],
+];
+
+handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler));

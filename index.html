@@ -21,7 +21,6 @@
     <link rel="stylesheet" href="assets/styles/product.css">
     <link rel="stylesheet" href="assets/styles/index.css">
     <link rel="stylesheet" href="assets/styles/update.css">
-    <link rel="stylesheet" href="assets/styles/tailwind.css">
 </head>
 
 <body>
@@ -47,7 +46,7 @@
                             d="m19.485 20.154l-6.262-6.262q-.75.639-1.725.989q-.975.35-1.96.35q-2.402 0-4.066-1.663q-1.664-1.664-1.664-4.065T5.47 5.436q1.663-1.667 4.064-1.667q2.402 0 4.068 1.664q1.666 1.664 1.666 4.067q0 1.042-.369 2.017q-.37.975-.97 1.668l6.262 6.261l-.707.708ZM9.538 14.23q1.99 0 3.361-1.37q1.37-1.37 1.37-3.361q0-1.99-1.37-3.36q-1.37-1.37-3.36-1.37q-1.99 0-3.361 1.37q-1.37 1.37-1.37 3.36q0 1.99 1.37 3.36q1.37 1.37 3.36 1.37Z" />
                     </svg>
                 </span>
-                <input type="text" class="search-input" id="globalSearchInput" data-t="placeholder.search">
+                <input type="text" class="search-input" id="globalSearchInput" data-t="[placeholder]search">
                 <button class="search-clear" id="globalSearchClear">×</button>
             </div>
             <div class="flex items-center gap-2 p-1.5!">
@@ -57,12 +56,6 @@
                             d="M7 20v-2h10v2H7Zm4-4V7.825L8.4 10.4L7 9l5-5l5 5l-1.4 1.4L13 7.825V16h-2Z" />
                     </svg>
                     <span class="tooltip-text" data-t="app.update.available"></span>
-                </button>
-                <button class="topbar-btn" id="downloadsBtn">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <path fill="currentColor"
-                            d="M5 21v-1h14v1H5Zm6.98-3.77L6.366 9.789h3.27V3h4.711v6.788h3.27l-5.635 7.443Zm0-1.634l3.574-4.788h-2.208V4h-2.711v6.808H8.427l3.554 4.788Zm.02-4.788Z" />
-                    </svg>
                 </button>
                 <button class="topbar-btn" id="settingsBtn">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -82,6 +75,13 @@
                 </ol>
             </nav>
             <div class="flex items-center gap-2 p-1.5!">
+                <button class="topbar-btn has-tooltip tooltip-bottom" id="downloadsBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M5 21v-1h14v1H5Zm6.98-3.77L6.366 9.789h3.27V3h4.711v6.788h3.27l-5.635 7.443Zm0-1.634l3.574-4.788h-2.208V4h-2.711v6.808H8.427l3.554 4.788Zm.02-4.788Z" />
+                    </svg>
+                    <span class="tooltip-text" data-t="button.download"></span>
+                </button>
                 <button class="topbar-btn has-tooltip tooltip-bottom" id="upgradeAllFirmware">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                         <path fill="currentColor"
@@ -134,7 +134,7 @@
             </div>
 
             <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                <div class="product-card recommended" data-product="iphone">
+                <div class="product-card" data-product="iphone">
                     <div class="product-icon">
                         <img src="assets/icon/iphone.png" alt="iPhone">
                     </div>
@@ -298,144 +298,10 @@
         <div class="device-grid" id="globalSearchResults"></div>
     </div>
 
-    <!-- Download Page -->
-    <div class="settings-page" id="downloadPage">
-        <div class="settings-container">
-            <div class="settings-header">
-                <div class="settings-title">Downloads</div>
-                <button class="overlay-control-btn close" id="closeDownloads">×</button>
-            </div>
-
-            <div class="settings-section">
-                <div class="section-title">Active Downloads</div>
-                <div id="downloadList"></div>
-                <div id="emptyDownloads" class="flex items-center justify-center flex-col">
-                    <span class="text-[3rem]">📭</span>
-                    <span class="text-[#a0aec0]">No active downloads</span>
-                </div>
-            </div>
-        </div>
+    <div class="fixed inset-0 z-1001 hidden" id="downloadPage">
     </div>
 
-    <!-- Settings Page -->
-    <div class="settings-page" id="settingsPage">
-        <div class="settings-container">
-            <div class="settings-header">
-                <div class="settings-title" data-t="setting.title"></div>
-                <button class="overlay-control-btn close" id="closeSettings">×</button>
-            </div>
-
-            <!-- About -->
-            <div class="settings-section">
-                <div class="section-title" data-t="setting.about">About</div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <div class="setting-label" data-t="setting.about.version">Version</div>
-                        <div class="setting-description" id="version">-</div>
-                    </div>
-                    <div class="setting-control">
-                        <button class="setting-button" data-t="setting.about.checkUpdate" id="checkUpdate">Check for
-                            Updates</button>
-                    </div>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <div class="setting-label">Developer</div>
-                        <div class="setting-description">Nguyễn Kim Phúc</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Language -->
-            <div class="settings-section">
-                <div class="section-title" data-t="setting.language"></div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <div class="setting-label" data-t="setting.language.select"></div>
-                        <div class="setting-description" data-t="setting.language.description"></div>
-                    </div>
-                    <div class="setting-control">
-                        <select class="setting-input language-select" id="languageSelect">
-                            <option value="en">English</option>
-                            <option value="vi">Tiếng Việt</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Download -->
-            <div class="settings-section">
-                <div class="section-title" data-t="setting.download"></div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <div class="setting-label" data-t="setting.download.downloadPath"></div>
-                        <div class="setting-description">
-                            <span data-t="setting.download.currentPath"></span>
-                            <span>:</span>
-                            <span id="currentPath" class="text-[#ffb300] font-bold">-</span>
-                        </div>
-                    </div>
-                    <div class="setting-control">
-                        <button class="setting-button" id="selectPathBtn" data-t="setting.changPath">Change
-                            Path</button>
-                    </div>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <div class="setting-label" data-t="setting.useIDM">Use IDM</div>
-                        <div class="setting-description" data-t="setting.useIDM.description">Use Internet Download
-                            Manager for downloads</div>
-                    </div>
-                    <div class="setting-control">
-                        <div class="toggle-switch" id="useIDM">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <div class="setting-label" data-t="setting.idmPath">IDM Path</div>
-                        <div class="setting-description">
-                            <span data-t="setting.download.currentPath">Current Path</span>
-                            <span>:</span>
-                            <span id="idm-currentPath" class="text-[#ffb300] font-bold">-</span>
-                        </div>
-                    </div>
-                    <div class="setting-control">
-                        <button class="setting-button" id="idmSelectPath" data-t="setting.changPath"></button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Firmware -->
-            <div class="settings-section">
-                <div class="section-title" data-t="setting.firmware">Firmware</div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <div class="setting-label" data-t="setting.firmware.removeOldFile">Remove Old Files</div>
-                        <div class="setting-description" data-t="setting.firmware.removeOldFile.description">
-                            Automatically remove old firmware files</div>
-                    </div>
-                    <div class="setting-control">
-                        <div class="toggle-switch" id="autoRemoveOldFiles">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <div class="setting-label" data-t="setting.firmware.duplicate">Remove Duplicates</div>
-                        <div class="setting-description" data-t="setting.firmware.duplicate.description">Automatically
-                            remove duplicate firmware files</div>
-                    </div>
-                    <div class="setting-control">
-                        <div class="toggle-switch" id="autoRemoveDuplicateFiles">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="fixed inset-0 z-1001 hidden" id="settingsPage">
     </div>
 
     <!-- Updater -->
@@ -491,7 +357,6 @@
     </div>
 
     <!-- Scripts -->
-    <script type="module" src="dist/index.js" defer></script>
+    <script type="module" src="src/index.tsx" defer></script>
 </body>
-
 </html>

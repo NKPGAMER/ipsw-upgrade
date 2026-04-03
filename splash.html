@@ -1,235 +1,217 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Loading...</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;600&display=swap');
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-            background: #0f0f23;
-        }
+    :root {
+      --bg:        #04050d;
+      --ring1:     #00ffe0;
+      --ring2:     #7b5ea7;
+      --ring3:     #ff4d6d;
+      --glow:      rgba(0, 255, 224, 0.18);
+      --text:      #e8f0fe;
+      --sub:       rgba(232,240,254,0.45);
+    }
 
-        .splash-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            background-size: 400% 400%;
-            animation: gradientShift 8s ease infinite;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        /* Hiệu ứng particles nền */
-        .particles {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      font-family: 'Outfit', sans-serif;
+    }
 
-        .particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 50%;
-            animation: float 3s infinite ease-in-out;
-        }
+    /* ── Starfield ── */
+    .stars {
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(1px 1px at  8%  12%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 23%  57%, rgba(255,255,255,.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 47%   9%, rgba(255,255,255,.8) 0%, transparent 100%),
+        radial-gradient(1px 1px at 61%  78%, rgba(255,255,255,.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 82%  35%, rgba(255,255,255,.7) 0%, transparent 100%),
+        radial-gradient(1px 1px at 92%  88%, rgba(255,255,255,.5) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 35%  44%, rgba(255,255,255,.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 71%  21%, rgba(255,255,255,.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 14%  90%, rgba(255,255,255,.4) 0%, transparent 100%);
+      animation: twinkle 6s ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      0%   { opacity: .6; }
+      100% { opacity: 1; }
+    }
 
-        .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 3s; }
-        .particle:nth-child(2) { left: 20%; animation-delay: 0.5s; animation-duration: 4s; }
-        .particle:nth-child(3) { left: 30%; animation-delay: 1s; animation-duration: 3.5s; }
-        .particle:nth-child(4) { left: 40%; animation-delay: 1.5s; animation-duration: 4.5s; }
-        .particle:nth-child(5) { left: 50%; animation-delay: 2s; animation-duration: 3s; }
-        .particle:nth-child(6) { left: 60%; animation-delay: 0.3s; animation-duration: 4s; }
-        .particle:nth-child(7) { left: 70%; animation-delay: 1.2s; animation-duration: 3.5s; }
-        .particle:nth-child(8) { left: 80%; animation-delay: 1.8s; animation-duration: 4.5s; }
-        .particle:nth-child(9) { left: 90%; animation-delay: 0.8s; animation-duration: 3.8s; }
-        .particle:nth-child(10) { left: 15%; animation-delay: 2.2s; animation-duration: 4.2s; }
+    /* ── Ambient glow ── */
+    .ambient {
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 30% 60%, rgba(0,255,224,.07) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 35% at 75% 30%, rgba(123,94,167,.09) 0%, transparent 70%);
+      pointer-events: none;
+    }
 
-        .loading-container {
-            position: relative;
-            z-index: 10;
-        }
+    /* ── Scene wrapper ── */
+    .scene {
+      position: relative;
+      width: 180px; height: 180px;
+      display: flex; align-items: center; justify-content: center;
+    }
 
-        /* Spinner wrapper */
-        .spinner-wrapper {
-            position: relative;
-            width: 80px;
-            height: 80px;
-        }
+    /* ── Rings ── */
+    .ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid transparent;
+    }
 
-        /* Spinner chính */
-        .spinner {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80px;
-            height: 80px;
-            border: 6px solid rgba(255, 255, 255, 0.2);
-            border-top: 6px solid white;
-            border-radius: 50%;
-            animation: spin 1.2s linear infinite;
-            box-shadow: 0 0 30px rgba(255,255,255,0.3);
-        }
+    .ring-1 {
+      width: 210px; height: 210px;
+      border-top-color:   var(--ring1);
+      border-right-color: var(--ring1);
+      box-shadow: 0 0 18px var(--ring1), inset 0 0 8px rgba(0,255,224,.1);
+      animation: spin 2.4s linear infinite;
+    }
+    .ring-2 {
+      width: 160px; height: 160px;
+      border-bottom-color: var(--ring2);
+      border-left-color:   var(--ring2);
+      box-shadow: 0 0 14px var(--ring2);
+      animation: spin 1.8s linear infinite reverse;
+    }
+    .ring-3 {
+      width: 110px; height: 110px;
+      border-top-color:  var(--ring3);
+      border-left-color: var(--ring3);
+      box-shadow: 0 0 12px var(--ring3);
+      animation: spin 1.2s linear infinite;
+    }
 
-        /* Các chấm orbit xoay quanh */
-        .orbit-dots {
-            position: absolute;
-            width: 120px;
-            height: 120px;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            animation: orbit 3s linear infinite;
-        }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
-        .orbit-dot {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: white;
-            border-radius: 50%;
-            box-shadow: 0 0 15px rgba(255,255,255,0.8), 0 0 30px rgba(255,255,255,0.4);
-            animation: dotPulse 1.5s ease-in-out infinite;
-        }
+    /* ── Core ── */
+    .core {
+      width: 55px; height: 55px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 36%, rgba(0,255,224,.45), rgba(123,94,167,.3) 60%, rgba(4,5,13,0) 100%);
+      box-shadow: 0 0 30px rgba(0,255,224,.35), 0 0 60px rgba(0,255,224,.12);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1);    opacity: 1; }
+      50%       { transform: scale(1.1); opacity: .8; }
+    }
 
-        .orbit-dot:nth-child(1) { 
-            top: 0; 
-            left: 50%; 
-            transform: translateX(-50%);
-            animation-delay: 0s;
-        }
-        .orbit-dot:nth-child(2) { 
-            top: 50%; 
-            right: 0; 
-            transform: translateY(-50%);
-            animation-delay: 0.375s;
-        }
-        .orbit-dot:nth-child(3) { 
-            bottom: 0; 
-            left: 50%; 
-            transform: translateX(-50%);
-            animation-delay: 0.75s;
-        }
-        .orbit-dot:nth-child(4) { 
-            top: 50%; 
-            left: 0; 
-            transform: translateY(-50%);
-            animation-delay: 1.125s;
-        }
+    /* ── Text block ── */
+    .info {
+      position: absolute;
+      bottom: -76px;
+      left: 50%; transform: translateX(-50%);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: .72rem;
+      font-weight: 300;
+      letter-spacing: .14em;
+      color: var(--sub);
+    }
 
+    /* ── Dots loader ── */
+    .dots { display: flex; gap: 6px; justify-content: center; margin-top: 14px; }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--ring1);
+      opacity: .25;
+      animation: dotBlink 1.6s ease-in-out infinite;
+    }
+    .dot:nth-child(2) { animation-delay: .26s; background: var(--ring2); }
+    .dot:nth-child(3) { animation-delay: .52s; background: var(--ring3); }
+    @keyframes dotBlink {
+      0%, 80%, 100% { opacity: .2; transform: scale(.85); }
+      40%            { opacity: 1;  transform: scale(1.2); }
+    }
 
-
-        @keyframes spin {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
-        @keyframes orbit {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
-        @keyframes dotPulse {
-            0%, 100% { 
-                transform: scale(1);
-                opacity: 1;
-            }
-            50% { 
-                transform: scale(1.4);
-                opacity: 0.7;
-            }
-        }
-
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        @keyframes float {
-            0% {
-                transform: translateY(100vh) scale(0);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-100px) scale(1);
-                opacity: 0;
-            }
-        }
-
-
-
-        @media (max-width: 768px) {
-            .spinner-wrapper {
-                width: 70px;
-                height: 70px;
-            }
-
-            .spinner {
-                width: 70px;
-                height: 70px;
-            }
-
-            .orbit-dots {
-                width: 110px;
-                height: 110px;
-            }
-
-            .orbit-dot {
-                width: 10px;
-                height: 10px;
-            }
-        }
-    </style>
+    /* ── Fade-out when done ── */
+    body.done {
+      animation: fadeOut .6s forwards;
+    }
+    @keyframes fadeOut {
+      to { opacity: 0; pointer-events: none; }
+    }
+  </style>
 </head>
 <body>
-    <div class="splash-screen">
-        <!-- Particles nền -->
-        <div class="particles">
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-        </div>
-        
-        <div class="loading-container">
-            <div class="spinner-wrapper">
-                <div class="spinner"></div>
-                <div class="orbit-dots">
-                    <div class="orbit-dot"></div>
-                    <div class="orbit-dot"></div>
-                    <div class="orbit-dot"></div>
-                    <div class="orbit-dot"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+
+  <div class="stars"></div>
+  <div class="ambient"></div>
+
+  <div class="scene">
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+    <div class="core"></div>
+  </div>
+
+  <script>
+    /**
+     * Splash screen controller
+     * ─────────────────────────────────────────────
+     * Cách dùng:
+     *   1. Nhúng file này vào trang chính TRƯỚC khi tải nội dung.
+     *   2. Khi trang chính sẵn sàng, gọi:  SplashScreen.dismiss()
+     *
+     * Hoặc dùng chế độ tự động: SplashScreen.waitFor('#main-app')
+     *   → sẽ quan sát DOM và tự dismiss khi phần tử xuất hiện.
+     */
+    const SplashScreen = (() => {
+      let dismissed = false;
+
+      function dismiss(delay = 300) {
+        if (dismissed) return;
+        dismissed = true;
+        setTimeout(() => {
+          document.body.classList.add('done');
+          setTimeout(() => {
+            document.body.style.display = 'none';
+            document.dispatchEvent(new Event('splashDone'));
+          }, 650);
+        }, delay);
+      }
+
+      function waitFor(selector, timeout = 15000) {
+        const el = document.querySelector(selector);
+        if (el) { dismiss(); return; }
+
+        const obs = new MutationObserver(() => {
+          if (document.querySelector(selector)) {
+            obs.disconnect();
+            dismiss();
+          }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+
+        setTimeout(() => { obs.disconnect(); dismiss(); }, timeout);
+      }
+
+      return { dismiss, waitFor };
+    })();
+  </script>
 </body>
 </html>

@@ -8,5 +8,6 @@ export default {
         ipswFolder: app.getPath('downloads')
     },
 
-    isDev: !app.isPackaged
+    isDev: !app.isPackaged,
+    appleVendorId: 1452
 }

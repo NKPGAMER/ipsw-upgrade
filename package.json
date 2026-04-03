@@ -1,20 +1,15 @@
 {
   "name": "ipsw-manager",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "",
   "main": "electron/dist/main.js",
   "scripts": {
-    "build:main": "npx tsc -p electron",
-    "build:renderer": "tsc -p tsconfig.renderer.json",
-    "build:tailwindcss": "npx @tailwindcss/cli -i ./dist/input.css -o ./dist/assets/styles/tailwind.css",
-    "build": "npm run build:main && npm run build:renderer && npm run build:tailwindcss",
-    "start": "electron .",
+    "build:main": "npx tsc -p electron -w",
+    "build:renderer": "npx tsc -w",
+    "start": "npm run dev",
     "dist": "npm run build && electron-builder --publish always",
-
-    "dev:main": "npx tsc -p electron -w",
-    "dev:tsc": "tsc -p tsconfig.renderer.json -w",
-    "dev:css": "npx @tailwindcss/cli -i ./dist/input.css -o ./dist/assets/styles/tailwind.css --watch",
-    "dev": "concurrently \"npm run dev:tsc\" \"npm run dev:css\" \"electron .\""
+    "dev": "concurrently \"vite\" \"electron .\"",
+    "t": "electron ."
   },
   "keywords": [],
   "author": "",
@@ -22,22 +17,34 @@
   "type": "commonjs",
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^24.10.1",
-    "@types/react": "^19.2.7",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.1",
     "electron": "^39.2.4",
     "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "electron-reloader": "^1.2.3",
-    "tailwindcss": "^4.1.18",
+    "tailwindcss": "^4.2.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0",
+    "vite-plugin-electron": "^0.29.1"
   },
   "dependencies": {
     "electron-store": "^11.0.2",
     "electron-updater": "^6.6.2",
-    "react": "^19.2.0",
+    "i18next": "^25.10.5",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "is-online": "^12.0.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-i18next": "^16.6.2",
+    "undici": "^7.24.4",
+    "usb": "^2.17.0",
     "uuid": "^13.0.0"
   },
   "build": {

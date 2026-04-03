@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.scanFolder = scanFolder;
 exports.createMd5 = createMd5;
+exports.deleteFile = deleteFile;
 const path_1 = require("path");
 const fs_1 = require("fs");
 const crypto_1 = require("crypto");
@@ -86,4 +87,13 @@ async function createMd5(filePath, options) {
             reject(err);
         });
     });
+}
+async function deleteFile(filePath) {
+    try {
+        await fs_1.promises.unlink(filePath);
+        return { success: (0, fs_1.existsSync)(filePath) };
+    }
+    catch (err) {
+        return { success: false, error: err.message };
+    }
 }

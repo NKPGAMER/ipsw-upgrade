@@ -1,0 +1,2313 @@
+{
+  "id": "15c26965-81a0-493d-93aa-8e313d50a85a",
+  "firmware": {
+    "identifier": "iPhone18,5",
+    "version": "26.4",
+    "buildid": "23E246",
+    "sha1sum": "21509627cca04e8fb2365c52de2937c0e76821d1",
+    "md5sum": "330311ff58d71717452254a045a3a968",
+    "sha256sum": "db6de390327b1ac74def0abdb9c1f7cfccd73429c20cb9b00628512fc3afc119",
+    "filesize": 10954141190,
+    "url": "https://updates.cdn-apple.com/2026SpringFCS/fullrestores/122-03475/CDD56EEE-78C6-4E10-BE9E-A3E491E7850A/iPhone18,5_26.4_23E246_Restore.ipsw",
+    "releasedate": "2026-03-24T17:39:47Z",
+    "uploaddate": "2026-03-21T16:52:30Z",
+    "signed": true
+  },
+  "savePath": "D:\\ShaLouData\\file\\ipsw",
+  "tmpPath": "C:\\Users\\Dell\\AppData\\Local\\Temp\\15c26965-81a0-493d-93aa-8e313d50a85a.ipsw.tmp",
+  "totalSize": 10954141190,
+  "chunks": [
+    {
+      "index": 0,
+      "start": 0,
+      "end": 33554431,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 1,
+      "start": 33554432,
+      "end": 67108863,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 2,
+      "start": 67108864,
+      "end": 100663295,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 3,
+      "start": 100663296,
+      "end": 134217727,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 4,
+      "start": 134217728,
+      "end": 167772159,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 5,
+      "start": 167772160,
+      "end": 201326591,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 6,
+      "start": 201326592,
+      "end": 234881023,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 7,
+      "start": 234881024,
+      "end": 268435455,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 8,
+      "start": 268435456,
+      "end": 301989887,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 9,
+      "start": 301989888,
+      "end": 335544319,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 10,
+      "start": 335544320,
+      "end": 369098751,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 11,
+      "start": 369098752,
+      "end": 402653183,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 12,
+      "start": 402653184,
+      "end": 436207615,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 13,
+      "start": 436207616,
+      "end": 469762047,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 14,
+      "start": 469762048,
+      "end": 503316479,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 15,
+      "start": 503316480,
+      "end": 536870911,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 16,
+      "start": 536870912,
+      "end": 570425343,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 17,
+      "start": 570425344,
+      "end": 603979775,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 18,
+      "start": 603979776,
+      "end": 637534207,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 19,
+      "start": 637534208,
+      "end": 671088639,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 20,
+      "start": 671088640,
+      "end": 704643071,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 21,
+      "start": 704643072,
+      "end": 738197503,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 22,
+      "start": 738197504,
+      "end": 771751935,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 23,
+      "start": 771751936,
+      "end": 805306367,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 24,
+      "start": 805306368,
+      "end": 838860799,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 25,
+      "start": 838860800,
+      "end": 872415231,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 26,
+      "start": 872415232,
+      "end": 905969663,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 27,
+      "start": 905969664,
+      "end": 939524095,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 28,
+      "start": 939524096,
+      "end": 973078527,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 29,
+      "start": 973078528,
+      "end": 1006632959,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 30,
+      "start": 1006632960,
+      "end": 1040187391,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 31,
+      "start": 1040187392,
+      "end": 1073741823,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 32,
+      "start": 1073741824,
+      "end": 1107296255,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 33,
+      "start": 1107296256,
+      "end": 1140850687,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 34,
+      "start": 1140850688,
+      "end": 1174405119,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 35,
+      "start": 1174405120,
+      "end": 1207959551,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 36,
+      "start": 1207959552,
+      "end": 1241513983,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 37,
+      "start": 1241513984,
+      "end": 1275068415,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 38,
+      "start": 1275068416,
+      "end": 1308622847,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 39,
+      "start": 1308622848,
+      "end": 1342177279,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 40,
+      "start": 1342177280,
+      "end": 1375731711,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 41,
+      "start": 1375731712,
+      "end": 1409286143,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 42,
+      "start": 1409286144,
+      "end": 1442840575,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 43,
+      "start": 1442840576,
+      "end": 1476395007,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 44,
+      "start": 1476395008,
+      "end": 1509949439,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 45,
+      "start": 1509949440,
+      "end": 1543503871,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 46,
+      "start": 1543503872,
+      "end": 1577058303,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 47,
+      "start": 1577058304,
+      "end": 1610612735,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 48,
+      "start": 1610612736,
+      "end": 1644167167,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 49,
+      "start": 1644167168,
+      "end": 1677721599,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 50,
+      "start": 1677721600,
+      "end": 1711276031,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 51,
+      "start": 1711276032,
+      "end": 1744830463,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 52,
+      "start": 1744830464,
+      "end": 1778384895,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 53,
+      "start": 1778384896,
+      "end": 1811939327,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 54,
+      "start": 1811939328,
+      "end": 1845493759,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 55,
+      "start": 1845493760,
+      "end": 1879048191,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 56,
+      "start": 1879048192,
+      "end": 1912602623,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 57,
+      "start": 1912602624,
+      "end": 1946157055,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 58,
+      "start": 1946157056,
+      "end": 1979711487,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 59,
+      "start": 1979711488,
+      "end": 2013265919,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 60,
+      "start": 2013265920,
+      "end": 2046820351,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 61,
+      "start": 2046820352,
+      "end": 2080374783,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 62,
+      "start": 2080374784,
+      "end": 2113929215,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 63,
+      "start": 2113929216,
+      "end": 2147483647,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 64,
+      "start": 2147483648,
+      "end": 2181038079,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 65,
+      "start": 2181038080,
+      "end": 2214592511,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 66,
+      "start": 2214592512,
+      "end": 2248146943,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 67,
+      "start": 2248146944,
+      "end": 2281701375,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 68,
+      "start": 2281701376,
+      "end": 2315255807,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 69,
+      "start": 2315255808,
+      "end": 2348810239,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 70,
+      "start": 2348810240,
+      "end": 2382364671,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 71,
+      "start": 2382364672,
+      "end": 2415919103,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 72,
+      "start": 2415919104,
+      "end": 2449473535,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 73,
+      "start": 2449473536,
+      "end": 2483027967,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 74,
+      "start": 2483027968,
+      "end": 2516582399,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 75,
+      "start": 2516582400,
+      "end": 2550136831,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 76,
+      "start": 2550136832,
+      "end": 2583691263,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 77,
+      "start": 2583691264,
+      "end": 2617245695,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 78,
+      "start": 2617245696,
+      "end": 2650800127,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 79,
+      "start": 2650800128,
+      "end": 2684354559,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 80,
+      "start": 2684354560,
+      "end": 2717908991,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 81,
+      "start": 2717908992,
+      "end": 2751463423,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 82,
+      "start": 2751463424,
+      "end": 2785017855,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 83,
+      "start": 2785017856,
+      "end": 2818572287,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 84,
+      "start": 2818572288,
+      "end": 2852126719,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 85,
+      "start": 2852126720,
+      "end": 2885681151,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 86,
+      "start": 2885681152,
+      "end": 2919235583,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 87,
+      "start": 2919235584,
+      "end": 2952790015,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 88,
+      "start": 2952790016,
+      "end": 2986344447,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 89,
+      "start": 2986344448,
+      "end": 3019898879,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 90,
+      "start": 3019898880,
+      "end": 3053453311,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 91,
+      "start": 3053453312,
+      "end": 3087007743,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 92,
+      "start": 3087007744,
+      "end": 3120562175,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 93,
+      "start": 3120562176,
+      "end": 3154116607,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 94,
+      "start": 3154116608,
+      "end": 3187671039,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 95,
+      "start": 3187671040,
+      "end": 3221225471,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 96,
+      "start": 3221225472,
+      "end": 3254779903,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 97,
+      "start": 3254779904,
+      "end": 3288334335,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 98,
+      "start": 3288334336,
+      "end": 3321888767,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 99,
+      "start": 3321888768,
+      "end": 3355443199,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 100,
+      "start": 3355443200,
+      "end": 3388997631,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 101,
+      "start": 3388997632,
+      "end": 3422552063,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 102,
+      "start": 3422552064,
+      "end": 3456106495,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 103,
+      "start": 3456106496,
+      "end": 3489660927,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 104,
+      "start": 3489660928,
+      "end": 3523215359,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 105,
+      "start": 3523215360,
+      "end": 3556769791,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 106,
+      "start": 3556769792,
+      "end": 3590324223,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 107,
+      "start": 3590324224,
+      "end": 3623878655,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 108,
+      "start": 3623878656,
+      "end": 3657433087,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 109,
+      "start": 3657433088,
+      "end": 3690987519,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 110,
+      "start": 3690987520,
+      "end": 3724541951,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 111,
+      "start": 3724541952,
+      "end": 3758096383,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 112,
+      "start": 3758096384,
+      "end": 3791650815,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 113,
+      "start": 3791650816,
+      "end": 3825205247,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 114,
+      "start": 3825205248,
+      "end": 3858759679,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 115,
+      "start": 3858759680,
+      "end": 3892314111,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 116,
+      "start": 3892314112,
+      "end": 3925868543,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 117,
+      "start": 3925868544,
+      "end": 3959422975,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 118,
+      "start": 3959422976,
+      "end": 3992977407,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 119,
+      "start": 3992977408,
+      "end": 4026531839,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 120,
+      "start": 4026531840,
+      "end": 4060086271,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 121,
+      "start": 4060086272,
+      "end": 4093640703,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 122,
+      "start": 4093640704,
+      "end": 4127195135,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 123,
+      "start": 4127195136,
+      "end": 4160749567,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 124,
+      "start": 4160749568,
+      "end": 4194303999,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 125,
+      "start": 4194304000,
+      "end": 4227858431,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 126,
+      "start": 4227858432,
+      "end": 4261412863,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 127,
+      "start": 4261412864,
+      "end": 4294967295,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 128,
+      "start": 4294967296,
+      "end": 4328521727,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 129,
+      "start": 4328521728,
+      "end": 4362076159,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 130,
+      "start": 4362076160,
+      "end": 4395630591,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 131,
+      "start": 4395630592,
+      "end": 4429185023,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 132,
+      "start": 4429185024,
+      "end": 4462739455,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 133,
+      "start": 4462739456,
+      "end": 4496293887,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 134,
+      "start": 4496293888,
+      "end": 4529848319,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 135,
+      "start": 4529848320,
+      "end": 4563402751,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 136,
+      "start": 4563402752,
+      "end": 4596957183,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 137,
+      "start": 4596957184,
+      "end": 4630511615,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 138,
+      "start": 4630511616,
+      "end": 4664066047,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 139,
+      "start": 4664066048,
+      "end": 4697620479,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 140,
+      "start": 4697620480,
+      "end": 4731174911,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 141,
+      "start": 4731174912,
+      "end": 4764729343,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 142,
+      "start": 4764729344,
+      "end": 4798283775,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 143,
+      "start": 4798283776,
+      "end": 4831838207,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 144,
+      "start": 4831838208,
+      "end": 4865392639,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 145,
+      "start": 4865392640,
+      "end": 4898947071,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 146,
+      "start": 4898947072,
+      "end": 4932501503,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 147,
+      "start": 4932501504,
+      "end": 4966055935,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 148,
+      "start": 4966055936,
+      "end": 4999610367,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 149,
+      "start": 4999610368,
+      "end": 5033164799,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 150,
+      "start": 5033164800,
+      "end": 5066719231,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 151,
+      "start": 5066719232,
+      "end": 5100273663,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 152,
+      "start": 5100273664,
+      "end": 5133828095,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 153,
+      "start": 5133828096,
+      "end": 5167382527,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 154,
+      "start": 5167382528,
+      "end": 5200936959,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 155,
+      "start": 5200936960,
+      "end": 5234491391,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 156,
+      "start": 5234491392,
+      "end": 5268045823,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 157,
+      "start": 5268045824,
+      "end": 5301600255,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 158,
+      "start": 5301600256,
+      "end": 5335154687,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 159,
+      "start": 5335154688,
+      "end": 5368709119,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 160,
+      "start": 5368709120,
+      "end": 5402263551,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 161,
+      "start": 5402263552,
+      "end": 5435817983,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 162,
+      "start": 5435817984,
+      "end": 5469372415,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 163,
+      "start": 5469372416,
+      "end": 5502926847,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 164,
+      "start": 5502926848,
+      "end": 5536481279,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 165,
+      "start": 5536481280,
+      "end": 5570035711,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 166,
+      "start": 5570035712,
+      "end": 5603590143,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 167,
+      "start": 5603590144,
+      "end": 5637144575,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 168,
+      "start": 5637144576,
+      "end": 5670699007,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 169,
+      "start": 5670699008,
+      "end": 5704253439,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 170,
+      "start": 5704253440,
+      "end": 5737807871,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 171,
+      "start": 5737807872,
+      "end": 5771362303,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 172,
+      "start": 5771362304,
+      "end": 5804916735,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 173,
+      "start": 5804916736,
+      "end": 5838471167,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 174,
+      "start": 5838471168,
+      "end": 5872025599,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 175,
+      "start": 5872025600,
+      "end": 5905580031,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 176,
+      "start": 5905580032,
+      "end": 5939134463,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 177,
+      "start": 5939134464,
+      "end": 5972688895,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 178,
+      "start": 5972688896,
+      "end": 6006243327,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 179,
+      "start": 6006243328,
+      "end": 6039797759,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 180,
+      "start": 6039797760,
+      "end": 6073352191,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 181,
+      "start": 6073352192,
+      "end": 6106906623,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 182,
+      "start": 6106906624,
+      "end": 6140461055,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 183,
+      "start": 6140461056,
+      "end": 6174015487,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 184,
+      "start": 6174015488,
+      "end": 6207569919,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 185,
+      "start": 6207569920,
+      "end": 6241124351,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 186,
+      "start": 6241124352,
+      "end": 6274678783,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 187,
+      "start": 6274678784,
+      "end": 6308233215,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 188,
+      "start": 6308233216,
+      "end": 6341787647,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 189,
+      "start": 6341787648,
+      "end": 6375342079,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 190,
+      "start": 6375342080,
+      "end": 6408896511,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 191,
+      "start": 6408896512,
+      "end": 6442450943,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 192,
+      "start": 6442450944,
+      "end": 6476005375,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 193,
+      "start": 6476005376,
+      "end": 6509559807,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 194,
+      "start": 6509559808,
+      "end": 6543114239,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 195,
+      "start": 6543114240,
+      "end": 6576668671,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 196,
+      "start": 6576668672,
+      "end": 6610223103,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 197,
+      "start": 6610223104,
+      "end": 6643777535,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 198,
+      "start": 6643777536,
+      "end": 6677331967,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 199,
+      "start": 6677331968,
+      "end": 6710886399,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 200,
+      "start": 6710886400,
+      "end": 6744440831,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 201,
+      "start": 6744440832,
+      "end": 6777995263,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 202,
+      "start": 6777995264,
+      "end": 6811549695,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 203,
+      "start": 6811549696,
+      "end": 6845104127,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 204,
+      "start": 6845104128,
+      "end": 6878658559,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 205,
+      "start": 6878658560,
+      "end": 6912212991,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 206,
+      "start": 6912212992,
+      "end": 6945767423,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 207,
+      "start": 6945767424,
+      "end": 6979321855,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 208,
+      "start": 6979321856,
+      "end": 7012876287,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 209,
+      "start": 7012876288,
+      "end": 7046430719,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 210,
+      "start": 7046430720,
+      "end": 7079985151,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 211,
+      "start": 7079985152,
+      "end": 7113539583,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 212,
+      "start": 7113539584,
+      "end": 7147094015,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 213,
+      "start": 7147094016,
+      "end": 7180648447,
+      "downloaded": 29376438,
+      "completed": false
+    },
+    {
+      "index": 214,
+      "start": 7180648448,
+      "end": 7214202879,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 215,
+      "start": 7214202880,
+      "end": 7247757311,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 216,
+      "start": 7247757312,
+      "end": 7281311743,
+      "downloaded": 33554432,
+      "completed": true
+    },
+    {
+      "index": 217,
+      "start": 7281311744,
+      "end": 7314866175,
+      "downloaded": 8404614,
+      "completed": false
+    },
+    {
+      "index": 218,
+      "start": 7314866176,
+      "end": 7348420607,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 219,
+      "start": 7348420608,
+      "end": 7381975039,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 220,
+      "start": 7381975040,
+      "end": 7415529471,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 221,
+      "start": 7415529472,
+      "end": 7449083903,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 222,
+      "start": 7449083904,
+      "end": 7482638335,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 223,
+      "start": 7482638336,
+      "end": 7516192767,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 224,
+      "start": 7516192768,
+      "end": 7549747199,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 225,
+      "start": 7549747200,
+      "end": 7583301631,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 226,
+      "start": 7583301632,
+      "end": 7616856063,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 227,
+      "start": 7616856064,
+      "end": 7650410495,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 228,
+      "start": 7650410496,
+      "end": 7683964927,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 229,
+      "start": 7683964928,
+      "end": 7717519359,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 230,
+      "start": 7717519360,
+      "end": 7751073791,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 231,
+      "start": 7751073792,
+      "end": 7784628223,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 232,
+      "start": 7784628224,
+      "end": 7818182655,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 233,
+      "start": 7818182656,
+      "end": 7851737087,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 234,
+      "start": 7851737088,
+      "end": 7885291519,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 235,
+      "start": 7885291520,
+      "end": 7918845951,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 236,
+      "start": 7918845952,
+      "end": 7952400383,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 237,
+      "start": 7952400384,
+      "end": 7985954815,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 238,
+      "start": 7985954816,
+      "end": 8019509247,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 239,
+      "start": 8019509248,
+      "end": 8053063679,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 240,
+      "start": 8053063680,
+      "end": 8086618111,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 241,
+      "start": 8086618112,
+      "end": 8120172543,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 242,
+      "start": 8120172544,
+      "end": 8153726975,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 243,
+      "start": 8153726976,
+      "end": 8187281407,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 244,
+      "start": 8187281408,
+      "end": 8220835839,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 245,
+      "start": 8220835840,
+      "end": 8254390271,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 246,
+      "start": 8254390272,
+      "end": 8287944703,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 247,
+      "start": 8287944704,
+      "end": 8321499135,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 248,
+      "start": 8321499136,
+      "end": 8355053567,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 249,
+      "start": 8355053568,
+      "end": 8388607999,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 250,
+      "start": 8388608000,
+      "end": 8422162431,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 251,
+      "start": 8422162432,
+      "end": 8455716863,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 252,
+      "start": 8455716864,
+      "end": 8489271295,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 253,
+      "start": 8489271296,
+      "end": 8522825727,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 254,
+      "start": 8522825728,
+      "end": 8556380159,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 255,
+      "start": 8556380160,
+      "end": 8589934591,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 256,
+      "start": 8589934592,
+      "end": 8623489023,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 257,
+      "start": 8623489024,
+      "end": 8657043455,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 258,
+      "start": 8657043456,
+      "end": 8690597887,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 259,
+      "start": 8690597888,
+      "end": 8724152319,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 260,
+      "start": 8724152320,
+      "end": 8757706751,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 261,
+      "start": 8757706752,
+      "end": 8791261183,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 262,
+      "start": 8791261184,
+      "end": 8824815615,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 263,
+      "start": 8824815616,
+      "end": 8858370047,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 264,
+      "start": 8858370048,
+      "end": 8891924479,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 265,
+      "start": 8891924480,
+      "end": 8925478911,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 266,
+      "start": 8925478912,
+      "end": 8959033343,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 267,
+      "start": 8959033344,
+      "end": 8992587775,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 268,
+      "start": 8992587776,
+      "end": 9026142207,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 269,
+      "start": 9026142208,
+      "end": 9059696639,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 270,
+      "start": 9059696640,
+      "end": 9093251071,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 271,
+      "start": 9093251072,
+      "end": 9126805503,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 272,
+      "start": 9126805504,
+      "end": 9160359935,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 273,
+      "start": 9160359936,
+      "end": 9193914367,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 274,
+      "start": 9193914368,
+      "end": 9227468799,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 275,
+      "start": 9227468800,
+      "end": 9261023231,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 276,
+      "start": 9261023232,
+      "end": 9294577663,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 277,
+      "start": 9294577664,
+      "end": 9328132095,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 278,
+      "start": 9328132096,
+      "end": 9361686527,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 279,
+      "start": 9361686528,
+      "end": 9395240959,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 280,
+      "start": 9395240960,
+      "end": 9428795391,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 281,
+      "start": 9428795392,
+      "end": 9462349823,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 282,
+      "start": 9462349824,
+      "end": 9495904255,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 283,
+      "start": 9495904256,
+      "end": 9529458687,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 284,
+      "start": 9529458688,
+      "end": 9563013119,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 285,
+      "start": 9563013120,
+      "end": 9596567551,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 286,
+      "start": 9596567552,
+      "end": 9630121983,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 287,
+      "start": 9630121984,
+      "end": 9663676415,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 288,
+      "start": 9663676416,
+      "end": 9697230847,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 289,
+      "start": 9697230848,
+      "end": 9730785279,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 290,
+      "start": 9730785280,
+      "end": 9764339711,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 291,
+      "start": 9764339712,
+      "end": 9797894143,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 292,
+      "start": 9797894144,
+      "end": 9831448575,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 293,
+      "start": 9831448576,
+      "end": 9865003007,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 294,
+      "start": 9865003008,
+      "end": 9898557439,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 295,
+      "start": 9898557440,
+      "end": 9932111871,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 296,
+      "start": 9932111872,
+      "end": 9965666303,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 297,
+      "start": 9965666304,
+      "end": 9999220735,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 298,
+      "start": 9999220736,
+      "end": 10032775167,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 299,
+      "start": 10032775168,
+      "end": 10066329599,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 300,
+      "start": 10066329600,
+      "end": 10099884031,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 301,
+      "start": 10099884032,
+      "end": 10133438463,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 302,
+      "start": 10133438464,
+      "end": 10166992895,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 303,
+      "start": 10166992896,
+      "end": 10200547327,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 304,
+      "start": 10200547328,
+      "end": 10234101759,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 305,
+      "start": 10234101760,
+      "end": 10267656191,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 306,
+      "start": 10267656192,
+      "end": 10301210623,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 307,
+      "start": 10301210624,
+      "end": 10334765055,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 308,
+      "start": 10334765056,
+      "end": 10368319487,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 309,
+      "start": 10368319488,
+      "end": 10401873919,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 310,
+      "start": 10401873920,
+      "end": 10435428351,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 311,
+      "start": 10435428352,
+      "end": 10468982783,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 312,
+      "start": 10468982784,
+      "end": 10502537215,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 313,
+      "start": 10502537216,
+      "end": 10536091647,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 314,
+      "start": 10536091648,
+      "end": 10569646079,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 315,
+      "start": 10569646080,
+      "end": 10603200511,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 316,
+      "start": 10603200512,
+      "end": 10636754943,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 317,
+      "start": 10636754944,
+      "end": 10670309375,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 318,
+      "start": 10670309376,
+      "end": 10703863807,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 319,
+      "start": 10703863808,
+      "end": 10737418239,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 320,
+      "start": 10737418240,
+      "end": 10770972671,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 321,
+      "start": 10770972672,
+      "end": 10804527103,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 322,
+      "start": 10804527104,
+      "end": 10838081535,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 323,
+      "start": 10838081536,
+      "end": 10871635967,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 324,
+      "start": 10871635968,
+      "end": 10905190399,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 325,
+      "start": 10905190400,
+      "end": 10938744831,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 326,
+      "start": 10938744832,
+      "end": 10954141189,
+      "downloaded": 0,
+      "completed": false
+    }
+  ],
+  "supportsRanges": true,
+  "createdAt": 1775132557456,
+  "updatedAt": 1775132814617
+}

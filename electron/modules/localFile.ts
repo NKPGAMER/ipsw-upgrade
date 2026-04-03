@@ -1,5 +1,5 @@
 import { join } from "path";
-import { readdirSync, statSync, createReadStream, stat } from "fs";
+import { readdirSync, statSync, createReadStream, stat, promises, existsSync } from "fs";
 import { createHash } from 'crypto';
 
 
@@ -22,16 +22,16 @@ async function createMd5(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const hash = createHash('md5');
-    
+
     // Tăng buffer size cho file lớn (mặc định 64KB -> 1MB)
     const highWaterMark = options?.highWaterMark || 1024 * 1024; // 1MB
     const throttleMs = options?.throttleMs || 500; // Update mỗi 500ms
-    
-    const stream = createReadStream(filePath, { 
+
+    const stream = createReadStream(filePath, {
       highWaterMark,
       autoClose: true
     });
-    
+
     let totalBytes = 0;
     let bytesRead = 0;
     let lastTime = Date.now();
@@ -54,14 +54,14 @@ async function createMd5(
       // Throttle progress updates để tránh gọi quá nhiều
       if (options?.onProgress && totalBytes > 0) {
         const now = Date.now();
-        
+
         if (now - lastProgressUpdate >= throttleMs) {
           const timeDiff = (now - lastTime) / 1000; // giây
           const bytesDiff = bytesRead - lastBytesRead;
-          
+
           const speed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
           const percent = (bytesRead / totalBytes) * 100;
-          
+
           // Tính ETA (Estimated Time of Arrival)
           const remainingBytes = totalBytes - bytesRead;
           const eta = speed > 0 ? Math.round(remainingBytes / speed) : 0;
@@ -92,7 +92,7 @@ async function createMd5(
           eta: 0
         });
       }
-      
+
       const md5 = hash.digest('hex');
       resolve(md5);
     });
@@ -105,7 +105,17 @@ async function createMd5(
   });
 }
 
-export { 
+async function deleteFile(filePath: string): Promise<{ success: boolean, error?: string }> {
+  try {
+    await promises.unlink(filePath);
+    return { success: existsSync(filePath) };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export {
   scanFolder,
-  createMd5
+  createMd5,
+  deleteFile
 };

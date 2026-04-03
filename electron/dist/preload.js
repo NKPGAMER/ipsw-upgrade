@@ -1,10 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
+function listen(channel, cb) {
+    const handler = (_, ...args) => cb(...args);
+    electron_1.ipcRenderer.on(channel, handler);
+    return {
+        unsubscribe: () => electron_1.ipcRenderer.removeListener(channel, handler)
+    };
+}
+const versionArg = process.argv.find(arg => arg.startsWith('--app-version'));
 const api = {
     getDiskSpace: (targetPath) => electron_1.ipcRenderer.invoke('getDiskSpace', targetPath),
     formatBytes: (bytes, decimals) => electron_1.ipcRenderer.invoke('formatBytes', bytes, decimals),
-    getVersion: () => electron_1.ipcRenderer.invoke('get-version'),
+    getVersion: versionArg ? versionArg.split("=")[1] : "unknown",
     selectFolder: () => electron_1.ipcRenderer.invoke('select-folder'),
     selectFile: (options) => electron_1.ipcRenderer.invoke('select-file', options),
     getFiles: (folder) => electron_1.ipcRenderer.invoke('get:files:ipsw', folder),
@@ -39,6 +47,12 @@ const api = {
             callback(data);
         });
     },
+    getOnlineState: () => electron_1.ipcRenderer.invoke('app-get-online-state'),
+    onInternetChanged(callback) {
+        electron_1.ipcRenderer.on('internet-changed', (_, online) => {
+            callback(online);
+        });
+    },
     onAppClose(callback) {
         electron_1.ipcRenderer.on('onAppClose', (_, event) => {
             callback(event);
@@ -51,36 +65,7 @@ const api = {
         deleteFile: (fileName) => electron_1.ipcRenderer.invoke('user:deleteFile', fileName),
         read: (fileName) => electron_1.ipcRenderer.invoke('user:read', fileName),
         write: (fileName, data) => electron_1.ipcRenderer.invoke('user:write', fileName, data),
-    },
-    app: {
-        close: (destroy) => electron_1.ipcRenderer.invoke('app:close', destroy)
     }
-};
-const downloaderApi = {
-    onDownloadComplete: (callback) => {
-        electron_1.ipcRenderer.on('download-complete', (_, data) => {
-            callback(data);
-        });
-    },
-    onDownloadError: (callback) => {
-        electron_1.ipcRenderer.on('download-error', (_, data) => {
-            callback(data);
-        });
-    },
-    onDownloadProgress: (callback) => {
-        const subscription = (_event, progress) => {
-            callback(progress);
-        };
-        electron_1.ipcRenderer.on('download-progress', subscription);
-        return () => {
-            electron_1.ipcRenderer.removeListener('download-progress', subscription);
-        };
-    },
-    download: (request, options) => electron_1.ipcRenderer.invoke('download', request, options),
-    pauseDownload: (downloadId) => electron_1.ipcRenderer.invoke('download:pause', downloadId),
-    resumeDownload: (downloadId) => electron_1.ipcRenderer.invoke('download:resume', downloadId),
-    cancelDownload: (downloadId) => electron_1.ipcRenderer.invoke('download:cancel', downloadId),
-    getActiveDownloads: () => electron_1.ipcRenderer.invoke('download:getActiveDownloads')
 };
 const storeApi = {
     set: (key, value) => electron_1.ipcRenderer.invoke('store', 'set', key, value),
@@ -96,8 +81,26 @@ const updaterApi = {
     start: () => electron_1.ipcRenderer.send('updater:start'),
     install: () => electron_1.ipcRenderer.send('updater:install')
 };
+const downloaderAPI = {
+    add: (fw, sp) => electron_1.ipcRenderer.invoke('dm:add', fw, sp),
+    pause: (id) => electron_1.ipcRenderer.invoke("dm:pause", id),
+    resume: (id) => electron_1.ipcRenderer.invoke("dm:resume", id),
+    cancel: (id) => electron_1.ipcRenderer.invoke("dm:cancel", id),
+    getAllTask: () => electron_1.ipcRenderer.invoke("dm:getAllTask"),
+    getIncompleteTasks: () => electron_1.ipcRenderer.invoke("dm:getAllTask"),
+    resumeIncomplete: (id) => electron_1.ipcRenderer.invoke("dm:resumeIncomplete", id),
+    deleteIncomplete: (id) => electron_1.ipcRenderer.invoke("dm:deleteIncomplete", id),
+    onAdded: (cb) => listen("dm:added", cb),
+    onCompleted: (cb) => listen("dm:completed", cb),
+    onProgress: (cb) => listen("dm:progress", cb),
+    onPaused: (cb) => listen("dm:paused", cb),
+    onResumed: (cb) => listen("dm:resumed", cb),
+    onCancelled: (cb) => listen("dm:cancelled", cb),
+    onIncompleteDeleted: (cb) => listen("dm:incomplete_deleted", cb),
+    onError: (cb) => listen("dm:error", cb),
+};
 electron_1.contextBridge.exposeInMainWorld('api', api);
-electron_1.contextBridge.exposeInMainWorld('downloader', downloaderApi);
+electron_1.contextBridge.exposeInMainWorld('downloader', downloaderAPI);
 electron_1.contextBridge.exposeInMainWorld('store', storeApi);
 electron_1.contextBridge.exposeInMainWorld('updater', updaterApi);
 electron_1.contextBridge.exposeInMainWorld('ipsw_api', {

@@ -24,7 +24,6 @@ export default {
         closeBtn: document.getElementById('closeSettings') as HTMLButtonElement,
         about: {
             version: document.getElementById('version') as HTMLDivElement,
-            checkUpdate: document.getElementById('checkUpdate') as HTMLButtonElement
         },
         download: {
             selectPath: document.getElementById('selectPathBtn') as HTMLButtonElement,

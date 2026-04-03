@@ -5,12 +5,12 @@
         "lib": ["ESNext", "DOM"],
         "outDir": "dist",
         "rootDir": "src",
-        "moduleResolution": "node",
         "esModuleInterop": true,
         "strict": true,
         "skipLibCheck": true,
-        "typeRoots": ["src/@types", "node_modules/@types"]
+        "jsx": "react-jsx",
+        "resolveJsonModule": true
     },
-    "include": ["src"],
+    "include": ["src", "preload.d.ts", "global.d.ts"],
     "exclude": ["node_modules", "**/*.spec.ts"]
 }
