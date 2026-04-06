@@ -94,6 +94,35 @@
     "verify.mismatch": "Kết quả xác minh không khớp",
     "search": "Tìm kiếm...",
     "redundantFirmware.checking": "Đang tìm các tệp không cần thiết. Vui lòng chờ",
+    "app": {
+        "data": {
+            "update": {
+                "start": "Có dữ liệu mới từ server. Đang cập nhật",
+                "success": "Cập nhật hoàn tất"
+            }
+        }
+    },
+    "message": {
+        "app": {
+            "deleteAllFirmware": {
+                "success": "Đã xóa {{count}} tệp không cần thiết"
+            }
+        },
+        "downloader": {
+            "sendRequest": "Đang gửi yêu cầu tải xuống",
+            "start": "Bắt đầu tải xuống",
+            "error": {
+                "DISK_FULL": "Bộ nhớ đã đầy. Hãy dọn dẹp ổ hoặc đổi sang đường dẫn tải xuống khác trước khi tải",
+                "ALREADY_IN_LIST": "Tệp này đã có trong danh sách tải",
+                "INVALID_URL": "Đường dẫn tải xuống không hợp lệ",
+                "UNKNOWN": "Đã xảy ra lỗi không xác định"
+            }
+        },
+
+        "error": {
+            "UNKNOWN":"Đã xảy ra lỗi không xác định"
+        }
+    },
     "status": {
         "downloading": "Đang tải",
         "paused": "Tạm dừng",

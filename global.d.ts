@@ -69,6 +69,7 @@ export interface IncompleteTask {
   downloadedBytes: number;
   progress: number;          // 0–100
   tmpExists: boolean;        // tmp file still on disk
+  tmpValid: boolean;         // tmp size matches downloaded state (safe to resume)
   savedAt: number;           // updatedAt timestamp from state
 }
 

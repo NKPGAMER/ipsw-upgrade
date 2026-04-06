@@ -91,9 +91,16 @@ async function createMd5(filePath, options) {
 async function deleteFile(filePath) {
     try {
         await fs_1.promises.unlink(filePath);
-        return { success: (0, fs_1.existsSync)(filePath) };
+        return { success: true };
     }
     catch (err) {
-        return { success: false, error: err.message };
+        if (err.code === "ENOENT") {
+            return { success: true };
+        }
+        return {
+            success: false,
+            error: err.message,
+            code: err.code,
+        };
     }
 }

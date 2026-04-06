@@ -1,3 +1,5 @@
+import utils from "./utils";
+
 interface DeviceResponse {
   name: string;
   identifier: string;
@@ -132,9 +134,7 @@ async function validateOrDeleteFile(filePath: string, stored: StoredData | Model
 
 // Load danh sách devices
 async function loadDevices(): Promise<void> {
-  console.log("Load Devices")
   const filePath = 'devices.json';
-
   try {
     const stored = await window.api.userData.read(filePath);
 
@@ -142,11 +142,8 @@ async function loadDevices(): Promise<void> {
       const data: StoredData = JSON.parse(stored);
 
       const isValid = await validateOrDeleteFile(filePath, data);
-      console.log("Valid", isValid)
       if (isValid) {
         const latestRelease = await fetchLatestRelease();
-        console.log(latestRelease)
-
         if (!shouldUpdate(data.lastRelease, latestRelease)) {
           devices = data.data;
           devices.forEach(device => deviceMap.set(device.identifier, device));
@@ -158,7 +155,9 @@ async function loadDevices(): Promise<void> {
     }
   } catch {}
 
+  utils.showSuccessMessage({ id: "app.data.update.start" });
   await loadDevicesFromAPI();
+  utils.showSuccessMessage({ id: "app.data.update.success" });
 }
 
 // Tải devices từ API

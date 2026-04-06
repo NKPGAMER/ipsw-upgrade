@@ -67,7 +67,9 @@ async function init() {
         maxConcurrentTasks: 3,
         maxConnectionsPerTask: 16,
         initialConnectionsPerTask: 4,
-        chunkSize: 128 * 1024 * 1024 // MB
+        chunkSize: 64 * 1024 * 1024, // MB
+        skipVerify: true,
+        adaptiveBuffer: false,
     });
     loadRenderer(mainWindow);
     registerMainWindowEvents(mainWindow);

@@ -105,12 +105,24 @@ async function createMd5(
   });
 }
 
-async function deleteFile(filePath: string): Promise<{ success: boolean, error?: string }> {
+async function deleteFile(filePath: string): Promise<{
+  success: boolean;
+  error?: string;
+  code?: string;
+}> {
   try {
     await promises.unlink(filePath);
-    return { success: existsSync(filePath) };
+    return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message };
+    if (err.code === "ENOENT") {
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: err.message,
+      code: err.code,
+    };
   }
 }
 

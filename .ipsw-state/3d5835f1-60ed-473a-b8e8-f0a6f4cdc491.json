@@ -1,0 +1,1207 @@
+{
+  "id": "3d5835f1-60ed-473a-b8e8-f0a6f4cdc491",
+  "firmware": {
+    "identifier": "iPhone18,1",
+    "version": "26.4",
+    "buildid": "23E246",
+    "sha1sum": "207d314aeb669537051d8934e97018489c94f54d",
+    "md5sum": "529937ade33f64a4c780d6e376a4ddc5",
+    "sha256sum": "1e1f311fde3e58dd092f7cd727fa65742913330a9dc80e9734d5faa2d0238c97",
+    "filesize": 11320893621,
+    "url": "https://updates.cdn-apple.com/2026SpringFCS/fullrestores/122-01483/985F1DAD-1F04-4D76-8D79-393E165867DD/iPhone18,1_26.4_23E246_Restore.ipsw",
+    "releasedate": "2026-03-24T17:39:42Z",
+    "uploaddate": "2026-03-21T16:54:57Z",
+    "signed": true
+  },
+  "savePath": "D:\\ShaLouData\\file\\ipsw",
+  "tmpPath": "C:\\Users\\Dell\\AppData\\Local\\Temp\\3d5835f1-60ed-473a-b8e8-f0a6f4cdc491.ipsw.tmp",
+  "totalSize": 11320893621,
+  "chunks": [
+    {
+      "index": 0,
+      "start": 0,
+      "end": 67108863,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 1,
+      "start": 67108864,
+      "end": 134217727,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 2,
+      "start": 134217728,
+      "end": 201326591,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 3,
+      "start": 201326592,
+      "end": 268435455,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 4,
+      "start": 268435456,
+      "end": 335544319,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 5,
+      "start": 335544320,
+      "end": 402653183,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 6,
+      "start": 402653184,
+      "end": 469762047,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 7,
+      "start": 469762048,
+      "end": 536870911,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 8,
+      "start": 536870912,
+      "end": 603979775,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 9,
+      "start": 603979776,
+      "end": 671088639,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 10,
+      "start": 671088640,
+      "end": 738197503,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 11,
+      "start": 738197504,
+      "end": 805306367,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 12,
+      "start": 805306368,
+      "end": 872415231,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 13,
+      "start": 872415232,
+      "end": 939524095,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 14,
+      "start": 939524096,
+      "end": 1006632959,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 15,
+      "start": 1006632960,
+      "end": 1073741823,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 16,
+      "start": 1073741824,
+      "end": 1140850687,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 17,
+      "start": 1140850688,
+      "end": 1207959551,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 18,
+      "start": 1207959552,
+      "end": 1275068415,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 19,
+      "start": 1275068416,
+      "end": 1342177279,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 20,
+      "start": 1342177280,
+      "end": 1409286143,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 21,
+      "start": 1409286144,
+      "end": 1476395007,
+      "downloaded": 58735873,
+      "completed": false
+    },
+    {
+      "index": 22,
+      "start": 1476395008,
+      "end": 1543503871,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 23,
+      "start": 1543503872,
+      "end": 1610612735,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 24,
+      "start": 1610612736,
+      "end": 1677721599,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 25,
+      "start": 1677721600,
+      "end": 1744830463,
+      "downloaded": 67108864,
+      "completed": true
+    },
+    {
+      "index": 26,
+      "start": 1744830464,
+      "end": 1811939327,
+      "downloaded": 25180552,
+      "completed": false
+    },
+    {
+      "index": 27,
+      "start": 1811939328,
+      "end": 1879048191,
+      "downloaded": 29372724,
+      "completed": false
+    },
+    {
+      "index": 28,
+      "start": 1879048192,
+      "end": 1946157055,
+      "downloaded": 12597826,
+      "completed": false
+    },
+    {
+      "index": 29,
+      "start": 1946157056,
+      "end": 2013265919,
+      "downloaded": 25181892,
+      "completed": false
+    },
+    {
+      "index": 30,
+      "start": 2013265920,
+      "end": 2080374783,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 31,
+      "start": 2080374784,
+      "end": 2147483647,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 32,
+      "start": 2147483648,
+      "end": 2214592511,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 33,
+      "start": 2214592512,
+      "end": 2281701375,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 34,
+      "start": 2281701376,
+      "end": 2348810239,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 35,
+      "start": 2348810240,
+      "end": 2415919103,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 36,
+      "start": 2415919104,
+      "end": 2483027967,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 37,
+      "start": 2483027968,
+      "end": 2550136831,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 38,
+      "start": 2550136832,
+      "end": 2617245695,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 39,
+      "start": 2617245696,
+      "end": 2684354559,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 40,
+      "start": 2684354560,
+      "end": 2751463423,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 41,
+      "start": 2751463424,
+      "end": 2818572287,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 42,
+      "start": 2818572288,
+      "end": 2885681151,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 43,
+      "start": 2885681152,
+      "end": 2952790015,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 44,
+      "start": 2952790016,
+      "end": 3019898879,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 45,
+      "start": 3019898880,
+      "end": 3087007743,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 46,
+      "start": 3087007744,
+      "end": 3154116607,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 47,
+      "start": 3154116608,
+      "end": 3221225471,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 48,
+      "start": 3221225472,
+      "end": 3288334335,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 49,
+      "start": 3288334336,
+      "end": 3355443199,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 50,
+      "start": 3355443200,
+      "end": 3422552063,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 51,
+      "start": 3422552064,
+      "end": 3489660927,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 52,
+      "start": 3489660928,
+      "end": 3556769791,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 53,
+      "start": 3556769792,
+      "end": 3623878655,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 54,
+      "start": 3623878656,
+      "end": 3690987519,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 55,
+      "start": 3690987520,
+      "end": 3758096383,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 56,
+      "start": 3758096384,
+      "end": 3825205247,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 57,
+      "start": 3825205248,
+      "end": 3892314111,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 58,
+      "start": 3892314112,
+      "end": 3959422975,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 59,
+      "start": 3959422976,
+      "end": 4026531839,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 60,
+      "start": 4026531840,
+      "end": 4093640703,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 61,
+      "start": 4093640704,
+      "end": 4160749567,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 62,
+      "start": 4160749568,
+      "end": 4227858431,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 63,
+      "start": 4227858432,
+      "end": 4294967295,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 64,
+      "start": 4294967296,
+      "end": 4362076159,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 65,
+      "start": 4362076160,
+      "end": 4429185023,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 66,
+      "start": 4429185024,
+      "end": 4496293887,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 67,
+      "start": 4496293888,
+      "end": 4563402751,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 68,
+      "start": 4563402752,
+      "end": 4630511615,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 69,
+      "start": 4630511616,
+      "end": 4697620479,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 70,
+      "start": 4697620480,
+      "end": 4764729343,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 71,
+      "start": 4764729344,
+      "end": 4831838207,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 72,
+      "start": 4831838208,
+      "end": 4898947071,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 73,
+      "start": 4898947072,
+      "end": 4966055935,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 74,
+      "start": 4966055936,
+      "end": 5033164799,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 75,
+      "start": 5033164800,
+      "end": 5100273663,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 76,
+      "start": 5100273664,
+      "end": 5167382527,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 77,
+      "start": 5167382528,
+      "end": 5234491391,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 78,
+      "start": 5234491392,
+      "end": 5301600255,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 79,
+      "start": 5301600256,
+      "end": 5368709119,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 80,
+      "start": 5368709120,
+      "end": 5435817983,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 81,
+      "start": 5435817984,
+      "end": 5502926847,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 82,
+      "start": 5502926848,
+      "end": 5570035711,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 83,
+      "start": 5570035712,
+      "end": 5637144575,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 84,
+      "start": 5637144576,
+      "end": 5704253439,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 85,
+      "start": 5704253440,
+      "end": 5771362303,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 86,
+      "start": 5771362304,
+      "end": 5838471167,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 87,
+      "start": 5838471168,
+      "end": 5905580031,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 88,
+      "start": 5905580032,
+      "end": 5972688895,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 89,
+      "start": 5972688896,
+      "end": 6039797759,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 90,
+      "start": 6039797760,
+      "end": 6106906623,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 91,
+      "start": 6106906624,
+      "end": 6174015487,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 92,
+      "start": 6174015488,
+      "end": 6241124351,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 93,
+      "start": 6241124352,
+      "end": 6308233215,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 94,
+      "start": 6308233216,
+      "end": 6375342079,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 95,
+      "start": 6375342080,
+      "end": 6442450943,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 96,
+      "start": 6442450944,
+      "end": 6509559807,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 97,
+      "start": 6509559808,
+      "end": 6576668671,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 98,
+      "start": 6576668672,
+      "end": 6643777535,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 99,
+      "start": 6643777536,
+      "end": 6710886399,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 100,
+      "start": 6710886400,
+      "end": 6777995263,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 101,
+      "start": 6777995264,
+      "end": 6845104127,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 102,
+      "start": 6845104128,
+      "end": 6912212991,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 103,
+      "start": 6912212992,
+      "end": 6979321855,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 104,
+      "start": 6979321856,
+      "end": 7046430719,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 105,
+      "start": 7046430720,
+      "end": 7113539583,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 106,
+      "start": 7113539584,
+      "end": 7180648447,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 107,
+      "start": 7180648448,
+      "end": 7247757311,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 108,
+      "start": 7247757312,
+      "end": 7314866175,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 109,
+      "start": 7314866176,
+      "end": 7381975039,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 110,
+      "start": 7381975040,
+      "end": 7449083903,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 111,
+      "start": 7449083904,
+      "end": 7516192767,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 112,
+      "start": 7516192768,
+      "end": 7583301631,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 113,
+      "start": 7583301632,
+      "end": 7650410495,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 114,
+      "start": 7650410496,
+      "end": 7717519359,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 115,
+      "start": 7717519360,
+      "end": 7784628223,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 116,
+      "start": 7784628224,
+      "end": 7851737087,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 117,
+      "start": 7851737088,
+      "end": 7918845951,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 118,
+      "start": 7918845952,
+      "end": 7985954815,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 119,
+      "start": 7985954816,
+      "end": 8053063679,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 120,
+      "start": 8053063680,
+      "end": 8120172543,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 121,
+      "start": 8120172544,
+      "end": 8187281407,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 122,
+      "start": 8187281408,
+      "end": 8254390271,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 123,
+      "start": 8254390272,
+      "end": 8321499135,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 124,
+      "start": 8321499136,
+      "end": 8388607999,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 125,
+      "start": 8388608000,
+      "end": 8455716863,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 126,
+      "start": 8455716864,
+      "end": 8522825727,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 127,
+      "start": 8522825728,
+      "end": 8589934591,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 128,
+      "start": 8589934592,
+      "end": 8657043455,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 129,
+      "start": 8657043456,
+      "end": 8724152319,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 130,
+      "start": 8724152320,
+      "end": 8791261183,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 131,
+      "start": 8791261184,
+      "end": 8858370047,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 132,
+      "start": 8858370048,
+      "end": 8925478911,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 133,
+      "start": 8925478912,
+      "end": 8992587775,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 134,
+      "start": 8992587776,
+      "end": 9059696639,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 135,
+      "start": 9059696640,
+      "end": 9126805503,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 136,
+      "start": 9126805504,
+      "end": 9193914367,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 137,
+      "start": 9193914368,
+      "end": 9261023231,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 138,
+      "start": 9261023232,
+      "end": 9328132095,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 139,
+      "start": 9328132096,
+      "end": 9395240959,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 140,
+      "start": 9395240960,
+      "end": 9462349823,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 141,
+      "start": 9462349824,
+      "end": 9529458687,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 142,
+      "start": 9529458688,
+      "end": 9596567551,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 143,
+      "start": 9596567552,
+      "end": 9663676415,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 144,
+      "start": 9663676416,
+      "end": 9730785279,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 145,
+      "start": 9730785280,
+      "end": 9797894143,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 146,
+      "start": 9797894144,
+      "end": 9865003007,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 147,
+      "start": 9865003008,
+      "end": 9932111871,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 148,
+      "start": 9932111872,
+      "end": 9999220735,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 149,
+      "start": 9999220736,
+      "end": 10066329599,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 150,
+      "start": 10066329600,
+      "end": 10133438463,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 151,
+      "start": 10133438464,
+      "end": 10200547327,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 152,
+      "start": 10200547328,
+      "end": 10267656191,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 153,
+      "start": 10267656192,
+      "end": 10334765055,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 154,
+      "start": 10334765056,
+      "end": 10401873919,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 155,
+      "start": 10401873920,
+      "end": 10468982783,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 156,
+      "start": 10468982784,
+      "end": 10536091647,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 157,
+      "start": 10536091648,
+      "end": 10603200511,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 158,
+      "start": 10603200512,
+      "end": 10670309375,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 159,
+      "start": 10670309376,
+      "end": 10737418239,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 160,
+      "start": 10737418240,
+      "end": 10804527103,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 161,
+      "start": 10804527104,
+      "end": 10871635967,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 162,
+      "start": 10871635968,
+      "end": 10938744831,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 163,
+      "start": 10938744832,
+      "end": 11005853695,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 164,
+      "start": 11005853696,
+      "end": 11072962559,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 165,
+      "start": 11072962560,
+      "end": 11140071423,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 166,
+      "start": 11140071424,
+      "end": 11207180287,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 167,
+      "start": 11207180288,
+      "end": 11274289151,
+      "downloaded": 0,
+      "completed": false
+    },
+    {
+      "index": 168,
+      "start": 11274289152,
+      "end": 11320893620,
+      "downloaded": 0,
+      "completed": false
+    }
+  ],
+  "supportsRanges": true,
+  "createdAt": 1775356429632,
+  "updatedAt": 1775356487705
+}

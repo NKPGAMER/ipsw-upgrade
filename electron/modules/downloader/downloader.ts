@@ -35,10 +35,10 @@ class MoveQueue {
   // key = drive root (e.g. "C:\" on Windows, "/dev/sdb" on Linux)
   private queues = new Map<string, Promise<void>>();
   private concurrency = new Map<string, number>(); // active count per drive
-  private readonly hddLimit = 1;
-  private readonly ssdLimit = 2;
+  private readonly hddLimit = 2;
+  private readonly ssdLimit = 3;
 
-  constructor(private diskManager: DiskManager) {}
+  constructor(private diskManager: DiskManager) { }
 
   async enqueue(
     src: string,
@@ -53,7 +53,7 @@ class MoveQueue {
     const prev = this.queues.get(key) ?? Promise.resolve();
     const next = prev.then(() => this.runWhenSlotOpen(key, limit, src, dest, onProgress));
     // Store the unchained promise so future tasks chain correctly
-    this.queues.set(key, next.catch(() => {}));
+    this.queues.set(key, next.catch(() => { }));
     return next;
   }
 
@@ -146,6 +146,8 @@ export class IPSWDownloader extends EventEmitter {
       diskBufferGB: config.diskBufferGB ?? 5,
       bandwidthLimitBps: config.bandwidthLimitBps ?? 0,
       tmpDir: config.tmpDir ?? "",
+      adaptiveBuffer: config.adaptiveBuffer ?? false,
+      skipVerify: config.skipVerify ?? false
     };
 
     const stateDir = path.join(process.cwd(), ".ipsw-state");
@@ -408,20 +410,30 @@ export class IPSWDownloader extends EventEmitter {
         retryDelay: this.config.retryDelay,
         bandwidthLimitBps: this.config.bandwidthLimitBps,
         isHDD,
+        adaptiveBuffer: this.config.adaptiveBuffer,
       });
       this.chunkManagers.set(id, cm);
 
       // Wire progress events
       cm.on("progress", (p) => {
-        // p.bytesWritten = total downloaded bytes across all chunks (from ChunkManager)
         const downloaded = p.bytesWritten;
         const total = p.totalBytes > 0 ? p.totalBytes : state!.totalSize;
         task.progress = Math.min(99, Math.floor((downloaded / total) * 100));
-        task.speed = cm.getSpeed();
-        if (task.speed > 0) {
+
+        const speed = cm.getSpeed();
+        task.speed = speed;
+
+        if (speed > 0) {
           const remaining = total - downloaded;
-          task.eta = Math.round(remaining / task.speed);
+          const rawEta = remaining / speed; // giây
+
+          // ETA smoothing riêng: alpha nhỏ hơn speed để ETA đổi chậm hơn
+          const ETA_ALPHA = 0.1;
+          task.eta = task.eta != null && task.eta > 0
+            ? Math.round(ETA_ALPHA * rawEta + (1 - ETA_ALPHA) * task.eta)
+            : Math.round(rawEta);
         }
+
         this.sendEvent("progress", id, task);
       });
 
@@ -436,22 +448,24 @@ export class IPSWDownloader extends EventEmitter {
       if (task.status === "paused") return;
 
       // Step 6: Verify integrity
-      this.updateTaskStatus(id, "verifying");
-      task.speed = 0;
-      this.sendEvent("progress", id, task);
-
-      const result = await this.integrity.verify(tmpFile, task.firmware, (pct) => {
-        task.progress = pct; // 0–100 during verify
+      if (!this.config.skipVerify) {
+        this.updateTaskStatus(id, "verifying");
+        task.speed = 0;
         this.sendEvent("progress", id, task);
-      });
 
-      if (!result.ok) {
-        fs.unlinkSync(tmpFile);
-        this.stateManager.delete(id);
-        this.updateTaskStatus(id, "error");
-        task.error = `Checksum mismatch (${result.algo}): expected ${result.expected}, got ${result.actual}`;
-        this.sendEvent("error", id, task.error, task);
-        return;
+        const result = await this.integrity.verify(tmpFile, task.firmware, (pct) => {
+          task.progress = pct; // 0–100 during verify
+          this.sendEvent("progress", id, task);
+        });
+
+        if (!result.ok) {
+          fs.unlinkSync(tmpFile);
+          this.stateManager.delete(id);
+          this.updateTaskStatus(id, "error");
+          task.error = `Checksum mismatch (${result.algo}): expected ${result.expected}, got ${result.actual}`;
+          this.sendEvent("error", id, task.error, task);
+          return;
+        }
       }
 
       // Step 7: Move tmp → savePath (serialized per drive to protect HDD)

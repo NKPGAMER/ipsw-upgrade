@@ -8,6 +8,5 @@ exports.default = {
         language: 'vi',
         ipswFolder: electron_1.app.getPath('downloads')
     },
-    isDev: !electron_1.app.isPackaged,
     appleVendorId: 1452
 };

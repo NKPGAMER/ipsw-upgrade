@@ -1,4 +1,4 @@
-import { resolve } from "path";
+import { t } from "i18next";
 import { data } from "../data.js";
 
 function pushDownExistingNotifications(newNotification: HTMLElement) {
@@ -408,29 +408,6 @@ const confirmService = new ConfirmService()
 export default {
   sleep: (timeout: number) => new Promise((resolve) => setTimeout(resolve, timeout)),
 
-  getFileNameFromUrl: (url: string): string => url.split("/").pop() ?? "Unknown",
-
-  async findFile(fileName: string, firmwares: Firmware[]): Promise<IPSWFile[]> {
-    const args = fileName.split('_');
-    const restoreIndex = args.findIndex(a => a.startsWith("Restore"));
-
-    if (args.length < 4 || restoreIndex === -1) return [];
-
-    const targetName = args.slice(0, restoreIndex - 2).join('_');
-    const buildIdMap = firmwares.map(fm => fm.buildid)
-
-    return data.localFiles.filter(f => {
-      const fArgs = f.name.split('_');
-      const fRestoreIndex = fArgs.findIndex(i => i.startsWith("Restore"));
-
-      if (fRestoreIndex === -1) return false;
-
-      const fName = fArgs.slice(0, fRestoreIndex - 2).join('_');
-      return fName === targetName &&
-        buildIdMap.some(id => f.name.includes(id));
-    });
-  },
-
   showErrorMessage(message: string, timeout = 8000) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'message error-message';
@@ -452,10 +429,10 @@ export default {
     }, timeout);
   },
 
-  showSuccessMessage(message: string, timeout = 4000) {
+  showSuccessMessage(message: string | { id: any }, timeout = 4000) {
     const successDiv = document.createElement('div');
     successDiv.className = 'message success-message';
-    successDiv.textContent = message;
+    successDiv.textContent = typeof message === 'string' ? message : t(message.id);
 
     successDiv.style.top = '20px';
     document.body.appendChild(successDiv);

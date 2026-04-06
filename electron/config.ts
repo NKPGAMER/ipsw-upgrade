@@ -7,7 +7,6 @@ export default {
         language: 'vi',
         ipswFolder: app.getPath('downloads')
     },
-
-    isDev: !app.isPackaged,
+    
     appleVendorId: 1452
 }

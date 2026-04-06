@@ -1,16 +1,23 @@
-import { Device, DeviceResponse, getDevices, getProductType, loadDevices, loadModelData, Product } from "./dataHandle.js";
-import firmwareManager from "./upgradeDevices.js";
-import downloadFirmware from "./core/downloadFirmware.js";
+import { DeviceResponse, getDevices, getProductType, loadDevices, loadModelData, Product } from "./core/dataHandle.js";
 import elements from "./elements.js";
 import utils from "./core/utils.js";
 import { data, state } from "./data.js";
-import { createRoot } from "react-dom/client";
+
+import {
+  download,
+  getFileNameFromUrl,
+  getFiles,
+  getRedundantFiles,
+  getRedundantFilesFromProduct
+} from "./core/helper.js";
+
 import i18n from './i18n.js';
 
+import { createRoot } from "react-dom/client";
 import SettingsApp from "./ui/setting.js";
 import DownloadPage from "./ui/download.js";
 
-const { t, changeLanguage } = i18n;
+const { t } = i18n;
 
 interface detaiData {
   device: Device;
@@ -319,13 +326,18 @@ const detail = new class {
     await this.updateData({ device, firmwares }, modelFiles, firmwares[0], status);
 
     // Tối ưu xử lý related files
-    if (modelFiles.length > 1) {
+    if (modelFiles.length > 1 && (state.autoRemoveOldFiles || state.autoRemoveDuplicateFiles)) {
+      const redundantFiles = await getRedundantFiles(device.identifier, modelFiles);
       if (state.autoRemoveOldFiles) {
-        firmwareManager.deleteOldFilesForDevice(device.identifier)
+        redundantFiles.oldFiles.forEach(file => {
+          window.api.deleteFile(file.path);
+        })
       }
 
       if (state.autoRemoveDuplicateFiles) {
-        firmwareManager.deleteDuplicateFilesForDevice(device.identifier)
+        redundantFiles.duplicateFiles.forEach(file => {
+          window.api.deleteFile(file.path)
+        })
       }
     }
   }
@@ -381,7 +393,7 @@ const detail = new class {
 
   private renderNotDownloadedActions(device: Device, firmware: Firmware) {
     const downloadBtn = this.createButton(t('button.download'), 'primary');
-    downloadBtn.onclick = () => downloadFirmware.download(firmware, device);
+    downloadBtn.onclick = () => download(firmware);
     this.latestAction.appendChild(downloadBtn);
   }
 
@@ -465,7 +477,7 @@ const detail = new class {
       if (latestFile) {
         utils.showSuccessMessage(t('message.deleteFile').replace('$1', latestFile.name));
         await window.api.deleteFile(latestFile.path);
-        await this.handleDownload(device, firmware);
+        download(firmware);
       }
     };
 
@@ -487,7 +499,7 @@ const detail = new class {
       if (latestFile) {
         await this.deleteFileAndRefresh(latestFile.path, latestFile.name);
       }
-      this.handleDownload(device, firmware);
+      download(firmware)
     };
     this.latestAction.appendChild(updateBtn);
 
@@ -549,11 +561,6 @@ const detail = new class {
     btn.classList.add(...classMap[type]);
     btn.textContent = text;
     return btn;
-  }
-
-  private async handleDownload(device: Device, firmware: Firmware) {
-    utils.showSuccessMessage(t('downloader.start'));
-    downloadFirmware.download(firmware, device)
   }
 
   private async handleVerify(btn: HTMLButtonElement, file: IPSWFile, firmware: Firmware) {
@@ -624,7 +631,7 @@ const detail = new class {
     btn.textContent = t("button.download");
     btn.onclick = async () => {
       utils.showSuccessMessage(t('downloader.start'));
-      downloadFirmware.download(firmware, device);
+      download(firmware);
     };
 
     control.appendChild(btn);
@@ -745,9 +752,9 @@ const ui = {
       }
 
       const latest = displayFirmwares[0];
-      const fileName = utils.getFileNameFromUrl(latest.url);
-      const modelFiles = await utils.findFile(fileName, allFirmwares);
-
+      const fileName = getFileNameFromUrl(latest.url);
+      const modelFiles = await getFiles(device.identifier);
+      
       if (modelFiles.length > 1) {
         modelFiles.sort((a, b) => {
           if (a.name === fileName) return -1;
@@ -854,16 +861,40 @@ export const refresh = async () => {
    await ui.updateStats();
 };
 
+const filesCache = new Map<Product, {
+  date: number;
+  oldFiles: IPSWFile[];
+  duplicateFiles: IPSWFile[];
+}>();
+
+const CACHE_TTL = 120_000; // 120s (tuỳ chỉnh)
+
+async function getCachedRedundantFiles(product: Product) {
+  const cache = filesCache.get(product);
+
+  if (cache && Date.now() - cache.date < CACHE_TTL) {
+    return cache;
+  }
+
+  const result = await getRedundantFilesFromProduct(product);
+
+  const newCache = {
+    date: Date.now(),
+    ...result,
+  };
+
+  filesCache.set(product, newCache);
+  return newCache;
+}
+
 async function deleteAllFirmware() {
   try {
     elements.overlay.deleteAllFirmware.disabled = true;
     utils.showSuccessMessage(t('redundantFirmware.checking'));
-    const [oldFiles, dupFiles] = await Promise.all([
-      firmwareManager.getOldFilesForAllDevices(state.currentProduct),
-      firmwareManager.getDuplicateFilesForAllDevices(state.currentProduct)
-    ]);
+    const { oldFiles, duplicateFiles } =
+      await getCachedRedundantFiles(state.currentProduct);
 
-    if (oldFiles.length + dupFiles.length === 0) {
+    if (oldFiles.length + duplicateFiles.length === 0) {
       utils.showSuccessMessage(t('message.redundantFirmware.isLatest'));
       return;
     }
@@ -871,7 +902,7 @@ async function deleteAllFirmware() {
     const confirm = await utils.customConfirm(
       t('confirm.removeRedundantFiles')
         .replace('$1', oldFiles.length.toString())
-        .replace('$2', dupFiles.length.toString()),
+        .replace('$2', duplicateFiles.length.toString()),
       {
         variant: 'danger',
         confirmText: t('confirm.btn.delete'),
@@ -881,31 +912,21 @@ async function deleteAllFirmware() {
 
     if (!confirm) return;
 
-    const [result_old, result_dup] = await Promise.all([
-      firmwareManager.deleteOldFilesForAllDevices(state.currentProduct),
-      firmwareManager.deleteDuplicateFilesForAllDevices(state.currentProduct)
-    ]);
+    const results = await Promise.all([...oldFiles, ...duplicateFiles].map(file => window.api.deleteFile(file.path)))
+    filesCache.delete(state.currentProduct);
 
-    let totalDevice: number = 0;
+    utils.showSuccessMessage(
+      t('message.app.deleteAllFirmware.success')
+        .replace('{{count}}', `${results.filter(r => r.success).length}`)
+    );
 
-    if (result_old && result_old.length > 0) {
-      for (const data of result_old) {
-        totalDevice += data.filesDeleted.length
-      }
-    }
-
-    if (result_dup && result_dup.length > 0) {
-      for (const data of result_dup) {
-        totalDevice += data.filesDeleted.length
-      }
-    }
-
-    utils.showSuccessMessage(t('deleteAllFirmware.delete.success').replace('$1', totalDevice.toString()))
+  } catch (error) {
+    utils.showErrorMessage(t('message.error.UNKNOWN'));
+    console.error(error);
   } finally {
     elements.overlay.deleteAllFirmware.disabled = false;
   }
 }
-
 // Initialize event listeners
 const initEventListeners = () => {
   window.api.onAppClose(async (data) => {
@@ -1038,3 +1059,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   refresh();
   initEventListeners();
 });
+
+async function test() {
+  const a = await window.downloader.getIncompleteTasks()
+
+  console.log(a)
+}
+
+test()
