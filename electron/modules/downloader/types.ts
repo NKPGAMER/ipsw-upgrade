@@ -82,8 +82,6 @@ export interface DownloaderConfig {
   diskBufferGB?: number;
   bandwidthLimitBps?: number;
   tmpDir?: string;
-  adaptiveBuffer?: boolean;
-  skipVerify?: boolean;
 }
 
 export interface DownloadEvents {

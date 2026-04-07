@@ -88,8 +88,8 @@ async function init(): Promise<void> {
   maxConnectionsPerTask: 16,
   initialConnectionsPerTask: 4,
   chunkSize: 64 * 1024 * 1024, // MB
-  skipVerify: true,
-  adaptiveBuffer: false,
+  // skipVerify: true,
+  // adaptiveBuffer: false,
 })
 
   loadRenderer(mainWindow);

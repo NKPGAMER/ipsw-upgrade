@@ -16,7 +16,9 @@ import i18n from './i18n.js';
 import { createRoot } from "react-dom/client";
 import SettingsApp from "./ui/setting.js";
 import DownloadPage from "./ui/download.js";
+import IPSWManager from "./ui/SelectDevice.js";
 
+const selectModelRoot = createRoot(document.getElementById('selectDevice')!);
 const { t } = i18n;
 
 interface detaiData {
@@ -48,6 +50,8 @@ const debounce = <T extends (...args: any[]) => any>(fn: T, ms: number) => {
   };
 };
 
+const selectDevice = document.getElementById('selectDevice')!
+
 const UI = {
   download: {
     show: () => elements.downloads.page.classList.remove('hidden'),
@@ -57,6 +61,11 @@ const UI = {
   setting: {
     show: () => elements.settings.page.classList.remove('hidden'),
     close: () => elements.settings.page.classList.add("hidden")
+  },
+
+  selectDevice: {
+    show() { selectDevice.classList.remove('hidden') },
+    close() { selectDevice.classList.add('hidden') }
   },
 
   globalSearch: {
@@ -182,12 +191,12 @@ const main = new class {
     this.selectProduct?.classList.add('hidden');
     this.modelDetailContainer?.classList.remove('hidden');
 
-    if (this.selectModel && this.detail && this.resizeDivider) {
-      this.selectModel.style.width = '100%';
-      this.detail.style.width = '0%';
-      this.detail.classList.add('opacity-0', 'pointer-events-none');
-      this.resizeDivider.classList.add('hidden');
-    }
+    // if (this.selectModel && this.detail && this.resizeDivider) {
+    //   this.selectModel.style.width = '100%';
+    //   this.detail.style.width = '0%';
+    //   this.detail.classList.add('opacity-0', 'pointer-events-none');
+    //   this.resizeDivider.classList.add('hidden');
+    // }
 
     topbar.showSelectModel();
   }
@@ -531,7 +540,7 @@ const detail = new class {
     utils.showSuccessMessage(t('message.deleteFile.success').replace('$1', fileName));
     await refresh();
     if (state.currentProduct) {
-      ui.loadDevices(state.currentProduct);
+      loadProductUI(state.currentProduct);
     }
     main.showSelectModel();
   }
@@ -754,7 +763,7 @@ const ui = {
       const latest = displayFirmwares[0];
       const fileName = getFileNameFromUrl(latest.url);
       const modelFiles = await getFiles(device.identifier);
-      
+
       if (modelFiles.length > 1) {
         modelFiles.sort((a, b) => {
           if (a.name === fileName) return -1;
@@ -869,6 +878,16 @@ const filesCache = new Map<Product, {
 
 const CACHE_TTL = 120_000; // 120s (tuỳ chỉnh)
 
+function loadProductUI(product: Product) {
+  UI.selectDevice.show()
+  selectModelRoot.render(
+    <IPSWManager
+      // product={product}
+      // close={UI.selectDevice.close}
+    ></IPSWManager>
+  )
+}
+
 async function getCachedRedundantFiles(product: Product) {
   const cache = filesCache.get(product);
 
@@ -960,7 +979,7 @@ const initEventListeners = () => {
     await refresh();
 
     if(!main.modelDetailContainer?.classList.contains("hidden")) {
-      ui.loadDevices(state.currentProduct)
+      loadProductUI(state.currentProduct)
     }
 
     disableHighlight()
@@ -975,7 +994,7 @@ const initEventListeners = () => {
       elements.topbar.refresh.disabled = true;
       await refresh();
       if (!main.modelDetailContainer?.classList.contains("hidden")) {
-        ui.loadDevices(state.currentProduct)
+        loadProductUI(state.currentProduct)
       }
     } finally {
       elements.topbar.refresh.disabled = false;
@@ -1019,7 +1038,7 @@ const initEventListeners = () => {
       const product = (card as HTMLElement).dataset.product as Product;
       if (!product) throw new Error("Product not found");
       state.currentProduct = product;
-      ui.loadDevices(product);
+      loadProductUI(product);
     });
   });
 

@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as http from "http";
 import * as https from "https";
-import * as os from "os";
 import { URL } from "url";
 import { ChunkState, DownloadState } from "./types";
 import { StateManager } from "./state-manager";
@@ -14,7 +13,6 @@ export interface ChunkManagerOptions {
   retryDelay?: number;
   bandwidthLimitBps?: number;
   isHDD?: boolean;
-  adaptiveBuffer?: boolean;
 }
 
 export interface ChunkProgress {
@@ -31,34 +29,8 @@ export type ChunkManagerEvents = {
   error: (err: Error) => void;
 };
 
-const DEFAULT_CHUNK_SIZE = 32 * 1024 * 1024;
-const WRITE_HWM_FIXED   =   4 * 1024 * 1024;
-const WRITE_HWM_MIN     =   4 * 1024 * 1024;
-const WRITE_HWM_MAX     = 128 * 1024 * 1024;
-const RAM_CACHE_TTL     = 5_000;
-
-let cachedFreeRam = 0;
-let ramCachedAt   = 0;
-
-function getFreeRam(): number {
-  const now = Date.now();
-  if (now - ramCachedAt > RAM_CACHE_TTL) {
-    cachedFreeRam = os.freemem();
-    ramCachedAt   = now;
-  }
-  return cachedFreeRam;
-}
-
-function calcWriteHWM(): number {
-  return Math.max(WRITE_HWM_MIN, Math.min(WRITE_HWM_MAX, getFreeRam() * 0.05));
-}
-
-function ramCapConnections(requested: number): number {
-  const free = getFreeRam();
-  if (free < 512 * 1024 * 1024) return Math.min(requested, 4);
-  if (free < 1024 * 1024 * 1024) return Math.min(requested, 8);
-  return requested;
-}
+const DEFAULT_CHUNK_SIZE = 32 * 1024 * 1024; // 32MB per chunk
+const WRITE_HIGH_WATER = 4 * 1024 * 1024;    // 4MB write buffer
 
 export class ChunkManager {
   private opts: Required<ChunkManagerOptions>;
@@ -69,17 +41,11 @@ export class ChunkManager {
   private activeCount = 0;
   private pendingQueue: ChunkState[] = [];
   private listeners: Partial<ChunkManagerEvents> = {};
+  private bytesPerSecond = 0;
+  private lastSpeedCheck = Date.now();
+  private bytesInWindow = 0;
   private stateFlushTimer: NodeJS.Timeout | null = null;
   private pendingStateUpdates: { index: number; downloaded: number; completed: boolean }[] = [];
-  private totalDownloaded = 0;
-
-  // ─── Speed tracking ──────────────────────────────────────────────────────
-  private speedSamples: { bytes: number; ts: number }[] = [];
-  private ewaBps = 0;
-  private readonly SPEED_WINDOW_MS = 10_000;
-  private readonly EWA_ALPHA       = 0.2;
-  private lastFlushTs = Date.now();
-  private bytesInInterval = 0;
 
   constructor(
     state: DownloadState,
@@ -91,14 +57,13 @@ export class ChunkManager {
 
     const isHDD = opts.isHDD ?? false;
     this.opts = {
-      maxConnections:     opts.maxConnections     ?? (isHDD ? 8 : 16),
+      maxConnections: opts.maxConnections ?? (isHDD ? 8 : 16),
       initialConnections: opts.initialConnections ?? 4,
-      chunkSize:          opts.chunkSize          ?? DEFAULT_CHUNK_SIZE,
-      retryLimit:         opts.retryLimit         ?? 3,
-      retryDelay:         opts.retryDelay         ?? 2000,
-      bandwidthLimitBps:  opts.bandwidthLimitBps  ?? 0,
+      chunkSize: opts.chunkSize ?? DEFAULT_CHUNK_SIZE,
+      retryLimit: opts.retryLimit ?? 3,
+      retryDelay: opts.retryDelay ?? 2000,
+      bandwidthLimitBps: opts.bandwidthLimitBps ?? 0,
       isHDD,
-      adaptiveBuffer:     opts.adaptiveBuffer     ?? false,
     };
   }
 
@@ -107,44 +72,59 @@ export class ChunkManager {
     return this;
   }
 
-  private emit<K extends keyof ChunkManagerEvents>(
-    event: K,
-    ...args: Parameters<ChunkManagerEvents[K]>
-  ): void {
+  private emit<K extends keyof ChunkManagerEvents>(event: K, ...args: Parameters<ChunkManagerEvents[K]>): void {
     const h = this.listeners[event] as ((...a: any[]) => void) | undefined;
     if (h) h(...args);
   }
 
+  private totalDownloaded = 0; // live bytes downloaded in this session
+
+  /**
+   * Build chunk plan from state (supports resume) — use direct references, NOT clones
+   */
   private buildQueue(): void {
+    // Seed totalDownloaded from already-completed chunks (resume case)
     this.totalDownloaded = this.state.chunks.reduce((sum, c) => sum + c.downloaded, 0);
-    this.pendingQueue = this.state.chunks.filter(c => !c.completed);
+
+    this.pendingQueue = this.state.chunks
+      .filter(c => !c.completed);
+    // NOTE: no .map(c => ({...c})) — we want direct references so state.chunks stays in sync
   }
 
+  /**
+   * Main entry — start downloading all pending chunks
+   */
   async start(tmpFilePath: string): Promise<void> {
     this.aborted = false;
     this.buildQueue();
 
+    // Open file for random-access write
     const flags = fs.existsSync(tmpFilePath) ? "r+" : "w";
     this.fd = fs.openSync(tmpFilePath, flags);
 
+    // Pre-allocate file size (avoids fragmentation on HDD)
     if (flags === "w" && this.state.totalSize > 0) {
       await this.fallocate(this.fd, this.state.totalSize);
     }
 
+    // Start chunk draining loop
     await new Promise<void>((resolve, reject) => {
       const tick = () => {
         if (this.aborted) return;
 
-        const maxConn = this.opts.adaptiveBuffer
-          ? ramCapConnections(this.currentMaxConnections())
-          : this.currentMaxConnections();
-
-        while (this.activeCount < maxConn && this.pendingQueue.length > 0) {
+        while (this.activeCount < this.currentMaxConnections() && this.pendingQueue.length > 0) {
           const chunk = this.pendingQueue.shift()!;
           this.activeCount++;
           this.downloadChunk(chunk, 0)
-            .then(() => { this.activeCount--; tick(); })
-            .catch(err => { this.activeCount--; this.emit("error", err); reject(err); });
+            .then(() => {
+              this.activeCount--;
+              tick();
+            })
+            .catch(err => {
+              this.activeCount--;
+              this.emit("error", err);
+              reject(err);
+            });
         }
 
         if (this.activeCount === 0 && this.pendingQueue.length === 0) {
@@ -160,22 +140,31 @@ export class ChunkManager {
     });
   }
 
+  /**
+   * Adaptive connection count — scale from initial → max
+   */
   private currentMaxConnections(): number {
-    const elapsed = (Date.now() - this.lastFlushTs) / 1000;
+    const elapsed = (Date.now() - this.lastSpeedCheck) / 1000;
+    // Ramp up over first 10 seconds
     const rampFactor = Math.min(1, elapsed / 10);
-    return Math.round(
+    const target = Math.round(
       this.opts.initialConnections +
       (this.opts.maxConnections - this.opts.initialConnections) * rampFactor
     );
+    return Math.max(this.opts.initialConnections, target);
   }
 
+  /**
+   * Download a single chunk with retry
+   */
   private async downloadChunk(chunk: ChunkState, attempt: number): Promise<void> {
     if (this.aborted) return;
 
     const start = chunk.start + chunk.downloaded;
-    const end   = chunk.end;
+    const end = chunk.end;
 
     if (start > end) {
+      // Already done
       chunk.completed = true;
       this.queueStateUpdate(chunk.index, chunk.downloaded, true);
       this.emit("chunkComplete", chunk.index);
@@ -194,21 +183,22 @@ export class ChunkManager {
     }
   }
 
+  /**
+   * Fetch a byte range via HTTP(S), write via random-access fs.writeSync (guaranteed order)
+   */
   private fetchRange(chunk: ChunkState, rangeStart: number, rangeEnd: number): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.aborted) return reject(new Error("Aborted"));
-
-      const writeHWM = this.opts.adaptiveBuffer ? calcWriteHWM() : WRITE_HWM_FIXED;
 
       const url = new URL(this.state.firmware.url);
       const lib = url.protocol === "https:" ? https : http;
       const options: https.RequestOptions = {
         hostname: url.hostname,
-        port:     url.port || (url.protocol === "https:" ? 443 : 80),
-        path:     url.pathname + url.search,
-        method:   "GET",
+        port: url.port || (url.protocol === "https:" ? 443 : 80),
+        path: url.pathname + url.search,
+        method: "GET",
         headers: {
-          "Range":      `bytes=${rangeStart}-${rangeEnd}`,
+          "Range": `bytes=${rangeStart}-${rangeEnd}`,
           "User-Agent": "iLog-Downloader/1.0",
           "Connection": "keep-alive",
         },
@@ -223,6 +213,7 @@ export class ChunkManager {
           return reject(new Error(`HTTP ${res.statusCode} for chunk ${chunk.index}`));
         }
 
+        // writeHead tracks the exact file position for the next write
         let writeHead = rangeStart;
         const buffers: Buffer[] = [];
         let bufferedBytes = 0;
@@ -235,6 +226,10 @@ export class ChunkManager {
           }
         }, 50);
 
+        /**
+         * Flush accumulated buffers to disk at the correct file offset.
+         * Uses fs.writeSync so order is guaranteed — no async race on writeHead.
+         */
         const flushBuffers = () => {
           if (buffers.length === 0) return;
           if (this.aborted || this.fd === -1) { buffers.length = 0; bufferedBytes = 0; return; }
@@ -243,6 +238,7 @@ export class ChunkManager {
           buffers.length = 0;
           bufferedBytes = 0;
 
+          // Synchronous write — guarantees writeHead is correct before next flush
           try {
             fs.writeSync(this.fd, combined, 0, combined.length, writeHead);
           } catch (err: any) {
@@ -250,16 +246,17 @@ export class ChunkManager {
             return;
           }
 
-          writeHead           += combined.length;
-          chunk.downloaded     = writeHead - chunk.start;
+          writeHead += combined.length;          // advance only AFTER successful write
+          chunk.downloaded = writeHead - chunk.start; // absolute progress for this chunk
           this.totalDownloaded += combined.length;
+          this.bytesInWindow += combined.length;
 
-          this.updateSpeed(combined.length);
+          this.updateSpeed();
           this.queueStateUpdate(chunk.index, chunk.downloaded, false);
           this.emit("progress", {
-            chunkIndex:   chunk.index,
+            chunkIndex: chunk.index,
             bytesWritten: this.totalDownloaded,
-            totalBytes:   this.state.totalSize,
+            totalBytes: this.state.totalSize,
           });
 
           if (this.opts.bandwidthLimitBps > 0) {
@@ -272,14 +269,17 @@ export class ChunkManager {
           const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
           buffers.push(buf);
           bufferedBytes += buf.length;
-          if (bufferedBytes >= writeHWM) flushBuffers();
+
+          if (bufferedBytes >= WRITE_HIGH_WATER) {
+            flushBuffers();
+          }
         });
 
         res.on("end", () => {
           clearInterval(abortCheck);
           if (settled) return;
           settled = true;
-          flushBuffers();
+          flushBuffers(); // flush tail
           chunk.completed = true;
           this.queueStateUpdate(chunk.index, chunk.downloaded, true);
           this.emit("chunkComplete", chunk.index);
@@ -297,52 +297,34 @@ export class ChunkManager {
         req.destroy();
         reject(new Error(`Timeout on chunk ${chunk.index}`));
       });
+
       req.end();
     });
   }
 
-  // ─── Speed / ETA ──────────────────────────────────────────────────────────
-
   /**
-   * Tích lũy bytes, tạo sample mỗi ~1 giây, tính EWA.
-   * Không reset về 0 giữa các giây — mượt và ổn định.
+   * Pre-allocate file size using ftruncate — safe, no data corruption
    */
-  private updateSpeed(flushedBytes: number): void {
-    this.bytesInInterval += flushedBytes;
+  private fallocate(fd: number, size: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      fs.ftruncate(fd, size, (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
+  }
 
-    const now     = Date.now();
-    const elapsed = now - this.lastFlushTs;
-    if (elapsed < 1000) return;
-
-    const instantBps = (this.bytesInInterval / elapsed) * 1000;
-    this.bytesInInterval = 0;
-    this.lastFlushTs     = now;
-
-    this.speedSamples.push({ bytes: instantBps, ts: now });
-
-    // Dọn samples cũ hơn SPEED_WINDOW_MS
-    const cutoff = now - this.SPEED_WINDOW_MS;
-    this.speedSamples = this.speedSamples.filter(s => s.ts >= cutoff);
-
-    if (this.ewaBps === 0) {
-      // Khởi tạo lần đầu = trung bình window
-      this.ewaBps = this.speedSamples.reduce((s, x) => s + x.bytes, 0) / this.speedSamples.length;
-    } else {
-      this.ewaBps = this.EWA_ALPHA * instantBps + (1 - this.EWA_ALPHA) * this.ewaBps;
+  private updateSpeed(): void {
+    const now = Date.now();
+    const elapsed = (now - this.lastSpeedCheck) / 1000;
+    if (elapsed >= 1) {
+      this.bytesPerSecond = Math.round(this.bytesInWindow / elapsed);
+      this.bytesInWindow = 0;
+      this.lastSpeedCheck = now;
     }
   }
 
-  /** EWA speed (bytes/s) — mượt, không nhảy */
   getSpeed(): number {
-    return Math.round(this.ewaBps);
-  }
-
-  // ─── Misc ─────────────────────────────────────────────────────────────────
-
-  private fallocate(fd: number, size: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      fs.ftruncate(fd, size, err => err ? reject(err) : resolve());
-    });
+    return this.bytesPerSecond;
   }
 
   abort(): void {
@@ -356,8 +338,12 @@ export class ChunkManager {
 
   private queueStateUpdate(index: number, downloaded: number, completed: boolean): void {
     const existing = this.pendingStateUpdates.find(u => u.index === index);
-    if (existing) { existing.downloaded = downloaded; existing.completed = completed; }
-    else this.pendingStateUpdates.push({ index, downloaded, completed });
+    if (existing) {
+      existing.downloaded = downloaded;
+      existing.completed = completed;
+    } else {
+      this.pendingStateUpdates.push({ index, downloaded, completed });
+    }
 
     if (!this.stateFlushTimer) {
       this.stateFlushTimer = setTimeout(() => this.flushStateNow(), 2000);
@@ -365,7 +351,10 @@ export class ChunkManager {
   }
 
   private flushStateNow(): void {
-    if (this.stateFlushTimer) { clearTimeout(this.stateFlushTimer); this.stateFlushTimer = null; }
+    if (this.stateFlushTimer) {
+      clearTimeout(this.stateFlushTimer);
+      this.stateFlushTimer = null;
+    }
     if (this.pendingStateUpdates.length > 0) {
       this.stateManager.batchUpdateChunks(this.state.id, this.pendingStateUpdates);
       this.pendingStateUpdates = [];
