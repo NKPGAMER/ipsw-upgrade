@@ -114,3 +114,25 @@ export async function download(firmware: Firmware) {
 
   }
 }
+
+interface DeleteFileArgs {
+  file?: IPSWFile;
+  files?: IPSWFile[];
+  identifier?: Device["identifier"];
+  latest?: boolean;
+};
+
+export async function deleteFile({ file, files, identifier }: DeleteFileArgs) {
+  if (file) {
+    return await window.api.deleteFile(file.path)
+  };
+
+  if (files) {
+    return await Promise.all(files.map((file => window.api.deleteFile(file.path))))
+  };
+
+  if (identifier) {
+    const modelFiles = await getFiles(identifier);
+    return await Promise.all(modelFiles.map((file => window.api.deleteFile(file.path))))
+  }
+}

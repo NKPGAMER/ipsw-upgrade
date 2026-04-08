@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 
 
 function scanFolder(folder: string): IPSWFile[] {
+  if (!existsSync(folder)) return [];
   const files = readdirSync(folder)
     .filter(f => f.endsWith(".ipsw"))
     .map(f => ({

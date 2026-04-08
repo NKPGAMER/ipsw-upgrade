@@ -14,5 +14,7 @@ export const state = {
   isDeletingFM: false,
   isUpdateAllFirmware: false,
   autoRemoveOldFiles: false,
-  autoRemoveDuplicateFiles: false
+  autoRemoveDuplicateFiles: false,
+
+  __init: false
 }

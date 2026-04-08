@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect, useCallback, useMemo, type JSX } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo, type JSX } from "react";
 import type { Task, TaskStatus, Firmware } from "../../global";
 import { getDevices, loadModelData } from "../core/dataHandle";
-import { getFiles } from "../core/helper";
+import { deleteFile, getFiles, parseIPSW, getFileNameFromUrl } from "../core/helper";
 import { state } from "../data";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ToastContainer, pushToast } from "./Toast";
 
 type CardTask = TaskStatus | "none" | "downloaded" | "old"
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatBytes(bytes: number): string {
   if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + " GB";
@@ -23,50 +25,37 @@ function formatEta(sec?: number): string {
 function formatDate(dateStr: string): string {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+    day: "2-digit", month: "2-digit", year: "numeric",
   });
+}
+
+// ─── Spinner ──────────────────────────────────────────────────────────────────
+function Spinner({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+      <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
+    </svg>
+  );
 }
 
 // ─── Status Mappings ──────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<CardTask | "none", string> = {
-  none:        "Chưa tải",
-  queued:      "Đang chờ",
-  downloading: "Đang tải",
-  paused:      "Đã tạm dừng",
-  completed:   "Đã tải",
-  downloaded:  "Đã tải",
-  error:       "Lỗi",
-  verifying:   "Đang xác minh",
-  moving:      "Đang di chuyển",
-  old:         "Cần cập nhật"
+  none: "Chưa tải", queued: "Đang chờ", downloading: "Đang tải",
+  paused: "Đã tạm dừng", completed: "Đã tải", downloaded: "Đã tải",
+  error: "Lỗi", verifying: "Đang xác minh", moving: "Đang di chuyển", old: "Cần cập nhật"
 };
 
 const STATUS_COLOR: Record<CardTask | "none", string> = {
-  none:        "text-gray-500",
-  queued:      "text-yellow-400",
-  downloading: "text-[#137fec]",
-  paused:      "text-orange-400",
-  completed:   "text-emerald-400",
-  downloaded:  "text-emerald-400",
-  error:       "text-red-400",
-  verifying:   "text-purple-400",
-  moving:      "text-cyan-400",
-  old:         "text-cyan-400"
+  none: "text-gray-500", queued: "text-yellow-400", downloading: "text-[#137fec]",
+  paused: "text-orange-400", completed: "text-emerald-400", downloaded: "text-emerald-400",
+  error: "text-red-400", verifying: "text-purple-400", moving: "text-cyan-400", old: "text-cyan-400"
 };
 
 const STATUS_DOT: Record<CardTask | "none", string> = {
-  none:        "bg-gray-600",
-  queued:      "bg-yellow-400",
-  downloading: "bg-[#137fec]",
-  paused:      "bg-orange-400",
-  completed:   "bg-emerald-400",
-  downloaded:  "bg-emerald-400",
-  error:       "bg-red-400",
-  verifying:   "bg-purple-400",
-  moving:      "bg-cyan-400",
-  old:         "bg-cyan-400"
+  none: "bg-gray-600", queued: "bg-yellow-400", downloading: "bg-[#137fec]",
+  paused: "bg-orange-400", completed: "bg-emerald-400", downloaded: "bg-emerald-400",
+  error: "bg-red-400", verifying: "bg-purple-400", moving: "bg-cyan-400", old: "bg-cyan-400"
 };
 
 // ─── Product Icons ────────────────────────────────────────────────────────────
@@ -124,25 +113,20 @@ const PRODUCT_ICON: Record<Product, JSX.Element> = {
   ),
 };
 
-// ─── DeviceEntry ──────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface DeviceEntry {
   device: Device;
   firmwares: Firmware[];
   task?: Task;
 }
 
-// ─── Action type ──────────────────────────────────────────────────────────────
 type ControlAction = "download" | "pause" | "resume" | "cancel" | "delete" | "verify" | "redownload";
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 function ProgressBar({ value, status }: { value: number; status: TaskStatus }) {
   const colors: Partial<Record<TaskStatus, string>> = {
-    downloading: "bg-[#137fec]",
-    paused:      "bg-orange-400",
-    verifying:   "bg-purple-400",
-    moving:      "bg-cyan-400",
-    completed:   "bg-emerald-400",
-    error:       "bg-red-400",
+    downloading: "bg-[#137fec]", paused: "bg-orange-400", verifying: "bg-purple-400",
+    moving: "bg-cyan-400", completed: "bg-emerald-400", error: "bg-red-400",
   };
   const color = colors[status] ?? "bg-[#137fec]";
   const animated = status === "downloading" || status === "verifying" || status === "moving";
@@ -161,57 +145,78 @@ function ProgressBar({ value, status }: { value: number; status: TaskStatus }) {
   );
 }
 
-// ─── useCardStatus ────────────────────────────────────────────────────────────
-// Hook tái sử dụng để tính status cho một entry, tránh duplicate logic + fetch
-function useCardStatus(entry: DeviceEntry): CardTask {
-  const [modelFiles, setModelFiles] = useState<IPSWFile[]>([]);
-
-  useEffect(() => {
-    getFiles(entry.device.identifier).then(files => setModelFiles(files));
-  }, [entry.device.identifier]);
-
+// ─── computeCardStatus — pure function, không gọi I/O ────────────────────────
+// allFiles là cache từ IPSWManager, được truyền xuống qua props
+function computeCardStatus(
+  entry: DeviceEntry,
+  allFiles: IPSWFile[],
+): CardTask {
   const latestFw = entry.firmwares[0];
-  const inProgress = !!entry.task && ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+  const inProgress = !!entry.task &&
+    ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
 
   if (inProgress) return entry.task!.status as CardTask;
   if (entry.task?.status === "completed") return "completed";
   if (entry.task?.status === "error") return "error";
 
-  if (modelFiles.length > 0 && latestFw) {
-    const hasLatest = modelFiles.some(f => f.name.includes(latestFw.buildid));
-    return hasLatest ? "downloaded" : "old";
+  if (latestFw && allFiles.length > 0) {
+    // Lọc file thuộc device này
+    const info = parseIPSW(getFileNameFromUrl(latestFw.url));
+    if (info) {
+      const buildIdMap = new Set(entry.firmwares.map(fw => fw.buildid));
+      const deviceFiles = allFiles.filter(file => {
+        const parsed = parseIPSW(file.name);
+        return parsed?.id === info.id && buildIdMap.has(parsed.build);
+      });
+      if (deviceFiles.length > 0) {
+        const hasLatest = deviceFiles.some(f => f.name.includes(latestFw.buildid));
+        return hasLatest ? "downloaded" : "old";
+      }
+    }
   }
 
   return entry.task?.status ?? "none";
 }
 
 // ─── Device Card ──────────────────────────────────────────────────────────────
-function DeviceCard({
+const DeviceCard = memo(function DeviceCard({
   entry,
   selected,
+  allFiles,
+  pending,
   onClick,
 }: {
   entry: DeviceEntry;
   selected: boolean;
+  allFiles: IPSWFile[];
+  pending: boolean;
   onClick: () => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-  const status = useCardStatus(entry);
+  const [flash, setFlash] = useState(false);
+  const status = computeCardStatus(entry, allFiles);
+
+  const prevPending = useRef(false);
+  useEffect(() => {
+    if (prevPending.current && !pending) {
+      setFlash(true);
+      setTimeout(() => setFlash(false), 600);
+    }
+    prevPending.current = pending;
+  }, [pending]);
 
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      ([e]) => setVisible(e.isIntersecting),
-      { threshold: 0.1 }
-    );
+    const obs = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.1 });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
   const latestFw = entry.firmwares[0];
-  const inProgress = !!entry.task && ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+  const inProgress = !!entry.task &&
+    ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
 
   return (
     <div
@@ -223,33 +228,32 @@ function DeviceCard({
         transition: "opacity 0.3s, transform 0.3s, background 0.15s, border-color 0.15s",
       }}
       className={`
-        relative cursor-pointer rounded-xl border select-none
+        relative cursor-pointer rounded-xl border select-none overflow-hidden
         ${selected
           ? "border-[#137fec]/50 bg-[#137fec]/8 shadow-[0_0_0_1px_rgba(19,127,236,0.18)]"
           : "border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15"
         }
+        ${flash ? "animate-card-flash" : ""}
       `}
     >
+      {pending && (
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-xl">
+          <Spinner className="w-5 h-5 text-white/60" />
+        </div>
+      )}
       {selected && (
         <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-[#137fec]" />
       )}
-
       <div className="p-4! h-40">
-        {/* Name + identifier */}
         <div className="flex items-start gap-3">
           <div className={`mt-0.5! shrink-0 transition-colors ${selected ? "text-[#137fec]" : "text-gray-500"}`}>
-            {PRODUCT_ICON[entry.device.identifier.toLowerCase().split(",")[0] as Product]
-              ?? PRODUCT_ICON.iphone}
+            {PRODUCT_ICON[entry.device.identifier.toLowerCase().split(",")[0] as Product] ?? PRODUCT_ICON.iphone}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-white truncate leading-snug">
-              {entry.device.name}
-            </p>
+            <p className="text-[13px] font-semibold text-white truncate leading-snug">{entry.device.name}</p>
             <p className="text-[10px] text-gray-500 font-mono mt-0.5!">{entry.device.identifier}</p>
           </div>
         </div>
-
-        {/* Version chip */}
         {latestFw && (
           <div className="mt-2.5! flex items-center gap-2">
             <span className="text-[12px] px-2! py-0.5! rounded-md bg-white/5 text-gray-200 font-mono">
@@ -257,13 +261,9 @@ function DeviceCard({
             </span>
           </div>
         )}
-
-        {/* Status row */}
         <div className="flex items-center gap-1.5 mt-3!">
           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[status]} ${status === "downloading" ? "animate-pulse" : ""}`} />
-          <span className={`text-[14px] font-medium ${STATUS_COLOR[status]}`}>
-            {STATUS_LABEL[status]}
-          </span>
+          <span className={`text-[14px] font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
           {entry.task?.error && (
             <span className="text-[10px] text-red-400/80 truncate ml-1!" title={entry.task.error}>
               — {entry.task.error}
@@ -273,11 +273,7 @@ function DeviceCard({
             <span className="text-[10px] text-gray-500 ml-auto!">{entry.task!.progress}%</span>
           )}
         </div>
-
-        {/* Progress bar */}
         {inProgress && <ProgressBar value={entry.task!.progress} status={status as TaskStatus} />}
-
-        {/* Speed / ETA */}
         {status === "downloading" && entry.task!.speed > 0 && (
           <div className="flex justify-between mt-1.5! text-[10px] text-gray-500">
             <span>{formatBytes(entry.task!.speed)}/s</span>
@@ -287,100 +283,121 @@ function DeviceCard({
       </div>
     </div>
   );
-}
+});
 
 // ─── Control Buttons ──────────────────────────────────────────────────────────
-function ControlButtons({
+const ControlButtons = memo(function ControlButtons({
   entry,
   status,
+  pendingAction,
   onAction,
 }: {
   entry: DeviceEntry;
   status: CardTask;
+  pendingAction: ControlAction | null;
   onAction: (action: ControlAction, fw?: Firmware) => void;
 }) {
   const latestFw = entry.firmwares[0];
+  const busy = pendingAction !== null;
 
-  // ── Chưa tải ──
   if (status === "none") {
     return (
       <button
+        disabled={busy}
         onClick={() => onAction("download", latestFw)}
-        className="w-full py-2.5! rounded-xl bg-[#137fec] hover:bg-[#1a8fff] active:bg-[#0f6fd8] text-white text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
+        className="w-full py-2.5! rounded-xl bg-[#137fec] hover:bg-[#1a8fff] active:bg-[#0f6fd8] disabled:opacity-60 text-white text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path d="M12 2v13m-5-5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M4 20h16" strokeLinecap="round" />
-        </svg>
-        Download
+        {pendingAction === "download"
+          ? <><Spinner /> Đang thêm vào hàng…</>
+          : <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M12 2v13m-5-5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M4 20h16" strokeLinecap="round" />
+            </svg>
+            Download
+          </>
+        }
       </button>
     );
   }
 
-  // ── Cần cập nhật ──
   if (status === "old") {
     return (
       <div className="space-y-2">
         <button
+          disabled={busy}
           onClick={() => onAction("download", latestFw)}
-          className="w-full py-2.5! rounded-xl bg-cyan-500/12 hover:bg-cyan-500/22 border border-cyan-500/20 text-cyan-300 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
+          className="w-full py-2.5! rounded-xl bg-cyan-500/12 hover:bg-cyan-500/22 border border-cyan-500/20 text-cyan-300 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M12 2v13m-5-5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M4 20h16" strokeLinecap="round" />
-          </svg>
-          Cập nhật lên {latestFw?.version}
+          {pendingAction === "download"
+            ? <><Spinner className="w-3.5 h-3.5 text-cyan-300" /> Đang thêm…</>
+            : <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M12 2v13m-5-5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M4 20h16" strokeLinecap="round" />
+              </svg>
+              Cập nhật lên {latestFw?.version}
+            </>
+          }
         </button>
         <div className="flex gap-2">
           <button
+            disabled={busy}
             onClick={() => onAction("delete")}
-            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors"
+            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            Xoá tệp cũ
+            {pendingAction === "delete" ? <><Spinner className="w-3 h-3" /> Đang xoá…</> : "Xoá tệp cũ"}
           </button>
           <button
+            disabled={busy}
             onClick={() => onAction("verify")}
-            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors"
+            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            Xác minh
+            {pendingAction === "verify" ? <><Spinner className="w-3 h-3" /> Đang kiểm tra…</> : "Xác minh"}
           </button>
         </div>
       </div>
     );
   }
 
-  // ── Đã tải ──
   if (status === "completed" || status === "downloaded") {
     return (
       <div className="space-y-2!">
         <button
+          disabled={busy}
           onClick={() => onAction("delete")}
-          className="w-full py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
+          className="w-full py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Xoá tệp
+          {pendingAction === "delete"
+            ? <><Spinner className="w-3.5 h-3.5 text-red-400" /> Đang xoá…</>
+            : <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Xoá tệp
+            </>
+          }
         </button>
         <div className="flex gap-2">
           <button
+            disabled={busy}
             onClick={() => onAction("verify")}
-            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors"
+            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            Xác minh
+            {pendingAction === "verify" ? <><Spinner className="w-3 h-3" /> Đang kiểm tra…</> : "Xác minh"}
           </button>
           <button
+            disabled={busy}
             onClick={() => onAction("redownload", latestFw)}
-            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors"
+            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            Tải lại
+            {pendingAction === "redownload" ? <><Spinner className="w-3 h-3" /> Đang xử lý…</> : "Tải lại"}
           </button>
         </div>
       </div>
     );
   }
 
-  // ── Lỗi ──
   if (status === "error") {
     return (
       <div className="space-y-2!">
@@ -391,23 +408,24 @@ function ControlButtons({
         )}
         <div className="flex gap-2">
           <button
+            disabled={busy}
             onClick={() => onAction("redownload", latestFw)}
-            className="flex-1 py-2.5! rounded-xl bg-[#137fec]/12 hover:bg-[#137fec]/22 border border-[#137fec]/22 text-[#4fa8f5] text-[12px] font-semibold transition-colors"
+            className="flex-1 py-2.5! rounded-xl bg-[#137fec]/12 hover:bg-[#137fec]/22 border border-[#137fec]/22 text-[#4fa8f5] text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
-            Thử lại
+            {pendingAction === "redownload" ? <><Spinner className="w-3 h-3" /> Đang xử lý…</> : "Thử lại"}
           </button>
           <button
+            disabled={busy}
             onClick={() => onAction("cancel")}
-            className="px-4! py-2.5! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[12px] font-semibold transition-colors"
+            className="px-4! py-2.5! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
-            Huỷ
+            {pendingAction === "cancel" ? <><Spinner className="w-3 h-3" /> Đang huỷ…</> : "Huỷ"}
           </button>
         </div>
       </div>
     );
   }
 
-  // ── Đang tải / Tạm dừng / Đang chờ ──
   if (["downloading", "paused", "queued"].includes(status)) {
     return (
       <div className="space-y-2!">
@@ -427,39 +445,51 @@ function ControlButtons({
         <div className="flex gap-2">
           {status === "downloading" && (
             <button
+              disabled={busy}
               onClick={() => onAction("pause")}
-              className="flex-1 py-2.5! rounded-xl bg-orange-500/12 hover:bg-orange-500/22 border border-orange-500/20 text-orange-300 text-[12px] font-semibold transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5! rounded-xl bg-orange-500/12 hover:bg-orange-500/22 border border-orange-500/20 text-orange-300 text-[12px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <rect x="6" y="5" width="4" height="14" rx="1" />
-                <rect x="14" y="5" width="4" height="14" rx="1" />
-              </svg>
-              Tạm dừng
+              {pendingAction === "pause"
+                ? <><Spinner className="w-3.5 h-3.5 text-orange-300" /> Đang tạm dừng…</>
+                : <>
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="5" width="4" height="14" rx="1" />
+                    <rect x="14" y="5" width="4" height="14" rx="1" />
+                  </svg>
+                  Tạm dừng
+                </>
+              }
             </button>
           )}
           {(status === "paused" || status === "queued") && (
             <button
+              disabled={busy}
               onClick={() => onAction("resume")}
-              className="flex-1 py-2.5! rounded-xl bg-[#137fec]/12 hover:bg-[#137fec]/22 border border-[#137fec]/22 text-[#4fa8f5] text-[12px] font-semibold transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5! rounded-xl bg-[#137fec]/12 hover:bg-[#137fec]/22 border border-[#137fec]/22 text-[#4fa8f5] text-[12px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l10-6.86a1 1 0 0 0 0-1.72l-10-6.86A1 1 0 0 0 8 5.14z" />
-              </svg>
-              Tiếp tục
+              {pendingAction === "resume"
+                ? <><Spinner className="w-3.5 h-3.5" /> Đang tiếp tục…</>
+                : <>
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l10-6.86a1 1 0 0 0 0-1.72l-10-6.86A1 1 0 0 0 8 5.14z" />
+                  </svg>
+                  Tiếp tục
+                </>
+              }
             </button>
           )}
           <button
+            disabled={busy}
             onClick={() => onAction("cancel")}
-            className="px-4! py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[12px] font-semibold transition-colors"
+            className="px-4! py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
-            Huỷ
+            {pendingAction === "cancel" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang huỷ…</> : "Huỷ"}
           </button>
         </div>
       </div>
     );
   }
 
-  // ── Đang xác minh / Di chuyển ──
   if (status === "verifying" || status === "moving") {
     return (
       <div className="bg-white/4 rounded-xl p-3! border border-white/6 space-y-1.5">
@@ -473,16 +503,10 @@ function ControlButtons({
   }
 
   return null;
-}
+});
 
 // ─── Firmware Table ───────────────────────────────────────────────────────────
-function FirmwareTable({
-  firmwares,
-  onDownload,
-}: {
-  firmwares: Firmware[];
-  onDownload: (fw: Firmware) => void;
-}) {
+function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]; onDownload: (fw: Firmware) => void }) {
   const [page, setPage] = useState(0);
   const PER_PAGE = 5;
   const totalPages = Math.ceil(firmwares.length / PER_PAGE);
@@ -505,9 +529,7 @@ function FirmwareTable({
             {items.map((fw, i) => (
               <tr
                 key={fw.buildid}
-                className={`border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors ${
-                  i === 0 && page === 0 ? "bg-white/4" : ""
-                }`}
+                className={`border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors ${i === 0 && page === 0 ? "bg-white/4" : ""}`}
               >
                 <td className="px-3! py-2!">
                   <span className="text-white font-mono font-medium">{fw.version}</span>
@@ -515,9 +537,7 @@ function FirmwareTable({
                 </td>
                 <td className="px-3! py-2! text-gray-400">{formatDate(fw.releasedate)}</td>
                 <td className="px-3! py-2!">
-                  {fw.signed
-                    ? <span className="text-emerald-400">✓</span>
-                    : <span className="text-gray-600">—</span>}
+                  {fw.signed ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
                 </td>
                 <td className="px-3! py-2! text-gray-400 font-mono">{formatBytes(fw.filesize)}</td>
                 <td className="px-3! py-2!">
@@ -533,25 +553,18 @@ function FirmwareTable({
           </tbody>
         </table>
       </div>
-
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-2! px-1!">
           <span className="text-[10px] text-gray-600">Trang {page + 1} / {totalPages}</span>
           <div className="flex gap-1">
-            <button
-              onClick={() => setPage(p => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 disabled:opacity-25 text-gray-400 flex items-center justify-center transition-colors"
-            >
+            <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 disabled:opacity-25 text-gray-400 flex items-center justify-center transition-colors">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-              disabled={page === totalPages - 1}
-              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 disabled:opacity-25 text-gray-400 flex items-center justify-center transition-colors"
-            >
+            <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
+              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 disabled:opacity-25 text-gray-400 flex items-center justify-center transition-colors">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="m9 18 6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -565,33 +578,28 @@ function FirmwareTable({
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 function DetailPanel({
-  entry,
-  product,
-  onClose,
-  onAction,
+  entry, product, allFiles, pendingAction, onClose, onAction,
 }: {
   entry: DeviceEntry;
   product: Product;
+  allFiles: IPSWFile[];
+  pendingAction: ControlAction | null;
   onClose: () => void;
   onAction: (action: ControlAction, fw?: Firmware) => void;
 }) {
   const latest = entry.firmwares[0];
-  // FIX: tính status một lần duy nhất tại đây, truyền xuống ControlButtons
-  const status = useCardStatus(entry);
+  const status = computeCardStatus(entry, allFiles);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header */}
       <div className="flex items-center gap-3 px-5! py-3! border-b border-white/8 shrink-0">
         <div className="text-[#137fec] shrink-0">{PRODUCT_ICON[product]}</div>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold text-white truncate">{entry.device.name}</p>
           <p className="text-[10px] text-gray-500 font-mono">{entry.device.identifier}</p>
         </div>
-        <button
-          onClick={onClose}
-          className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-gray-500 hover:text-gray-300 flex items-center justify-center transition-colors shrink-0"
-        >
+        <button onClick={onClose}
+          className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-gray-500 hover:text-gray-300 flex items-center justify-center transition-colors shrink-0">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
           </svg>
@@ -599,13 +607,11 @@ function DetailPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
-        {/* ── Main: Latest Firmware ── */}
         <div className="px-5! py-4! border-b border-white/6">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-0.75 h-3 rounded-full bg-[#137fec]" />
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Phiên bản mới nhất</p>
           </div>
-
           {latest ? (
             <>
               <div className="bg-white/4 rounded-xl p-4! border border-white/6 mb-3!">
@@ -626,7 +632,6 @@ function DetailPanel({
                     <p className="text-[10px] text-gray-500">{formatDate(latest.releasedate)}</p>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-white/4 rounded-lg p-2">
                     <p className="text-[9px] text-gray-600 mb-0.5">SHA-256</p>
@@ -642,19 +647,13 @@ function DetailPanel({
                   </div>
                 </div>
               </div>
-
-              <ControlButtons
-                entry={entry}
-                status={status}
-                onAction={onAction}
-              />
+              <ControlButtons entry={entry} status={status} pendingAction={pendingAction} onAction={onAction} />
             </>
           ) : (
             <p className="text-[12px] text-gray-500 py-2!">Không có firmware.</p>
           )}
         </div>
 
-        {/* ── Secondary: All Firmwares ── */}
         <div className="px-5! py-4!">
           <div className="flex items-center gap-2 mb-3!">
             <div className="w-0.75 h-3 rounded-full bg-gray-700" />
@@ -662,10 +661,7 @@ function DetailPanel({
             <span className="text-[10px] text-gray-600 ml-auto">{entry.firmwares.length} phiên bản</span>
           </div>
           {entry.firmwares.length > 0 ? (
-            <FirmwareTable
-              firmwares={entry.firmwares}
-              onDownload={(fw) => onAction("download", fw)}
-            />
+            <FirmwareTable firmwares={entry.firmwares} onDownload={(fw) => onAction("download", fw)} />
           ) : (
             <p className="text-[12px] text-gray-500">Không có dữ liệu.</p>
           )}
@@ -702,10 +698,8 @@ function Resizer({ onResize }: { onResize: (dx: number) => void }) {
   }, [onResize]);
 
   return (
-    <div
-      onMouseDown={onMouseDown}
-      className="w-4 shrink-0 flex items-center justify-center cursor-col-resize group relative z-10 select-none"
-    >
+    <div onMouseDown={onMouseDown}
+      className="w-4 shrink-0 flex items-center justify-center cursor-col-resize group relative z-10 select-none">
       <div className="w-px h-full bg-white/8 group-hover:bg-[#137fec]/40 transition-colors" />
       <div className="absolute w-4 h-10 rounded-full bg-white/5 group-hover:bg-[#137fec]/12 border border-white/10 group-hover:border-[#137fec]/28 flex items-center justify-center transition-all">
         <svg className="w-2.5 h-2.5 text-gray-600 group-hover:text-[#137fec] transition-colors" fill="currentColor" viewBox="0 0 8 16">
@@ -719,29 +713,72 @@ function Resizer({ onResize }: { onResize: (dx: number) => void }) {
 
 // ─── IPSWManager ──────────────────────────────────────────────────────────────
 export default function IPSWManager() {
-  // ── Core state ──
   const [entries, setEntries] = useState<DeviceEntry[]>([]);
+  const [allFiles, setAllFiles] = useState<IPSWFile[]>([]);  // << cache toàn bộ file trong folder
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listWidthPct, setListWidthPct] = useState(44);
+  const [pendingActions, setPendingActions] = useState<Map<string, ControlAction>>(new Map());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const loadedProductRef = useRef<Product | null>(null);
-
-  const [taskMap, setTaskMap] = useState<Map<string, Task>>(new Map());
   const taskMapRef = useRef<Map<string, Task>>(new Map());
+  const entriesRef = useRef<DeviceEntry[]>([]);
+
   const location = useLocation();
   const { product } = location.state;
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
+
+  const fileMap = useMemo(() => {
+    const map = new Map<string, IPSWFile[]>();
+
+    for (const file of allFiles) {
+      const parsed = parseIPSW(file.name);
+      if (!parsed) continue;
+
+      if (!map.has(parsed.id)) map.set(parsed.id, []);
+      map.get(parsed.id)!.push(file);
+    }
+
+    return map;
+  }, [allFiles]);
+
+  // ── refreshAllFiles ──
+  const refreshAllFiles = useCallback(async (): Promise<IPSWFile[]> => {
+    try {
+      const files = await window.api.getFiles(state.currentFolder);
+      setAllFiles(files);
+      return files;
+    } catch (err) {
+      console.error("[IPSWManager] getFiles failed:", err);
+      return [];
+    }
+  }, []);
+
+  const setPending = useCallback((identifier: string, action: ControlAction | null) => {
+    setPendingActions(prev => {
+      const next = new Map(prev);
+      if (action === null) next.delete(identifier);
+      else next.set(identifier, action);
+      return next;
+    });
+  }, []);
 
   const applyTaskMap = useCallback((next: Map<string, Task>) => {
     taskMapRef.current = next;
-    setTaskMap(next);
-    setEntries(prev => prev.map(e => ({
-      ...e,
-      task: next.get(e.device.identifier),
-    })));
+    setEntries(prev => {
+      let changed = false;
+      const result = prev.map(e => {
+        const newTask = next.get(e.device.identifier);
+        if (e.task === newTask) return e;
+        changed = true;
+        return { ...e, task: newTask };
+      });
+      return changed ? result : prev;
+    });
   }, []);
 
   const upsertTask = useCallback((task: Task) => {
@@ -758,27 +795,62 @@ export default function IPSWManager() {
     applyTaskMap(next);
   }, [applyTaskMap]);
 
-  // ── Register downloader events exactly ONCE on mount ──
+  // ── Register downloader events ──
   useEffect(() => {
     const d = window.downloader;
     if (!d) return;
 
     const subs = [
-      d.onAdded(            (_id, task)       => upsertTask(task)),
-      d.onProgress(         (_id, task)       => upsertTask(task)),
-      d.onPaused(           (_id, task)       => upsertTask(task)),
-      d.onResumed(          (_id, task)       => { if (task) upsertTask(task); }),
-      d.onCompleted(        (_id, task)       => upsertTask(task)),
-      d.onError(            (_id, _err, task) => upsertTask(task)),
-      d.onCancelled(        (id)             => removeTaskById(id)),
-      d.onIncompleteDeleted((id)             => removeTaskById(id)),
+      d.onAdded((_id, task) => {
+        upsertTask(task);
+        setPending(task.firmware.identifier, null);
+        pushToast("info", `Đã thêm vào hàng: ${task.firmware.identifier}`);
+      }),
+      d.onProgress((_id, task) => upsertTask(task)),
+      d.onPaused((_id, task) => {
+        upsertTask(task);
+        setPending(task.firmware.identifier, null);
+        pushToast("warning", `Đã tạm dừng: ${task.firmware.identifier}`);
+      }),
+      d.onResumed((_id, task) => {
+        if (task) {
+          upsertTask(task);
+          setPending(task.firmware.identifier, null);
+          pushToast("info", `Đã tiếp tục: ${task.firmware.identifier}`);
+        }
+      }),
+      d.onCompleted((_id, task) => {
+        upsertTask(task);
+        setPending(task.firmware.identifier, null);
+        pushToast("success", `Tải xong: ${task.firmware.identifier}`);
+        // Chỉ gọi 1 IPC call duy nhất, không phải N calls từ N card
+        refreshAllFiles();
+      }),
+      d.onError((_id, err, task) => {
+        upsertTask(task);
+        setPending(task.firmware.identifier, null);
+        pushToast("error", `Lỗi: ${err}`);
+      }),
+      d.onCancelled((id) => {
+        for (const [identifier, t] of taskMapRef.current) {
+          if (t.id === id) {
+            setPending(identifier, null);
+            pushToast("info", `Đã huỷ: ${identifier}`);
+            break;
+          }
+        }
+        removeTaskById(id);
+      }),
+      d.onIncompleteDeleted((id) => {
+        removeTaskById(id);
+      }),
     ];
 
     return () => { subs.forEach(s => s.unsubscribe()); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load devices + hydrate tasks when product changes ──
+  // ── Load devices ──
   useEffect(() => {
     if (loadedProductRef.current === product) return;
     loadedProductRef.current = product;
@@ -786,34 +858,39 @@ export default function IPSWManager() {
     let cancelled = false;
     setLoading(true);
     setEntries([]);
+    setAllFiles([]);
     setSelectedId(null);
+    setPendingActions(new Map());
 
     async function load() {
-      const devices: Device[] = getDevices().filter(d => d.name.toLocaleLowerCase().startsWith(product)).reverse();
+      const devices: Device[] = getDevices()
+        .filter(d => d.name.toLocaleLowerCase().startsWith(product))
+        .reverse();
 
-      const built: DeviceEntry[] = await Promise.all(devices.map(async (device) => ({
-        device,
-        firmwares: (await loadModelData(device.identifier)).firmwares,
-        task: undefined,
-      })));
+      const [builtEntries, initialFiles] = await Promise.all([
+        Promise.all(devices.map(async (device) => ({
+          device,
+          firmwares: (await loadModelData(device.identifier)).firmwares,
+          task: undefined as Task | undefined,
+        }))),
+        window.api.getFiles(state.currentFolder),  // load 1 lần duy nhất
+      ]);
 
       try {
         const activeTasks = await window.downloader.getAllTask();
         const map = new Map<string, Task>();
-        for (const t of activeTasks) {
-          map.set(t.firmware.identifier, t);
-        }
+        for (const t of activeTasks) map.set(t.firmware.identifier, t);
         if (!cancelled) {
           taskMapRef.current = map;
-          setTaskMap(map);
-          setEntries(built.map(e => ({
-            ...e,
-            task: map.get(e.device.identifier),
-          })));
+          setEntries(builtEntries.map(e => ({ ...e, task: map.get(e.device.identifier) })));
+          setAllFiles(initialFiles);
         }
       } catch (err) {
         console.error("[IPSWManager] Failed to load tasks:", err);
-        if (!cancelled) setEntries(built);
+        if (!cancelled) {
+          setEntries(builtEntries);
+          setAllFiles(initialFiles);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -823,14 +900,11 @@ export default function IPSWManager() {
     return () => { cancelled = true; };
   }, [product]);
 
-  // ── Search filter ──
   const filtered = useMemo(() => {
     if (!search.trim()) return entries;
     const q = search.toLowerCase();
     return entries.filter(
-      e =>
-        e.device.name.toLowerCase().includes(q) ||
-        e.device.identifier.toLowerCase().includes(q)
+      e => e.device.name.toLowerCase().includes(q) || e.device.identifier.toLowerCase().includes(q)
     );
   }, [entries, search]);
 
@@ -839,36 +913,55 @@ export default function IPSWManager() {
     [entries, selectedId]
   );
 
-  // ── Resizer ──
   const handleResize = useCallback((dx: number) => {
     if (!containerRef.current) return;
     const totalW = containerRef.current.clientWidth;
     setListWidthPct(prev => Math.max(28, Math.min(72, prev + (dx / totalW) * 100)));
   }, []);
 
-  // ── Downloader actions ──
-  // FIX: nhận fw? trực tiếp — không cần fallback phức tạp nữa vì
-  //      ControlButtons luôn truyền đúng firmware
   const handleAction = useCallback(async (
     deviceIdentifier: string,
     action: ControlAction,
     fw?: Firmware,
   ) => {
     const d = window.downloader;
-    const entry = entries.find(e => e.device.identifier === deviceIdentifier);
+    const entry = entriesRef.current.find(e => e.device.identifier === deviceIdentifier);
     if (!entry) return;
 
     const task = taskMapRef.current.get(deviceIdentifier);
     const firmware = fw ?? entry.firmwares[0];
 
+    setPending(deviceIdentifier, action);
+
     try {
       switch (action) {
         case "download":
-        case "redownload": {
-          if (!firmware) return;
-          await d.add(firmware, state.currentFolder);
+          if (!firmware) { setPending(deviceIdentifier, null); return; }
+          {
+            const result = await d.add(firmware, state.currentFolder);
+            if (!result.success) {
+              setPending(deviceIdentifier, null);
+              pushToast("error", `Không thể thêm vào hàng: ${result.error ?? "UNKNOWN"}`);
+            }
+            // success: setPending sẽ được clear bởi onAdded event
+          }
           break;
-        }
+
+        case "redownload":
+          if (!firmware) { setPending(deviceIdentifier, null); return; }
+          {
+            await deleteFile({ identifier: deviceIdentifier });
+            const nextMap = new Map(taskMapRef.current);
+            nextMap.delete(deviceIdentifier);
+            applyTaskMap(nextMap);
+            await refreshAllFiles();
+            const result = await d.add(firmware, state.currentFolder);
+            if (!result.success) {
+              setPending(deviceIdentifier, null);
+              pushToast("error", `Không thể tải lại: ${result.error ?? "UNKNOWN"}`);
+            }
+          }
+          break;
         case "pause":
           if (task) await d.pause(task.id);
           break;
@@ -879,134 +972,138 @@ export default function IPSWManager() {
           if (task) await d.cancel(task.id);
           break;
         case "delete":
-          if (task) await d.cancel(task.id);
+          await deleteFile({ identifier: deviceIdentifier });
+          const nextMap = new Map(taskMapRef.current);
+          nextMap.delete(deviceIdentifier);
+          applyTaskMap(nextMap);
+          await refreshAllFiles();
+          setPending(deviceIdentifier, null);
+          pushToast("success", `Đã xoá tệp: ${deviceIdentifier}`);
           break;
         case "verify":
+          await refreshAllFiles();
+          setPending(deviceIdentifier, null);
+          pushToast("info", `Đã làm mới trạng thái: ${deviceIdentifier}`);
           break;
       }
     } catch (err) {
       console.error(`[IPSWManager] Action "${action}" on ${deviceIdentifier} failed:`, err);
+      setPending(deviceIdentifier, null);
+      pushToast("error", `Thao tác thất bại: ${String(err)}`);
     }
-  }, [entries]);
+  }, [refreshAllFiles, setPending]);
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-1001">
       <div
-      ref={containerRef}
-      className="flex h-full bg-[#0c0c0f] text-white overflow-hidden"
-      style={{ fontFamily: "'SF Pro Display','SF Pro Text',-apple-system,BlinkMacSystemFont,sans-serif" }}
-    >
-      {/* ── Grid Panel ── */}
-      <div
-        className="flex flex-col overflow-hidden shrink-0"
-        style={{
-          width: selectedEntry ? `${listWidthPct}%` : "100%",
-          transition: "width 0.15s ease",
-        }}
+        ref={containerRef}
+        className="flex h-full bg-[#0c0c0f] text-white overflow-hidden"
+        style={{ fontFamily: "'SF Pro Display','SF Pro Text',-apple-system,BlinkMacSystemFont,sans-serif" }}
       >
-        {/* Toolbar */}
-        <div className="flex items-center gap-2 px-31 h-11 border-b border-white/7 shrink-0 bg-[#0e0e12]">
-          <div className="flex items-center gap-2 shrink-0 min-w-0">
-            <span className="text-[16px] font-bold pl-2! text-gray-200 whitespace-nowrap">{entries.length} thiết bị</span>
-          </div>
-
-          <div className="flex-1 flex justify-center px-2!">
-            <div className="flex items-center gap-2 px-2.5! py-1.5! rounded-lg bg-white/5 border border-white/8 w-full max-w-xs hover:border-white/15 focus-within:border-[#137fec]/45 transition-colors">
-              <svg className="w-3 h-3 text-gray-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" strokeLinecap="round" />
-              </svg>
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Tìm thiết bị…"
-                className="flex-1 bg-transparent text-[11px] text-white placeholder-gray-600 outline-none min-w-0"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="text-gray-600 hover:text-gray-400 transition-colors shrink-0"
-                >
-                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                  </svg>
-                </button>
-              )}
+        {/* ── Grid Panel ── */}
+        <div
+          className="flex flex-col overflow-hidden shrink-0"
+          style={{
+            width: selectedEntry ? `${listWidthPct}%` : "100%",
+            transition: "width 0.15s ease",
+          }}
+        >
+          {/* Toolbar */}
+          <div className="flex items-center gap-2 px-31 h-11 border-b border-white/7 shrink-0 bg-[#0e0e12]">
+            <div className="flex items-center gap-2 shrink-0 min-w-0">
+              <span className="text-[16px] font-bold pl-2! text-gray-200 whitespace-nowrap">{entries.length} thiết bị</span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={() => navigate("/")}
-              title="Đóng"
-              className="w-7 h-7 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 flex items-center justify-center transition-all"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Card Grid */}
-        <div className="flex-1 overflow-y-auto p-3! scrollbar-thin">
-          {loading ? (
-            <div className="flex items-center justify-center h-32 gap-2 text-gray-600">
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
-              </svg>
-              <span className="text-[12px]">Đang tải…</span>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 gap-2 text-gray-600">
-              <svg className="w-6 h-6 opacity-40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" />
-              </svg>
-              <span className="text-[12px]">{search ? "Không tìm thấy thiết bị" : "Không có thiết bị"}</span>
-            </div>
-          ) : (
-            <div
-              className="grid gap-2"
-              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}
-            >
-              {filtered.map(entry => (
-                <DeviceCard
-                  key={entry.device.identifier}
-                  entry={entry}
-                  selected={selectedId === entry.device.identifier}
-                  onClick={() =>
-                    setSelectedId(prev =>
-                      prev === entry.device.identifier ? null : entry.device.identifier
-                    )
-                  }
+            <div className="flex-1 flex justify-center px-2!">
+              <div className="flex items-center gap-2 px-2.5! py-1.5! rounded-lg bg-white/5 border border-white/8 w-full max-w-xs hover:border-white/15 focus-within:border-[#137fec]/45 transition-colors">
+                <svg className="w-3 h-3 text-gray-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" strokeLinecap="round" />
+                </svg>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Tìm thiết bị…"
+                  className="flex-1 bg-transparent text-[11px] text-white placeholder-gray-600 outline-none min-w-0"
                 />
-              ))}
+                {search && (
+                  <button onClick={() => setSearch("")} className="text-gray-600 hover:text-gray-400 transition-colors shrink-0">
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-          )}
+            <div className="flex items-center pr-2! gap-1.5 shrink-0">
+              <button
+                onClick={() => navigate("/")}
+                title="Đóng"
+                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 flex items-center justify-center transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Card Grid */}
+          <div className="flex-1 overflow-y-auto p-3! scrollbar-thin">
+            {loading ? (
+              <div className="flex items-center justify-center h-32 gap-2 text-gray-600">
+                <Spinner className="w-4 h-4 text-gray-600" />
+                <span className="text-[12px]">Đang tải…</span>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 gap-2 text-gray-600">
+                <svg className="w-6 h-6 opacity-40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" />
+                </svg>
+                <span className="text-[12px]">{search ? "Không tìm thấy thiết bị" : "Không có thiết bị"}</span>
+              </div>
+            ) : (
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}>
+                {filtered.map(entry => (
+                  <DeviceCard
+                    key={entry.device.identifier}
+                    entry={entry}
+                    selected={selectedId === entry.device.identifier}
+                    allFiles={allFiles}
+                    pending={pendingActions.has(entry.device.identifier)}
+                    onClick={() =>
+                      setSelectedId(prev =>
+                        prev === entry.device.identifier ? null : entry.device.identifier
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* ── Resizer + Detail Panel ── */}
+        {selectedEntry && (
+          <>
+            <Resizer onResize={handleResize} />
+            <div
+              className="flex-1 min-w-0 border-l border-white/7 bg-[#0e0e12] overflow-hidden"
+              style={{ animation: "slideIn 0.2s cubic-bezier(0.22,1,0.36,1)" }}
+            >
+              <DetailPanel
+                entry={selectedEntry}
+                product={product}
+                allFiles={allFiles}
+                pendingAction={pendingActions.get(selectedEntry.device.identifier) ?? null}
+                onClose={() => setSelectedId(null)}
+                onAction={(action, fw) => handleAction(selectedEntry.device.identifier, action, fw)}
+              />
+            </div>
+          </>
+        )}
       </div>
 
-      {/* ── Resizer + Detail Panel ── */}
-      {selectedEntry && (
-        <>
-          <Resizer onResize={handleResize} />
-          <div
-            className="flex-1 min-w-0 border-l border-white/7 bg-[#0e0e12] overflow-hidden"
-            style={{ animation: "slideIn 0.2s cubic-bezier(0.22,1,0.36,1)" }}
-          >
-            <DetailPanel
-              entry={selectedEntry}
-              product={product}
-              onClose={() => setSelectedId(null)}
-              onAction={(action, fw) =>
-                handleAction(selectedEntry.device.identifier, action, fw)
-              }
-            />
-          </div>
-        </>
-      )}
+      <ToastContainer />
 
       <style>{`
         @keyframes slideIn {
@@ -1017,13 +1114,22 @@ export default function IPSWManager() {
           0%   { transform: translateX(-100%); }
           100% { transform: translateX(200%); }
         }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateY(8px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes cardFlash {
+          0%   { box-shadow: 0 0 0 0 rgba(19,127,236,0); }
+          30%  { box-shadow: 0 0 0 3px rgba(19,127,236,0.35); }
+          100% { box-shadow: 0 0 0 0 rgba(19,127,236,0); }
+        }
+        .animate-card-flash { animation: cardFlash 0.6s ease-out; }
         .animate-shimmer { animation: shimmer 1.8s linear infinite; }
         .scrollbar-thin::-webkit-scrollbar { width: 4px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
         .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
       `}</style>
-    </div>
     </div>
   );
 }

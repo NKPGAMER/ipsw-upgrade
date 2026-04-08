@@ -13,12 +13,6 @@ import {
 
 import i18n from './i18n.js';
 
-import { createRoot } from "react-dom/client";
-import SettingsApp from "./ui/setting.js";
-import DownloadPage from "./ui/download.js";
-import IPSWManager from "./ui/SelectDevice.js";
-
-const selectModelRoot = createRoot(document.getElementById('selectDevice')!);
 const { t } = i18n;
 
 interface detaiData {
@@ -73,17 +67,6 @@ const UI = {
     close: () => elements.globalSearch.overlay.classList.remove('active')
   }
 }
-
-const settingsPage = createRoot(document.getElementById('settingsPage') as HTMLDivElement);
-const downloadPage = createRoot(document.getElementById('downloadPage')!)
-settingsPage.render(<>
-  <SettingsApp onClose={() => UI.setting.close()} />
-</>)
-downloadPage.render(
-  <>
-    <DownloadPage onClose={() => UI.download.close()}></DownloadPage>
-  </>
-)
 
 const main = new class {
   public selectProduct = document.getElementById('main:selectProduct');
@@ -880,12 +863,6 @@ const CACHE_TTL = 120_000; // 120s (tuỳ chỉnh)
 
 function loadProductUI(product: Product) {
   UI.selectDevice.show()
-  selectModelRoot.render(
-    <IPSWManager
-      // product={product}
-      // close={UI.selectDevice.close}
-    ></IPSWManager>
-  )
 }
 
 async function getCachedRedundantFiles(product: Product) {
@@ -971,20 +948,6 @@ const initEventListeners = () => {
 
     downloadPageBtn?.classList.toggle("highlight-glow", task.length > 0)
   }
-
-  window.downloader.onCancelled(disableHighlight);
-  window.downloader.onError(disableHighlight)
-
-  window.downloader.onCompleted(async () => {
-    await refresh();
-
-    if(!main.modelDetailContainer?.classList.contains("hidden")) {
-      loadProductUI(state.currentProduct)
-    }
-
-    disableHighlight()
-  });
-
   elements.topbar.upgrade?.addEventListener('click', () => {
     elements.updater.page.classList.add('active');
   });

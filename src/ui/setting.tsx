@@ -1,7 +1,7 @@
 import { useState, type FC, type ReactNode, type JSX, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { state } from "../data";
-import { refresh } from "..";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ const Toggle: FC<ToggleProps> = ({ on, onChange, disabled = false }) => (
     onClick={() => !disabled && onChange(!on)}
     className={[
       "relative shrink-0 w-11 h-6 rounded-full border transition-all duration-200 select-none",
-      on ? "bg-[#137fec] border-[#137fec]" : "bg-[#223040] border-white/10",
+      on ? "bg-[#137fec] border-[#137fec]" : "bg-[#363a3e] border-white/10",
       disabled ? "opacity-30 cursor-default" : "cursor-pointer",
     ].join(" ")}
   >
@@ -76,9 +76,9 @@ interface SectionProps {
 }
 
 const Section: FC<SectionProps> = ({ icon: Icon, title, children }) => (
-  <div className="mb-8! rounded-xl border border-white/[0.07] bg-[#162030] overflow-hidden">
+  <div className="mb-8! rounded-xl border border-[#1e1e1e] bg-[#161616] overflow-hidden">
     <div className="flex items-center gap-3! px-6! py-4! border-b border-white/[0.07] bg-white/2">
-      <div className="w-8 h-8 rounded-lg bg-[rgba(19,127,236,0.15)] flex items-center justify-center text-[#137fec] shrink-0">
+      <div className="w-8 h-8 rounded-lg bg-[rgba(195,208,222,0.15)] flex items-center justify-center text-[#137fec] shrink-0">
         <Icon />
       </div>
       <span className="text-[14px] font-semibold text-[#e8edf2] tracking-[0.01em]">
@@ -101,7 +101,7 @@ interface RowProps {
 }
 
 const Row: FC<RowProps> = ({ label, desc, dimmed = false, right }) => (
-  <div className="flex items-center justify-between gap-6! px-6! py-5! transition-colors duration-100 hover:bg-white/2">
+  <div className="flex items-center justify-between gap-6! px-6! py-5! transition-colors duration-100 hover:border-[#1e1e1e]">
     <div className="flex-1 min-w-0">
       <p className={`text-[14px] font-medium text-[#e8edf2] leading-snug transition-opacity ${dimmed ? "opacity-40" : ""}`}>
         {label}
@@ -147,7 +147,7 @@ const PathRow: FC<PathRowProps> = ({ label, desc, value, onChange, onBrowse, dis
         placeholder={placeholder}
         disabled={disabled}
         className={[
-          "flex-1 min-w-0 bg-[#1c2a3a] border border-white/[0.07] rounded-lg px-3! py-2!",
+          "flex-1 min-w-0 bg-[#292a2b] border border-white/[0.07] rounded-lg px-3! py-2!",
           "text-[13px] font-mono text-[#8a9ab0] outline-none caret-[#137fec]",
           "transition-all duration-150",
           "focus:border-[#137fec] focus:text-[#e8edf2] focus:bg-[#223040]",
@@ -159,7 +159,7 @@ const PathRow: FC<PathRowProps> = ({ label, desc, value, onChange, onBrowse, dis
         onClick={onBrowse}
         className={[
           "flex items-center gap-2! px-4! py-2! rounded-lg border border-white/[0.07]",
-          "bg-[#223040] text-[#8a9ab0] text-[13px] font-medium whitespace-nowrap",
+          "bg-[#36393b] text-[#8a9ab0] text-[13px] font-medium whitespace-nowrap",
           "transition-all duration-150",
           disabled
             ? "opacity-30 cursor-not-allowed"
@@ -176,60 +176,56 @@ const PathRow: FC<PathRowProps> = ({ label, desc, value, onChange, onBrowse, dis
 
 type Language = "en" | "vi";
 
-interface SettingsAppProps {
-  onClose?: () => void;
-}
-
 const defaultSettings = {
   downloadPath: "C:\\Downloads",
   IDMPath: "C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe"
 }
 
-export default function SettingsApp({ onClose }: SettingsAppProps): JSX.Element {
+export default function SettingsApp(): JSX.Element {
   const [language, setLanguage] = useState<Language>("vi");
   const [downloadPath, setDownloadPath] = useState<string>(defaultSettings.downloadPath);
-  const [useIDM, setUseIDM] = useState<boolean>(false);
-  const [idmPath, setIdmPath] = useState<string>(defaultSettings.IDMPath);
   const [deleteOld, setDeleteOld] = useState<boolean>(false);
   const [deleteDuplicate, setDeleteDuplicate] = useState<boolean>(false);
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    Promise.all([
-      window.store.get('ipswFolder'),
-      window.store.get('useIDM'),
-      window.store.get('idmPath'),
-      window.store.get('autoRemoveOldFiles'),
-      window.store.get('autoRemoveDuplicateFiles'),
-      window.store.get('language'),
-    ]).then(([savedFolder, savedUseIDM, savedIDMPath, savedDeleteOld, savedDeleteDuplicate, savedLanguage]) => {
-      if (savedFolder) {
-        state.currentFolder = savedFolder;
-        setDownloadPath(savedFolder);
-      }
-      if (savedUseIDM !== undefined && savedUseIDM !== null) {
-        state.useIDM = savedUseIDM;
-        setUseIDM(savedUseIDM);
-      }
-      if (savedIDMPath) {
-        state.IDMPath = savedIDMPath;
-        refresh();
-        setIdmPath(savedIDMPath);
-      }
-      if (savedDeleteOld !== undefined && savedDeleteOld !== null) {
-        state.autoRemoveOldFiles = savedDeleteOld;
-        setDeleteOld(savedDeleteOld);
-      }
-      if (savedDeleteDuplicate !== undefined && savedDeleteDuplicate !== null) {
-        state.autoRemoveDuplicateFiles = savedDeleteDuplicate;
-        setDeleteDuplicate(savedDeleteDuplicate);
-      }
-      if (savedLanguage) {
-        setLanguage(savedLanguage);
-        i18n.changeLanguage(savedLanguage);
-      }
+  if (state.__init) {
+    setDownloadPath(state.currentFolder);
+    setDeleteOld(state.autoRemoveOldFiles);
+    setDeleteDuplicate(state.autoRemoveDuplicateFiles);
+
+    window.store.get('language').then((lang) => {
+      if (lang) setLanguage(lang);
     });
-  }, []);
+
+    return;
+  }
+
+  Promise.all([
+    window.store.get('ipswFolder'),
+    window.store.get('autoRemoveOldFiles'),
+    window.store.get('autoRemoveDuplicateFiles'),
+    window.store.get('language'),
+  ]).then(([savedFolder, savedDeleteOld, savedDeleteDuplicate, savedLanguage]) => {
+    if (savedFolder) {
+      state.currentFolder = savedFolder;
+      setDownloadPath(savedFolder);
+    }
+    if (savedDeleteOld !== undefined && savedDeleteOld !== null) {
+      state.autoRemoveOldFiles = savedDeleteOld;
+      setDeleteOld(savedDeleteOld);
+    }
+    if (savedDeleteDuplicate !== undefined && savedDeleteDuplicate !== null) {
+      state.autoRemoveDuplicateFiles = savedDeleteDuplicate;
+      setDeleteDuplicate(savedDeleteDuplicate);
+    }
+    if (savedLanguage) {
+      setLanguage(savedLanguage);
+      i18n.changeLanguage(savedLanguage);
+    }
+  });
+}, []);
 
   const handleSetDownloadPath = (path: string) => {
     if (!path) {
@@ -238,19 +234,6 @@ export default function SettingsApp({ onClose }: SettingsAppProps): JSX.Element 
     setDownloadPath(path);
     state.currentFolder = path;
     window.store.set('ipswFolder', path);
-    refresh();
-  };
-
-  const handleSetUseIDM = (value: boolean) => {
-    setUseIDM(value);
-    state.useIDM = value;
-    window.store.set('useIDM', value);
-  };
-
-  const handleSetIdmPath = (path: string) => {
-    setIdmPath(path);
-    state.IDMPath = path;
-    window.store.set('idmPath', path);
   };
 
   const handleSetDeleteOld = (value: boolean) => {
@@ -272,25 +255,22 @@ export default function SettingsApp({ onClose }: SettingsAppProps): JSX.Element 
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-[#101922] text-[#e8edf2]">
+    <div className="w-full h-full overflow-y-auto bg-[#0d0d0d] text-[#e5e5e5]">
       <main className="w-full px-10! pt-10! pb-16!">
 
         {/* Page Header */}
         <div className="flex items-start justify-between mb-10!">
           <div>
-            <h1 className="text-[22px] font-semibold text-[#e8edf2] tracking-tight">{t('setting.title')}</h1>
+            <h1 className="text-[22px] font-bold text-[#e5e5e5] tracking-tight">{t('setting.title')}</h1>
           </div>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/[0.07] bg-[#1c2a3a] text-[#5a6a7a] transition-all duration-150 hover:bg-[#223040] hover:border-white/15 hover:text-[#e8edf2] cursor-pointer shrink-0"
-              aria-label="Đóng"
+          <button
+              onClick={() => navigate("/")}
+              className="w-10 h-10 flex items-center justify-center rounded-lg border border-white/[0.07] bg-[#1e1e1e] text-[#5a6a7a] transition-all duration-150 hover:bg-[#223040] hover:border-white/15 hover:text-[#e8edf2] cursor-pointer shrink-0"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-          )}
         </div>
 
         {/* ABOUT */}
@@ -298,8 +278,8 @@ export default function SettingsApp({ onClose }: SettingsAppProps): JSX.Element 
           <Row
             label={t('app.version.title')}
             right={
-              <span className="font-mono text-[12px] text-[#137fec] bg-[#223040] border border-white/[0.07] px-3! py-1! rounded-full tracking-[0.04em]">
-                v{window.api.getVersion}
+              <span className="font-bold text-[12px] text-[#137fec] bg-[#303337] border border-white/[0.07] px-3! py-1! rounded-full tracking-[0.04em]">
+                {window.api.getVersion} - Premium Edition - VIP
               </span>
             }
           />
@@ -334,7 +314,7 @@ export default function SettingsApp({ onClose }: SettingsAppProps): JSX.Element 
                       "px-4! py-2! rounded-lg text-[13px] font-medium border transition-all duration-150 cursor-pointer select-none",
                       language === lang
                         ? "bg-[rgba(19,127,236,0.12)] border-[#137fec] text-[#137fec]"
-                        : "bg-[#1c2a3a] border-white/[0.07] text-[#8a9ab0] hover:border-[rgba(19,127,236,0.35)] hover:text-[#e8edf2]",
+                        : "bg-[#161616] border-white/[0.07] text-[#e8edf2] hover:border-[rgba(19,127,236,0.35)] hover:text-[#e8edf2]",
                     ].join(" ")}
                   >
                     {lang === "en" ? "English" : "Tiếng Việt"}
@@ -357,24 +337,6 @@ export default function SettingsApp({ onClose }: SettingsAppProps): JSX.Element 
             }}
             onChange={handleSetDownloadPath}
             placeholder="C:\Downloads"
-          />
-          <Row
-            label={t("app.useIDM.label")}
-            desc={t("app.useIDM.desc")}
-            right={<Toggle on={useIDM} onChange={handleSetUseIDM} />}
-          />
-          <PathRow
-            label={t("app.IDMPath.label")}
-            desc={t("app.IDMPath.desc")}
-            value={idmPath}
-            onChange={handleSetIdmPath}
-            onBrowse={() =>
-              window.api.selectFile([{ name: "Executable", extensions: ["exe"] }]).then((path) => {
-                if (path) handleSetIdmPath(path);
-              })
-            }
-            disabled={!useIDM}
-            placeholder="C:\Program Files (x86)\Internet Download Manager\IDMan.exe"
           />
         </Section>
 

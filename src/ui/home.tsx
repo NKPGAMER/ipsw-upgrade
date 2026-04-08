@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
 const SettingsIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
-    strokeLinecap="round" strokeLinejoin="round" className="!w-[17px] !h-[17px]">
+    strokeLinecap="round" strokeLinejoin="round" className="w-4.25! h-4.25!">
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
@@ -56,77 +56,6 @@ const StorageFreeIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
   </svg>
 );
 
-// ── Product icons ─────────────────────────────────────────────────────────────
-
-const IPhoneIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
-    strokeLinecap="round" className="!w-[26px] !h-[26px]">
-    <rect x="7" y="2" width="10" height="20" rx="3" />
-    <line x1="12" y1="18" x2="12" y2="18.01" strokeWidth={2} />
-  </svg>
-);
-
-const IPadIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
-    strokeLinecap="round" className="!w-[26px] !h-[26px]">
-    <rect x="5" y="2" width="14" height="20" rx="3" />
-    <line x1="12" y1="18" x2="12" y2="18.01" strokeWidth={2} />
-  </svg>
-);
-
-const WatchIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
-    strokeLinecap="round" className="!w-[26px] !h-[26px]">
-    <rect x="7" y="7" width="10" height="10" rx="3" />
-    <path d="M9 7V5h6v2" />
-    <path d="M9 17v2h6v-2" />
-    <line x1="17" y1="10" x2="17.01" y2="10" strokeWidth={2} />
-  </svg>
-);
-
-const MacIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
-    strokeLinecap="round" className="!w-[26px] !h-[26px]">
-    <rect x="2" y="4" width="20" height="13" rx="2" />
-    <path d="M8 21h8M12 17v4" />
-  </svg>
-);
-
-const VisionProIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
-    strokeLinecap="round" className="!w-[26px] !h-[26px]">
-    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
-    <circle cx="12" cy="12" r="3" />
-    <line x1="9" y1="12" x2="15" y2="12" strokeWidth={1} />
-  </svg>
-);
-
-const AppleTVIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
-    strokeLinecap="round" className="!w-[26px] !h-[26px]">
-    <rect x="3" y="7" width="18" height="11" rx="2" />
-    <path d="M9 21h6M12 18v3" />
-    <circle cx="12" cy="12" r="2" />
-  </svg>
-);
-
-const HomePodIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
-    strokeLinecap="round" className="!w-[26px] !h-[26px]">
-    <path d="M12 3C8 3 5 6.5 5 11c0 4 2 7 7 9 5-2 7-5 7-9 0-4.5-3-8-7-8z" />
-    <circle cx="12" cy="11" r="2.5" />
-  </svg>
-);
-
-const IPodIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
-    strokeLinecap="round" className="!w-[26px] !h-[26px]">
-    <rect x="8" y="2" width="8" height="20" rx="2" />
-    <circle cx="12" cy="17" r="1.5" />
-    <rect x="10" y="5" width="4" height="2.5" rx="0.5" />
-  </svg>
-);
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ProductId =
@@ -151,7 +80,7 @@ interface Product {
   id: ProductId;
   name: string;
   sub?: string;
-  icon: React.ReactNode;
+  img: string;
   badge?: string;
 }
 
@@ -167,37 +96,37 @@ export interface IPSWManagerProps {
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 const PRODUCTS: Product[] = [
-  { id: "iphone",      name: "iPhone",      icon: <IPhoneIcon />,    badge: "12 tệp" },
-  { id: "ipad",        name: "iPad",         icon: <IPadIcon />,      badge: "5 tệp"  },
-  { id: "apple-watch", name: "Apple Watch",  icon: <WatchIcon />,     badge: "3 tệp"  },
-  { id: "mac",         name: "Mac",          icon: <MacIcon />,       badge: "2 tệp"  },
-  { id: "vision-pro",  name: "Vision Pro",   icon: <VisionProIcon />, sub: "visionOS" },
-  { id: "apple-tv",    name: "Apple TV",     icon: <AppleTVIcon />,   sub: "tvOS"     },
-  { id: "homepod",     name: "HomePod",      icon: <HomePodIcon />,   sub: "audioOS"  },
-  { id: "ipod",        name: "iPod",         icon: <IPodIcon />,      sub: "Legacy"   },
+  { id: "iphone", name: "iPhone", img: "assets/icon/iphone.png" },
+  { id: "ipad", name: "iPad", img: "assets/icon/ipad.png" },
+  { id: "apple-watch", name: "Apple Watch", img: "assets/icon/watch.png" },
+  { id: "mac", name: "Mac", img: "assets/icon/mac.png" },
+  { id: "vision-pro", name: "Vision Pro", img: "assets/icon/vision.png" },
+  { id: "apple-tv", name: "Apple TV", img: "assets/icon/tv.png" },
+  { id: "homepod", name: "HomePod", img: "assets/icon/homepod.png" },
+  { id: "ipod", name: "iPod", img: "assets/icon/ipod.png" },
 ];
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
 
 const StatCard = ({ label, value, unit, iconSm, iconLg }: StatItem) => (
-  <div className="relative overflow-hidden !rounded-xl bg-[#161616] border border-[#1e1e1e] !p-4 flex flex-col !gap-2">
+  <div className="relative overflow-hidden rounded-xl! bg-[#161616] border border-[#1e1e1e] p-4! flex flex-col gap-2!">
     {/* accent top line */}
-    <div className="absolute top-0 left-0 right-0 !h-[2px] bg-[#137fec] opacity-50" />
+    <div className="absolute top-0 left-0 right-0 h-0.5! bg-[#137fec] opacity-50" />
     <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-[0.6] pointer-events-none">
       {iconLg}
     </div>
 
     {/* label + visible icon */}
-    <div className="flex items-center !gap-1.5">
+    <div className="flex items-center gap-1.5!">
       {iconSm}
-      <span className="!text-[11px] text-[#666] uppercase tracking-[0.06em] font-medium">
+      <span className="text-[11px]! text-[#666] uppercase tracking-[0.06em] font-medium">
         {label}
       </span>
     </div>
 
-    <span className="!text-[22px] font-semibold text-[#e5e5e5] leading-none">
+    <span className="text-[22px]! font-semibold text-[#e5e5e5] leading-none">
       {value}
-      <small className="!text-[13px] text-[#888] font-normal !ml-1">{unit}</small>
+      <small className="text-[13px]! text-[#888] font-normal ml-1!">{unit}</small>
     </span>
   </div>
 );
@@ -215,42 +144,48 @@ const ProductCard = ({
     type="button"
     onClick={onClick}
     className="
-      flex flex-col items-center !gap-2.5 !rounded-[14px]
+      flex flex-col items-center justify-center h-40 gap-2.5! rounded-[14px]!
       bg-[#161616] border border-[#1e1e1e]
-      !px-3 !pt-5 !pb-4
+      px-3! pt-5! pb-4!
       cursor-pointer select-none text-center w-full
       transition-all duration-150
-      hover:bg-[#1a1a1a] hover:border-[#137fec55] hover:-translate-y-[1px]
+      hover:bg-[#1a1a1a] hover:border-[#137fec55] hover:-translate-y-px
       active:scale-[0.97]
     "
   >
-    <div className="!w-12 !h-12 bg-[#1e1e1e] !rounded-xl flex items-center justify-center border border-[#252525] flex-shrink-0">
-      {product.icon}
+    <div className="w-14! h-14! bg-[#1e1e1e] rounded-xl! flex items-center justify-center border border-[#252525] shrink-0">
+      <div
+        className="w-10! h-10! bg-[#137fec]"
+        style={{
+          WebkitMask: `url(${product.img}) center / contain no-repeat`,
+          mask: `url(${product.img}) center / contain no-repeat`,
+        }}
+      />
     </div>
 
-    <span className="!text-[12.5px] font-medium text-[#ccc] leading-snug">
+    <span className="text-[14px]! font-bold text-[#ccc] leading-snug">
       {product.name}
     </span>
 
     {product.badge && (
-      <span className="!text-[9.5px] font-medium tracking-[0.03em] bg-[#137fec18] text-[#137fec] border border-[#137fec30] !rounded-[5px] !px-[7px] !py-[2px]">
+      <span className="text-[9.5px]! font-medium tracking-[0.03em] bg-[#137fec18] text-[#137fec] border border-[#137fec30] rounded-[5px]! px-1.75! py-0.5!">
         {product.badge}
       </span>
     )}
 
     {!product.badge && product.sub && (
-      <span className="!text-[10.5px] text-[#555]">{product.sub}</span>
+      <span className="text-[10.5px]! text-[#555]">{product.sub}</span>
     )}
   </button>
 );
 
 // ── home ──────────────────────────────────────────────────────────────────────
 
-export default function home({
+export default function Home({
   stats = { fileCount: 24, usedGB: 143.2, freeGB: 312.5 },
 }: IPSWManagerProps) {
   const navigate = useNavigate();
-  const [_hoveredProduct, setHoveredProduct] = useState<ProductId | null>(null);
+  const { state } = useLocation();
 
   const statItems: StatItem[] = [
     {
@@ -281,12 +216,12 @@ export default function home({
 
       {/* ── Taskbar ─────────────────────────────────────────────────────────── */}
       <header className="
-        sticky top-0 z-10 flex-shrink-0
+        sticky top-0 z-10 shrink-0
         flex items-center justify-between
         bg-[#111] border-b border-[#1e1e1e]
-        !px-6 !h-[52px]
+        px-6! h-13!
       ">
-        <h1 className="!text-[17px] font-semibold tracking-[0.01em] text-[#e5e5e5]">
+        <h1 className="text-[17px]! font-semibold tracking-[0.01em] text-[#e5e5e5]">
           <span className="text-[#137fec]">IPSW</span> Manager
         </h1>
 
@@ -295,7 +230,7 @@ export default function home({
           onClick={() => navigate("/settings")}
           title="Cài đặt"
           className="
-            !w-[34px] !h-[34px] !rounded-lg flex items-center justify-center
+            w-8.5! h-8.5! rounded-lg! flex items-center justify-center
             bg-transparent border border-[#2a2a2a] text-[#999] cursor-pointer
             transition-all duration-150
             hover:bg-[#1a1a1a] hover:border-[#137fec44] hover:text-[#137fec]
@@ -306,28 +241,27 @@ export default function home({
       </header>
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}
-      <main className="flex-1 !p-6 md:!px-8 md:!py-7 overflow-y-auto">
+      <main className="flex-1 p-6! md:px-8! md:py-7! overflow-y-auto">
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 !gap-3 !mb-7">
+        <div className="grid grid-cols-3 gap-3! mb-7!">
           {statItems.map((s) => (
             <StatCard key={s.label} {...s} />
           ))}
         </div>
 
         {/* Section label */}
-        <p className="!text-[11px] text-[#555] uppercase tracking-[0.07em] font-medium !mb-3.5">
+        <p className="text-[11px]! text-[#555] uppercase tracking-[0.07em] font-medium mb-3.5!">
           Chọn thiết bị
         </p>
 
         {/* Products grid — responsive: 2 → 4 → 8 cols */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 !gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3!">
           {PRODUCTS.map((p) => (
             <ProductCard
               key={p.id}
               product={p}
               onClick={() => {
-                setHoveredProduct(p.id);
                 navigate("/selectDevice", { state: { product: p.id } });
               }}
             />

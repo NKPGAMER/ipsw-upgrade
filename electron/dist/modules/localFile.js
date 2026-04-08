@@ -7,6 +7,8 @@ const path_1 = require("path");
 const fs_1 = require("fs");
 const crypto_1 = require("crypto");
 function scanFolder(folder) {
+    if (!(0, fs_1.existsSync)(folder))
+        return [];
     const files = (0, fs_1.readdirSync)(folder)
         .filter(f => f.endsWith(".ipsw"))
         .map(f => ({
