@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo, type JSX } from "react";
 import type { Task, TaskStatus, Firmware } from "../../global";
-import { getDevices, loadModelData } from "../core/dataHandle";
-import { deleteFile, getFiles, parseIPSW, getFileNameFromUrl } from "../core/helper";
+import { download, deleteFile, parseIPSW, getFileNameFromUrl, updateFirmware } from "../core/helper";
 import { state } from "../data";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ToastContainer, pushToast } from "./Toast";
+import { ProductId } from "./home";
+import { ipswClient } from "..";
 
 type CardTask = TaskStatus | "none" | "downloaded" | "old"
 
@@ -43,19 +44,13 @@ function Spinner({ className = "w-3.5 h-3.5" }: { className?: string }) {
 const STATUS_LABEL: Record<CardTask | "none", string> = {
   none: "Chưa tải", queued: "Đang chờ", downloading: "Đang tải",
   paused: "Đã tạm dừng", completed: "Đã tải", downloaded: "Đã tải",
-  error: "Lỗi", verifying: "Đang xác minh", moving: "Đang di chuyển", old: "Cần cập nhật"
+  error: "Lỗi", verifying: "Đang xác minh", moving: "Đang di chuyển", old: "Có phiên bản mới"
 };
 
 const STATUS_COLOR: Record<CardTask | "none", string> = {
   none: "text-gray-500", queued: "text-yellow-400", downloading: "text-[#137fec]",
   paused: "text-orange-400", completed: "text-emerald-400", downloaded: "text-emerald-400",
   error: "text-red-400", verifying: "text-purple-400", moving: "text-cyan-400", old: "text-cyan-400"
-};
-
-const STATUS_DOT: Record<CardTask | "none", string> = {
-  none: "bg-gray-600", queued: "bg-yellow-400", downloading: "bg-[#137fec]",
-  paused: "bg-orange-400", completed: "bg-emerald-400", downloaded: "bg-emerald-400",
-  error: "bg-red-400", verifying: "bg-purple-400", moving: "bg-cyan-400", old: "bg-cyan-400"
 };
 
 // ─── Product Icons ────────────────────────────────────────────────────────────
@@ -116,41 +111,24 @@ const PRODUCT_ICON: Record<Product, JSX.Element> = {
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface DeviceEntry {
   device: Device;
-  firmwares: Firmware[];
+  firmwares: Firmware[] | null; // null = chưa load, sẽ lazy load khi card vào viewport
   task?: Task;
 }
 
-type ControlAction = "download" | "pause" | "resume" | "cancel" | "delete" | "verify" | "redownload";
+type ControlAction = "download" | "pause" | "resume" | "cancel" | "delete" | "verify" | "redownload" | "update";
 
-// ─── Progress Bar ─────────────────────────────────────────────────────────────
-function ProgressBar({ value, status }: { value: number; status: TaskStatus }) {
-  const colors: Partial<Record<TaskStatus, string>> = {
-    downloading: "bg-[#137fec]", paused: "bg-orange-400", verifying: "bg-purple-400",
-    moving: "bg-cyan-400", completed: "bg-emerald-400", error: "bg-red-400",
-  };
-  const color = colors[status] ?? "bg-[#137fec]";
-  const animated = status === "downloading" || status === "verifying" || status === "moving";
+// ─── computeCardStatus ────────────────────────────────────────────────────────
+function computeCardStatus(entry: DeviceEntry, allFiles: IPSWFile[]): CardTask {
+  // Firmware chưa load — chỉ trả về trạng thái task nếu có
+  if (!entry.firmwares || entry.firmwares.length === 0) {
+    const inProgress = !!entry.task &&
+      ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+    if (inProgress) return entry.task!.status as CardTask;
+    if (entry.task?.status === "completed") return "completed";
+    if (entry.task?.status === "error") return "error";
+    return "none";
+  }
 
-  return (
-    <div className="w-full h-0.75 bg-white/10 rounded-full overflow-hidden mt-2!">
-      <div
-        className={`h-full rounded-full transition-all duration-500 ${color} ${animated ? "relative overflow-hidden" : ""}`}
-        style={{ width: `${value}%` }}
-      >
-        {animated && (
-          <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── computeCardStatus — pure function, không gọi I/O ────────────────────────
-// allFiles là cache từ IPSWManager, được truyền xuống qua props
-function computeCardStatus(
-  entry: DeviceEntry,
-  allFiles: IPSWFile[],
-): CardTask {
   const latestFw = entry.firmwares[0];
   const inProgress = !!entry.task &&
     ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
@@ -159,8 +137,7 @@ function computeCardStatus(
   if (entry.task?.status === "completed") return "completed";
   if (entry.task?.status === "error") return "error";
 
-  if (latestFw && allFiles.length > 0) {
-    // Lọc file thuộc device này
+  if (latestFw?.signed && allFiles.length > 0) {
     const info = parseIPSW(getFileNameFromUrl(latestFw.url));
     if (info) {
       const buildIdMap = new Set(entry.firmwares.map(fw => fw.buildid));
@@ -178,6 +155,121 @@ function computeCardStatus(
   return entry.task?.status ?? "none";
 }
 
+// ─── OS Label Mapping ─────────────────────────────────────────────────────────
+const OS_LABEL: Record<Product, string> = {
+  iphone: "iOS",
+  ipad: "iPadOS",
+  mac: "macOS",
+  watch: "watchOS",
+  tv: "tvOS",
+  realitydevice: "visionOS",
+  homepod: "Version",
+  ipod: "iOS",
+};
+
+// ─── Status Config ────────────────────────────────────────────────────────────
+const STATUS_CONFIG: Record<CardTask | "none", {
+  label: string;
+  pill: string;
+  dot: string;
+  text: string;
+  animate?: boolean;
+}> = {
+  none: { label: "Chưa tải", pill: "bg-gray-500/15", dot: "bg-gray-500", text: "text-gray-400" },
+  queued: { label: "Đang chờ", pill: "bg-yellow-400/12", dot: "bg-yellow-400", text: "text-yellow-400" },
+  downloading: { label: "Đang tải", pill: "bg-[#137fec]/15", dot: "bg-[#137fec]", text: "text-[#137fec]", animate: true },
+  paused: { label: "Đã tạm dừng", pill: "bg-orange-400/12", dot: "bg-orange-400", text: "text-orange-400" },
+  completed: { label: "Đã tải", pill: "bg-emerald-400/12", dot: "bg-emerald-400", text: "text-emerald-400" },
+  downloaded: { label: "Đã tải", pill: "bg-emerald-400/12", dot: "bg-emerald-400", text: "text-emerald-400" },
+  error: { label: "Lỗi", pill: "bg-red-400/12", dot: "bg-red-400", text: "text-red-400" },
+  verifying: { label: "Đang xác minh", pill: "bg-violet-400/12", dot: "bg-violet-400", text: "text-violet-400", animate: true },
+  moving: { label: "Đang di chuyển", pill: "bg-cyan-400/10", dot: "bg-cyan-400", text: "text-cyan-400", animate: true },
+  old: { label: "Có phiên bản mới", pill: "bg-cyan-400/10", dot: "bg-cyan-400", text: "text-cyan-400" },
+};
+
+// ─── Progress Bar ─────────────────────────────────────────────────────────────
+function ProgressBar({ value, status }: { value: number; status: TaskStatus }) {
+  const colorMap: Partial<Record<TaskStatus, string>> = {
+    downloading: "bg-[#137fec]",
+    paused: "bg-orange-400",
+    verifying: "bg-violet-400",
+    moving: "bg-cyan-400",
+    completed: "bg-emerald-400",
+    error: "bg-red-400",
+  };
+  const color = colorMap[status] ?? "bg-[#137fec]";
+  const animated = ["downloading", "verifying", "moving"].includes(status);
+
+  return (
+    <div className="w-full h-1 bg-white/8 rounded-full overflow-hidden mt-2.5!">
+      <div
+        className={`h-full rounded-full transition-all duration-500 ${color} ${animated ? "relative overflow-hidden" : ""}`}
+        style={{ width: `${value}%` }}
+      >
+        {animated && (
+          <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/25 to-transparent animate-shimmer" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Device Name with Marquee ─────────────────────────────────────────────────
+const DeviceName = memo(function DeviceName({ name }: { name: string }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = useState(0);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    const inner = innerRef.current;
+    if (!track || !inner) return;
+    const diff = inner.scrollWidth - track.clientWidth;
+    setOverflow(diff > 0 ? diff + 8 : 0);
+  }, [name]);
+
+  return (
+    <div ref={trackRef} className="w-full overflow-hidden">
+      <span
+        ref={innerRef}
+        title={name}
+        style={
+          overflow > 0
+            ? ({ "--scroll-dist": `-${overflow}px` } as React.CSSProperties)
+            : undefined
+        }
+        className={`
+          inline-block whitespace-nowrap text-[17px] font-semibold text-white leading-snug
+          ${overflow > 0 ? "group-hover:animate-marquee" : ""}
+        `}
+      >
+        {name}
+      </span>
+    </div>
+  );
+});
+
+// ─── Card Skeleton (firmware chưa load) ───────────────────────────────────────
+function CardSkeleton() {
+  return (
+    <div className="px-4! py-4.5! flex flex-col gap-0" style={{ minHeight: 168 }}>
+      <div className="flex items-start gap-2.5">
+        <div className="w-5 h-5 rounded bg-white/8 animate-pulse mt-0.5! shrink-0" />
+        <div className="flex-1 min-w-0 space-y-1.5!">
+          <div className="h-4.25 w-3/4 rounded bg-white/8 animate-pulse" />
+          <div className="h-3 w-1/2 rounded bg-white/5 animate-pulse" />
+        </div>
+      </div>
+      <div className="mt-2!">
+        <div className="h-7 w-28 rounded-lg bg-white/6 animate-pulse" />
+      </div>
+      <div className="mt-1! pt-3!">
+        <div className="h-7 w-24 rounded-lg bg-white/5 animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
 // ─── Device Card ──────────────────────────────────────────────────────────────
 const DeviceCard = memo(function DeviceCard({
   entry,
@@ -185,18 +277,24 @@ const DeviceCard = memo(function DeviceCard({
   allFiles,
   pending,
   onClick,
+  onVisible,
 }: {
   entry: DeviceEntry;
   selected: boolean;
   allFiles: IPSWFile[];
   pending: boolean;
   onClick: () => void;
+  /** Fired once when card first enters viewport and firmware not yet loaded */
+  onVisible: (identifier: string) => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [flash, setFlash] = useState(false);
-  const status = computeCardStatus(entry, allFiles);
 
+  const status = computeCardStatus(entry, allFiles);
+  const cfg = STATUS_CONFIG[status];
+
+  // Flash when a pending action completes
   const prevPending = useRef(false);
   useEffect(() => {
     if (prevPending.current && !pending) {
@@ -206,6 +304,7 @@ const DeviceCard = memo(function DeviceCard({
     prevPending.current = pending;
   }, [pending]);
 
+  // Intersection observer — track card entering/leaving viewport
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
@@ -214,9 +313,29 @@ const DeviceCard = memo(function DeviceCard({
     return () => obs.disconnect();
   }, []);
 
-  const latestFw = entry.firmwares[0];
+  // Signal parent once when card first becomes visible and firmware isn't loaded yet
+  const signalledRef = useRef(false);
+  useEffect(() => {
+    if (!visible || signalledRef.current || entry.firmwares !== null) return;
+    signalledRef.current = true;
+    onVisible(entry.device.identifier);
+  }, [visible, entry.firmwares, entry.device.identifier, onVisible]);
+
+  const latestFw = entry.firmwares?.[0] ?? null;
   const inProgress = !!entry.task &&
     ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+
+  const product = entry.device.identifier.toLowerCase().startsWith("ipad") ? "ipad"
+    : entry.device.identifier.toLowerCase().startsWith("watch") ? "watch"
+      : entry.device.identifier.toLowerCase().startsWith("mac") ? "mac"
+        : entry.device.identifier.toLowerCase().startsWith("appletv") ? "tv"
+          : entry.device.identifier.toLowerCase().startsWith("audioaccessory") ? "homepod"
+            : entry.device.identifier.toLowerCase().startsWith("realitydevice") ? "realitydevice"
+              : entry.device.identifier.toLowerCase().startsWith("ipod") ? "ipod"
+                : "iphone";
+
+  const osLabel = OS_LABEL[product as Product] ?? "Version";
+  const firmwaresLoaded = entry.firmwares !== null;
 
   return (
     <div
@@ -224,11 +343,11 @@ const DeviceCard = memo(function DeviceCard({
       onClick={onClick}
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(4px)",
+        transform: visible ? "translateY(0)" : "translateY(5px)",
         transition: "opacity 0.3s, transform 0.3s, background 0.15s, border-color 0.15s",
       }}
       className={`
-        relative cursor-pointer rounded-xl border select-none overflow-hidden
+        group h-50 relative cursor-pointer rounded-[14px] border select-none overflow-hidden
         ${selected
           ? "border-[#137fec]/50 bg-[#137fec]/8 shadow-[0_0_0_1px_rgba(19,127,236,0.18)]"
           : "border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15"
@@ -236,51 +355,83 @@ const DeviceCard = memo(function DeviceCard({
         ${flash ? "animate-card-flash" : ""}
       `}
     >
+      {/* Pending overlay */}
       {pending && (
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-xl">
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-[14px]">
           <Spinner className="w-5 h-5 text-white/60" />
         </div>
       )}
+
+      {/* Selected left bar */}
       {selected && (
-        <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-[#137fec]" />
+        <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r-full bg-[#137fec]" />
       )}
-      <div className="p-4! h-40">
-        <div className="flex items-start gap-3">
-          <div className={`mt-0.5! shrink-0 transition-colors ${selected ? "text-[#137fec]" : "text-gray-500"}`}>
-            {PRODUCT_ICON[entry.device.identifier.toLowerCase().split(",")[0] as Product] ?? PRODUCT_ICON.iphone}
+
+      {/* Skeleton while firmware is loading */}
+      {!firmwaresLoaded ? (
+        <CardSkeleton />
+      ) : (
+        <div className="px-4! py-4.5! flex flex-col gap-0" style={{ minHeight: 168 }}>
+          {/* Header: icon + name + identifier */}
+          <div className="flex items-start gap-2.5">
+            <div className="text-gray-500 mt-0.5! shrink-0">
+              {PRODUCT_ICON[product as Product]}
+            </div>
+            <div className="flex-1 min-w-0">
+              <DeviceName name={entry.device.name} />
+              <p className="text-[11px] text-gray-400 font-mono mt-0.5! truncate">
+                {entry.device.identifier}
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-white truncate leading-snug">{entry.device.name}</p>
-            <p className="text-[10px] text-gray-500 font-mono mt-0.5!">{entry.device.identifier}</p>
-          </div>
-        </div>
-        {latestFw && (
-          <div className="mt-2.5! flex items-center gap-2">
-            <span className="text-[12px] px-2! py-0.5! rounded-md bg-white/5 text-gray-200 font-mono">
-              <span className="text-[#137fec] font-bold">{latestFw.version}</span>
-            </span>
-          </div>
-        )}
-        <div className="flex items-center gap-1.5 mt-3!">
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[status]} ${status === "downloading" ? "animate-pulse" : ""}`} />
-          <span className={`text-[14px] font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
-          {entry.task?.error && (
-            <span className="text-[10px] text-red-400/80 truncate ml-1!" title={entry.task.error}>
-              — {entry.task.error}
-            </span>
+
+          {/* OS Version badge */}
+          {latestFw && (
+            <div className="mt-2!">
+              <div className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5! py-1! font-mono text-[13px]">
+                <p className="text-gray-200 font-medium tracking-wide">{osLabel}</p>
+                <span className="text-[#137fec] font-bold">{latestFw.version}</span>
+              </div>
+            </div>
           )}
+
+          {/* Status pill */}
+          <div className="mt-1! pt-3! flex items-center justify-between">
+            <div className={`inline-flex items-center gap-2 rounded-lg px-3! py-1.5! ${cfg.pill}`}>
+              <div
+                className={`w-1.75 h-1.75 rounded-full ${cfg.dot} shrink-0 ${cfg.animate ? "animate-pulse" : ""}`}
+              />
+              <span className={`text-[13px] font-semibold ${cfg.text}`}>{cfg.label}</span>
+            </div>
+
+            {inProgress && (
+              <span className="text-[11px] text-gray-500 font-mono tabular-nums">
+                {entry.task!.progress}%
+              </span>
+            )}
+          </div>
+
+          {/* Error message */}
+          {status === "error" && entry.task?.error && (
+            <p className="text-[11px] text-red-400/75 mt-1.5! truncate" title={entry.task.error}>
+              {entry.task.error}
+            </p>
+          )}
+
+          {/* Progress bar */}
           {inProgress && (
-            <span className="text-[10px] text-gray-500 ml-auto!">{entry.task!.progress}%</span>
+            <>
+              <ProgressBar value={entry.task!.progress} status={status as TaskStatus} />
+              {status === "downloading" && entry.task!.speed > 0 && (
+                <div className="flex justify-between mt-1.5! text-[10px] text-gray-600">
+                  <span>{formatBytes(entry.task!.speed)}/s</span>
+                  {entry.task!.eta && <span>còn {formatEta(entry.task!.eta)}</span>}
+                </div>
+              )}
+            </>
           )}
         </div>
-        {inProgress && <ProgressBar value={entry.task!.progress} status={status as TaskStatus} />}
-        {status === "downloading" && entry.task!.speed > 0 && (
-          <div className="flex justify-between mt-1.5! text-[10px] text-gray-500">
-            <span>{formatBytes(entry.task!.speed)}/s</span>
-            {entry.task!.eta && <span>còn {formatEta(entry.task!.eta)}</span>}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 });
@@ -297,7 +448,7 @@ const ControlButtons = memo(function ControlButtons({
   pendingAction: ControlAction | null;
   onAction: (action: ControlAction, fw?: Firmware) => void;
 }) {
-  const latestFw = entry.firmwares[0];
+  const latestFw = entry.firmwares?.[0];
   const busy = pendingAction !== null;
 
   if (status === "none") {
@@ -323,10 +474,10 @@ const ControlButtons = memo(function ControlButtons({
 
   if (status === "old") {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2!">
         <button
           disabled={busy}
-          onClick={() => onAction("download", latestFw)}
+          onClick={() => onAction("update", latestFw)}
           className="w-full py-2.5! rounded-xl bg-cyan-500/12 hover:bg-cyan-500/22 border border-cyan-500/20 text-cyan-300 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {pendingAction === "download"
@@ -461,7 +612,7 @@ const ControlButtons = memo(function ControlButtons({
               }
             </button>
           )}
-          {(status === "paused" || status === "queued") && (
+          {status === "paused" && (
             <button
               disabled={busy}
               onClick={() => onAction("resume")}
@@ -587,7 +738,7 @@ function DetailPanel({
   onClose: () => void;
   onAction: (action: ControlAction, fw?: Firmware) => void;
 }) {
-  const latest = entry.firmwares[0];
+  const latest = entry.firmwares?.[0] ?? null;
   const status = computeCardStatus(entry, allFiles);
 
   return (
@@ -612,7 +763,19 @@ function DetailPanel({
             <div className="w-0.75 h-3 rounded-full bg-[#137fec]" />
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Phiên bản mới nhất</p>
           </div>
-          {latest ? (
+
+          {/* Firmware chưa load trong detail panel */}
+          {entry.firmwares === null ? (
+            <div className="space-y-3!">
+              <div className="bg-white/4 rounded-xl p-4! border border-white/6 animate-pulse">
+                <div className="h-8 w-24 rounded bg-white/8 mb-3!" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="h-12 rounded-lg bg-white/5" />
+                  <div className="h-12 rounded-lg bg-white/5" />
+                </div>
+              </div>
+            </div>
+          ) : latest ? (
             <>
               <div className="bg-white/4 rounded-xl p-4! border border-white/6 mb-3!">
                 <div className="flex items-start justify-between gap-3 mb-3!">
@@ -658,9 +821,17 @@ function DetailPanel({
           <div className="flex items-center gap-2 mb-3!">
             <div className="w-0.75 h-3 rounded-full bg-gray-700" />
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Tất cả phiên bản</p>
-            <span className="text-[10px] text-gray-600 ml-auto">{entry.firmwares.length} phiên bản</span>
+            <span className="text-[10px] text-gray-600 ml-auto">
+              {entry.firmwares === null ? "…" : `${entry.firmwares.length} phiên bản`}
+            </span>
           </div>
-          {entry.firmwares.length > 0 ? (
+          {entry.firmwares === null ? (
+            <div className="space-y-1.5!">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-9 rounded-lg bg-white/4 animate-pulse" />
+              ))}
+            </div>
+          ) : entry.firmwares.length > 0 ? (
             <FirmwareTable firmwares={entry.firmwares} onDownload={(fw) => onAction("download", fw)} />
           ) : (
             <p className="text-[12px] text-gray-500">Không có dữ liệu.</p>
@@ -714,48 +885,28 @@ function Resizer({ onResize }: { onResize: (dx: number) => void }) {
 // ─── IPSWManager ──────────────────────────────────────────────────────────────
 export default function IPSWManager() {
   const [entries, setEntries] = useState<DeviceEntry[]>([]);
-  const [allFiles, setAllFiles] = useState<IPSWFile[]>([]);  // << cache toàn bộ file trong folder
+  const [allFiles, setAllFiles] = useState<IPSWFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [listWidthPct, setListWidthPct] = useState(44);
+  const [listWidthPct, setListWidthPct] = useState(65);
   const [pendingActions, setPendingActions] = useState<Map<string, ControlAction>>(new Map());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const loadedProductRef = useRef<Product | null>(null);
   const taskMapRef = useRef<Map<string, Task>>(new Map());
   const entriesRef = useRef<DeviceEntry[]>([]);
+  const requestedFwRef = useRef<Set<string>>(new Set());
 
   const location = useLocation();
-  const { product } = location.state;
+  const { product }: { product: ProductId } = location.state;
   const navigate = useNavigate();
 
   useEffect(() => { entriesRef.current = entries; }, [entries]);
-
-  const fileMap = useMemo(() => {
-    const map = new Map<string, IPSWFile[]>();
-
-    for (const file of allFiles) {
-      const parsed = parseIPSW(file.name);
-      if (!parsed) continue;
-
-      if (!map.has(parsed.id)) map.set(parsed.id, []);
-      map.get(parsed.id)!.push(file);
-    }
-
-    return map;
-  }, [allFiles]);
-
-  // ── refreshAllFiles ──
-  const refreshAllFiles = useCallback(async (): Promise<IPSWFile[]> => {
-    try {
-      const files = await window.api.getFiles(state.currentFolder);
-      setAllFiles(files);
-      return files;
-    } catch (err) {
-      console.error("[IPSWManager] getFiles failed:", err);
-      return [];
-    }
+  useEffect(() => {
+    ipswClient.onReload(() => {
+      setAllFiles(ipswClient.getFiles())
+    })
   }, []);
 
   const setPending = useCallback((identifier: string, action: ControlAction | null) => {
@@ -795,7 +946,31 @@ export default function IPSWManager() {
     applyTaskMap(next);
   }, [applyTaskMap]);
 
-  // ── Register downloader events ──
+  // ── IPC: listen for firmware data pushed back from DataHandle queue ──────────
+  useEffect(() => {
+    // window.api.onModelData wraps ipcRenderer.on("dh:modelData", cb)
+    const unsub = window.api.onModelData((identifier: string, device: DeviceResponse | null) => {
+      setEntries(prev => prev.map(e =>
+        e.device.identifier === identifier
+          ? { ...e, firmwares: device?.firmwares ?? [] }
+          : e
+      ));
+    });
+    return () => unsub();
+  }, []);
+
+  // ── Called by DeviceCard when it first enters the viewport ───────────────────
+  const handleCardVisible = useCallback((identifier: string) => {
+    if (requestedFwRef.current.has(identifier)) return;
+    requestedFwRef.current.add(identifier);
+    // Triggers DataHandle.getModelDataForReact() on the main process.
+    // Main process sends empty payload immediately (already handled by initial
+    // firmwares: null state), then pushes real data via "dh:modelData" once
+    // the queue processes it.
+    window.api.requestModelData(identifier);
+  }, []);
+
+  // ── Register downloader events ───────────────────────────────────────────────
   useEffect(() => {
     const d = window.downloader;
     if (!d) return;
@@ -804,38 +979,30 @@ export default function IPSWManager() {
       d.onAdded((_id, task) => {
         upsertTask(task);
         setPending(task.firmware.identifier, null);
-        pushToast("info", `Đã thêm vào hàng: ${task.firmware.identifier}`);
       }),
       d.onProgress((_id, task) => upsertTask(task)),
       d.onPaused((_id, task) => {
         upsertTask(task);
         setPending(task.firmware.identifier, null);
-        pushToast("warning", `Đã tạm dừng: ${task.firmware.identifier}`);
       }),
       d.onResumed((_id, task) => {
         if (task) {
           upsertTask(task);
           setPending(task.firmware.identifier, null);
-          pushToast("info", `Đã tiếp tục: ${task.firmware.identifier}`);
         }
       }),
       d.onCompleted((_id, task) => {
         upsertTask(task);
         setPending(task.firmware.identifier, null);
-        pushToast("success", `Tải xong: ${task.firmware.identifier}`);
-        // Chỉ gọi 1 IPC call duy nhất, không phải N calls từ N card
-        refreshAllFiles();
       }),
       d.onError((_id, err, task) => {
         upsertTask(task);
         setPending(task.firmware.identifier, null);
-        pushToast("error", `Lỗi: ${err}`);
       }),
       d.onCancelled((id) => {
         for (const [identifier, t] of taskMapRef.current) {
           if (t.id === id) {
             setPending(identifier, null);
-            pushToast("info", `Đã huỷ: ${identifier}`);
             break;
           }
         }
@@ -850,7 +1017,7 @@ export default function IPSWManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load devices ──
+  // ── Load devices — firmware lazy-loaded per card ─────────────────────────────
   useEffect(() => {
     if (loadedProductRef.current === product) return;
     loadedProductRef.current = product;
@@ -861,42 +1028,41 @@ export default function IPSWManager() {
     setAllFiles([]);
     setSelectedId(null);
     setPendingActions(new Map());
+    requestedFwRef.current = new Set();
 
     async function load() {
-      const devices: Device[] = getDevices()
-        .filter(d => d.name.toLocaleLowerCase().startsWith(product))
+      const devices: Device[] = (await window.api.getDevices())
+        .filter(d => d.identifier.toLocaleLowerCase().startsWith(product))
         .reverse();
 
-      const [builtEntries, initialFiles] = await Promise.all([
-        Promise.all(devices.map(async (device) => ({
-          device,
-          firmwares: (await loadModelData(device.identifier)).firmwares,
-          task: undefined as Task | undefined,
-        }))),
-        window.api.getFiles(state.currentFolder),  // load 1 lần duy nhất
+      const [initialFiles, activeTasks] = await Promise.all([
+        ipswClient.getFiles(),
+        window.downloader.getAllTask().catch(() => [] as Task[]),
       ]);
 
-      try {
-        const activeTasks = await window.downloader.getAllTask();
-        const map = new Map<string, Task>();
-        for (const t of activeTasks) map.set(t.firmware.identifier, t);
-        if (!cancelled) {
-          taskMapRef.current = map;
-          setEntries(builtEntries.map(e => ({ ...e, task: map.get(e.device.identifier) })));
-          setAllFiles(initialFiles);
-        }
-      } catch (err) {
-        console.error("[IPSWManager] Failed to load tasks:", err);
-        if (!cancelled) {
-          setEntries(builtEntries);
-          setAllFiles(initialFiles);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      if (cancelled) return;
+
+      const taskMap = new Map<string, Task>();
+      for (const t of activeTasks) taskMap.set(t.firmware.identifier, t);
+      taskMapRef.current = taskMap;
+
+      // firmwares: null → card shows skeleton, triggers lazy load on visible
+      const builtEntries: DeviceEntry[] = devices.map(device => ({
+        device,
+        firmwares: null,
+        task: taskMap.get(device.identifier),
+      }));
+
+      setEntries(builtEntries);
+      setAllFiles(initialFiles);
+      setLoading(false);
     }
 
-    load();
+    load().catch(err => {
+      console.error("[IPSWManager] load failed:", err);
+      if (!cancelled) setLoading(false);
+    });
+
     return () => { cancelled = true; };
   }, [product]);
 
@@ -929,7 +1095,7 @@ export default function IPSWManager() {
     if (!entry) return;
 
     const task = taskMapRef.current.get(deviceIdentifier);
-    const firmware = fw ?? entry.firmwares[0];
+    const firmware = fw ?? entry.firmwares?.[0];
 
     setPending(deviceIdentifier, action);
 
@@ -938,12 +1104,10 @@ export default function IPSWManager() {
         case "download":
           if (!firmware) { setPending(deviceIdentifier, null); return; }
           {
-            const result = await d.add(firmware, state.currentFolder);
-            if (!result.success) {
+            const { success } = await download(firmware);
+            if (!success) {
               setPending(deviceIdentifier, null);
-              pushToast("error", `Không thể thêm vào hàng: ${result.error ?? "UNKNOWN"}`);
             }
-            // success: setPending sẽ được clear bởi onAdded event
           }
           break;
 
@@ -954,34 +1118,42 @@ export default function IPSWManager() {
             const nextMap = new Map(taskMapRef.current);
             nextMap.delete(deviceIdentifier);
             applyTaskMap(nextMap);
-            await refreshAllFiles();
-            const result = await d.add(firmware, state.currentFolder);
-            if (!result.success) {
+            const { success } = await download(firmware);
+            if (!success) {
               setPending(deviceIdentifier, null);
-              pushToast("error", `Không thể tải lại: ${result.error ?? "UNKNOWN"}`);
             }
           }
           break;
+
+        case "update":
+          await deleteFile({ identifier: deviceIdentifier });
+          if (firmware) await updateFirmware(firmware);
+          break;
+
         case "pause":
           if (task) await d.pause(task.id);
           break;
+
         case "resume":
           if (task) await d.resume(task.id);
           break;
+
         case "cancel":
           if (task) await d.cancel(task.id);
           break;
+
         case "delete":
           await deleteFile({ identifier: deviceIdentifier });
-          const nextMap = new Map(taskMapRef.current);
-          nextMap.delete(deviceIdentifier);
-          applyTaskMap(nextMap);
-          await refreshAllFiles();
+          {
+            const nextMap = new Map(taskMapRef.current);
+            nextMap.delete(deviceIdentifier);
+            applyTaskMap(nextMap);
+          }
           setPending(deviceIdentifier, null);
           pushToast("success", `Đã xoá tệp: ${deviceIdentifier}`);
           break;
+
         case "verify":
-          await refreshAllFiles();
           setPending(deviceIdentifier, null);
           pushToast("info", `Đã làm mới trạng thái: ${deviceIdentifier}`);
           break;
@@ -991,7 +1163,7 @@ export default function IPSWManager() {
       setPending(deviceIdentifier, null);
       pushToast("error", `Thao tác thất bại: ${String(err)}`);
     }
-  }, [refreshAllFiles, setPending]);
+  }, [setPending, applyTaskMap]);
 
   return (
     <div className="fixed inset-0 z-1001">
@@ -1035,6 +1207,7 @@ export default function IPSWManager() {
               </div>
             </div>
             <div className="flex items-center pr-2! gap-1.5 shrink-0">
+              {/* NKP */}
               <button
                 onClick={() => navigate("/")}
                 title="Đóng"
@@ -1070,11 +1243,13 @@ export default function IPSWManager() {
                     selected={selectedId === entry.device.identifier}
                     allFiles={allFiles}
                     pending={pendingActions.has(entry.device.identifier)}
-                    onClick={() =>
+                    onClick={() => {
+                      if (entry.firmwares === null) return;
                       setSelectedId(prev =>
                         prev === entry.device.identifier ? null : entry.device.identifier
-                      )
-                    }
+                      );
+                    }}
+                    onVisible={handleCardVisible}
                   />
                 ))}
               </div>

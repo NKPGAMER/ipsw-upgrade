@@ -35,6 +35,7 @@
     "vite-plugin-electron": "^0.29.1"
   },
   "dependencies": {
+    "chokidar": "^5.0.0",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.6.2",
     "i18next": "^25.10.5",

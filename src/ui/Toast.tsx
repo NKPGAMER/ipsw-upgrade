@@ -18,7 +18,7 @@ export function pushToast(type: ToastType, message: string) {
   setTimeout(() => {
     toastState = toastState.filter(t => t.id !== id);
     toastListeners.forEach(fn => fn(toastState));
-  }, 3500);
+  }, 4000);
 }
 
 const TOAST_ICON: Record<ToastType, JSX.Element> = {
@@ -59,11 +59,11 @@ export function ToastContainer() {
   }, []);
 
   return (
-    <div className="fixed top-5 right-5 z-9999 flex flex-col gap-2 pointer-events-none">
+    <div className="fixed top-5 left-5 z-9999 flex flex-col gap-2 pointer-events-none">
       {toasts.map(toast => (
         <div
           key={toast.id}
-          className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border backdrop-blur-md text-[12px] text-white shadow-2xl pointer-events-auto max-w-xs ${TOAST_BG[toast.type]}`}
+          className={`flex items-center gap-2.5 px-4.5! py-3.5! rounded-xl border backdrop-blur-md text-[12px] text-white shadow-2xl pointer-events-auto max-w-xs ${TOAST_BG[toast.type]}`}
           style={{ animation: "toastIn 0.3s cubic-bezier(0.22,1,0.36,1)" }}
         >
           {TOAST_ICON[toast.type]}

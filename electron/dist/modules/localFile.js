@@ -14,7 +14,6 @@ function scanFolder(folder) {
         .map(f => ({
         name: f,
         path: (0, path_1.join)(folder, f),
-        sizeMB: Math.round((0, fs_1.statSync)((0, path_1.join)(folder, f)).size / 1e6),
         size: (0, fs_1.statSync)((0, path_1.join)(folder, f)).size
     }));
     return files;

@@ -150,7 +150,7 @@ class DiskManager {
             if (process.platform === "darwin")
                 return await this.detectSSDMac();
             if (process.platform === "win32")
-                return await this.detectSSDWindows();
+                return await this.detectSSDWindows(targetPath);
         }
         catch { /* fall through */ }
         return false;
@@ -168,9 +168,14 @@ class DiskManager {
         const { stdout } = await execFileAsync("system_profiler", ["SPStorageDataType"], { timeout: 6000 });
         return stdout.toLowerCase().includes("solid");
     }
-    async detectSSDWindows() {
+    async detectSSDWindows(targetPath) {
+        const driveLetter = path.parse(path.resolve(targetPath)).root.replace(/\\/g, "").replace(":", "");
         const { stdout } = await execFileAsync("powershell", ["-NoProfile", "-NonInteractive", "-Command",
-            "Get-PhysicalDisk | Select-Object -ExpandProperty MediaType"], { timeout: 8000 });
+            [
+                `$partition = Get-Partition -DriveLetter '${driveLetter}' -ErrorAction Stop`,
+                "$disk = Get-Disk -Number $partition.DiskNumber -ErrorAction Stop",
+                'if ($disk.MediaType) { Write-Output $disk.MediaType }',
+            ].join("; ")], { timeout: 8000 });
         return stdout.toLowerCase().includes("ssd");
     }
     // ─── Helpers ─────────────────────────────────────────────────────────────────

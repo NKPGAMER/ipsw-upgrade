@@ -20,24 +20,3 @@ createRoot(document.getElementById('root')!).render(
         </Suspense>
     </HashRouter>
 );
-
-
-// const freeSpace = await window.api.getDiskSpace(state.currentFolder);
-//     const downloaded = data.localFiles.length;
-
-//     elements.stats.downloadedCount.textContent = downloaded.toString();
-//     elements.stats.storageUsed.textContent = utils.formatBytes(data.localFiles.reduce((total, num) => total + num.size, 0));
-//     elements.stats.freeSpace.textContent = utils.formatBytes(freeSpace.available);
-
-//     // Thêm cảnh báo màu sắc theo % dung lượng còn trống
-//     const percentage = freeSpace.percentage;
-//     const freeSpaceElement = elements.stats.freeSpace;
-
-//     // Reset các class trước đó
-//     freeSpaceElement.className = freeSpaceElement.className
-//       .replace(/text-(red|yellow|green)-(500|600)/g, '')
-//       .trim();
-
-//     percentage >= 60
-//       ? freeSpaceElement.classList.add(percentage >= 90 ? 'text-red-600' : 'text-yellow-500', 'font-semibold')
-//       : freeSpaceElement.classList.add('text-green-600')

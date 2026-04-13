@@ -50,6 +50,20 @@ interface ElectronApi {
     read: (fileName: string) => Promise<string | null>;
     write: (fileName: string, data: string) => Promise<void>;
   };
+
+  file: {
+    getFiles: () => Promise<IPSWFile[]>,
+    delete: (target: string | string[] | IPSWFile | IPSWFile[]) => Promise<void>;
+    changeDir: (newDir: string) => Promise<void>;
+    onReload: (callback: (files: IPSWFile[]) => void) => EventResponse;
+  }
+
+  requestModelData: (identifier: Device['identifier']) => void;
+
+  onModelData: (callback: (identifier: Device['identifier'], device: DeviceResponse | null) => void) => () => void;
+
+  getDevices: (product?: Product) => Promise<Device[]>;
+  getModelData: (identifier: Device['identifier']) => Promise<DeviceResponse>;
 }
 
 interface ElectronStoreApi {
@@ -98,6 +112,16 @@ declare global {
   type Product = 'iphone' | 'ipad' | 'watch' | 'mac' | 'realitydevice' | 'tv' | 'homepod' | 'ipod';
   type ConfirmVariant = "default" | "danger" | "warning" | "info";
 
+  interface DeviceResponse {
+  name: string;
+  identifier: string;
+  boardconfig: string;
+  platform: string;
+  cpid: number;
+  bdid: number;
+  firmwares: Firmware[];
+}
+
   interface ConfirmOptions {
     title?: string
     confirmText?: string
@@ -127,7 +151,6 @@ declare global {
   interface IPSWFile {
     name: string;
     path: string;
-    sizeMB: number;
     size: number;
   }
 

@@ -80,7 +80,28 @@ const api: ElectronApi = {
     deleteFile: (fileName: string) => ipcRenderer.invoke('user:deleteFile', fileName),
     read: (fileName: string) => ipcRenderer.invoke('user:read', fileName),
     write: (fileName: string, data: string) => ipcRenderer.invoke('user:write', fileName, data),
-  }
+  },
+
+  file: {
+    getFiles: () => ipcRenderer.invoke("ipsw:get-files"),
+    delete: (t) => ipcRenderer.invoke("ipsw:delete-file", t),
+    changeDir: (d) => ipcRenderer.invoke("ipsw:change-dir", d),
+    onReload: (cb) => listen("ipsw:reload", cb)
+  },
+
+  requestModelData: (identifier: string) => ipcRenderer.invoke("dh:requestModelData", identifier),
+
+  onModelData: (cb) => {
+    const handler = (_event: any, id: Device['identifier'], device: DeviceResponse) => cb(id, device)
+    ipcRenderer.on("dh:modelData", handler);
+
+    return () => {
+      ipcRenderer.off("dh:modelData", handler);
+    };
+  },
+
+  getDevices: (product) => ipcRenderer.invoke("dh:getDevices", product),
+  getModelData: (identifier) => ipcRenderer.invoke("dh:getModelData", identifier)
 }
 
 const storeApi: ElectronStoreApi = {
@@ -105,7 +126,7 @@ const downloaderAPI: DownloaderAPI = {
   resume: (id) => ipcRenderer.invoke("dm:resume", id),
   cancel: (id) => ipcRenderer.invoke("dm:cancel", id),
   getAllTask: () => ipcRenderer.invoke("dm:getAllTask"),
-  getIncompleteTasks: () => ipcRenderer.invoke("dm:getAllTask"),
+  getIncompleteTasks: () => ipcRenderer.invoke("dm:getIncompleteTasks"),
   resumeIncomplete: (id) => ipcRenderer.invoke("dm:resumeIncomplete", id),
   deleteIncomplete: (id) => ipcRenderer.invoke("dm:deleteIncomplete", id),
 

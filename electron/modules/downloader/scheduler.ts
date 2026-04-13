@@ -50,10 +50,14 @@ export class Scheduler extends EventEmitter {
   }
 
   cancelTask(id: string): void {
+    const wasQueued = this.queue.some(t => t.id === id);
     this.queue = this.queue.filter(t => t.id !== id);
-    this.active.delete(id);
     this.paused.delete(id);
-    this.drain();
+
+    // Active tasks release their slot when the in-flight promise settles.
+    if (wasQueued && !this.active.has(id)) {
+      this.drain();
+    }
   }
 
   isActive(id: string): boolean {

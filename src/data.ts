@@ -7,8 +7,6 @@ export const data: d = {
 }
 
 export const state = {
-  useIDM: false,
-  IDMPath: "",
   currentFolder: "",
   currentProduct: "" as Product,
   isDeletingFM: false,

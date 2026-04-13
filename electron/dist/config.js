@@ -8,5 +8,6 @@ exports.default = {
         language: 'vi',
         ipswFolder: electron_1.app.getPath('downloads')
     },
+    DataVersion: "2.1.0",
     appleVendorId: 1452
 };

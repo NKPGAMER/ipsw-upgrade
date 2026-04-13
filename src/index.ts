@@ -1,11 +1,11 @@
-import { DeviceResponse, getDevices, getProductType, loadDevices, loadModelData, Product } from "./core/dataHandle.js";
-import elements from "./elements.js";
-import utils from "./core/utils.js";
+import { IPSWClient } from "./core/ipswClient.js";
 import { data, state } from "./data.js";
 
 import i18n from './i18n.js';
 
 const { t } = i18n;
+
+export const ipswClient = new IPSWClient();
 
 async function init() {
     await Promise.all([
@@ -28,12 +28,7 @@ async function init() {
         }
     });
 
-
-
     state.__init = true;
 };
 
 document.addEventListener("DOMContentLoaded", () => {init()});
-
-
-import "./index-old.js"

@@ -12,7 +12,7 @@ export interface Firmware {
   signed: boolean;
 }
 
-export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving";
+export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "cancelled";
 
 export type EventChannel = "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
 

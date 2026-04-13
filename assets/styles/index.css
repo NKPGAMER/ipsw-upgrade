@@ -1,7 +1,26 @@
 @import "tailwindcss";
 
-@utilities {
-  @important;
+@theme {
+  --animate-marquee: marquee 3s ease-in-out 0.2s forwards;
+  --animate-card-flash: card-flash 0.6s ease;
+}
+
+@keyframes marquee {
+  0%, 5%  { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--scroll-dist, -60px)); }
+}
+
+@keyframes card-flash {
+  0%, 100% { background: transparent; }
+  50%      { background: rgba(19, 127, 236, 0.18); }
+}
+
+@keyframes marquee-slide {
+  0%   { transform: translateX(0); }
+  10%  { transform: translateX(0); }
+  80%  { transform: translateX(var(--scroll-dist)); }
+  90%  { transform: translateX(var(--scroll-dist)); }
+  100% { transform: translateX(0); }
 }
 
 * {

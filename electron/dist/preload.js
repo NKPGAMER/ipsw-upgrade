@@ -65,7 +65,23 @@ const api = {
         deleteFile: (fileName) => electron_1.ipcRenderer.invoke('user:deleteFile', fileName),
         read: (fileName) => electron_1.ipcRenderer.invoke('user:read', fileName),
         write: (fileName, data) => electron_1.ipcRenderer.invoke('user:write', fileName, data),
-    }
+    },
+    file: {
+        getFiles: () => electron_1.ipcRenderer.invoke("ipsw:get-files"),
+        delete: (t) => electron_1.ipcRenderer.invoke("ipsw:delete-file", t),
+        changeDir: (d) => electron_1.ipcRenderer.invoke("ipsw:change-dir", d),
+        onReload: (cb) => listen("ipsw:reload", cb)
+    },
+    requestModelData: (identifier) => electron_1.ipcRenderer.invoke("dh:requestModelData", identifier),
+    onModelData: (cb) => {
+        const handler = (_event, id, device) => cb(id, device);
+        electron_1.ipcRenderer.on("dh:modelData", handler);
+        return () => {
+            electron_1.ipcRenderer.off("dh:modelData", handler);
+        };
+    },
+    getDevices: (product) => electron_1.ipcRenderer.invoke("dh:getDevices", product),
+    getModelData: (identifier) => electron_1.ipcRenderer.invoke("dh:getModelData", identifier)
 };
 const storeApi = {
     set: (key, value) => electron_1.ipcRenderer.invoke('store', 'set', key, value),
@@ -87,7 +103,7 @@ const downloaderAPI = {
     resume: (id) => electron_1.ipcRenderer.invoke("dm:resume", id),
     cancel: (id) => electron_1.ipcRenderer.invoke("dm:cancel", id),
     getAllTask: () => electron_1.ipcRenderer.invoke("dm:getAllTask"),
-    getIncompleteTasks: () => electron_1.ipcRenderer.invoke("dm:getAllTask"),
+    getIncompleteTasks: () => electron_1.ipcRenderer.invoke("dm:getIncompleteTasks"),
     resumeIncomplete: (id) => electron_1.ipcRenderer.invoke("dm:resumeIncomplete", id),
     deleteIncomplete: (id) => electron_1.ipcRenderer.invoke("dm:deleteIncomplete", id),
     onAdded: (cb) => listen("dm:added", cb),

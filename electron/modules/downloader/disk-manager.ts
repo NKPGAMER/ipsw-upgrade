@@ -128,7 +128,7 @@ export class DiskManager {
     try {
       if (process.platform === "linux") return await this.detectSSDLinux(targetPath);
       if (process.platform === "darwin") return await this.detectSSDMac();
-      if (process.platform === "win32") return await this.detectSSDWindows();
+      if (process.platform === "win32") return await this.detectSSDWindows(targetPath);
     } catch { /* fall through */ }
     return false;
   }
@@ -147,11 +147,16 @@ export class DiskManager {
     return stdout.toLowerCase().includes("solid");
   }
 
-  private async detectSSDWindows(): Promise<boolean> {
+  private async detectSSDWindows(targetPath: string): Promise<boolean> {
+    const driveLetter = path.parse(path.resolve(targetPath)).root.replace(/\\/g, "").replace(":", "");
     const { stdout } = await execFileAsync(
       "powershell",
       ["-NoProfile", "-NonInteractive", "-Command",
-       "Get-PhysicalDisk | Select-Object -ExpandProperty MediaType"],
+       [
+         `$partition = Get-Partition -DriveLetter '${driveLetter}' -ErrorAction Stop`,
+         "$disk = Get-Disk -Number $partition.DiskNumber -ErrorAction Stop",
+         'if ($disk.MediaType) { Write-Output $disk.MediaType }',
+       ].join("; ")],
       { timeout: 8000 }
     );
     return stdout.toLowerCase().includes("ssd");

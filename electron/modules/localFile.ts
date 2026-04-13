@@ -1,7 +1,6 @@
-import { join } from "path";
+import path, { join } from "path";
 import { readdirSync, statSync, createReadStream, stat, promises, existsSync } from "fs";
 import { createHash } from 'crypto';
-
 
 function scanFolder(folder: string): IPSWFile[] {
   if (!existsSync(folder)) return [];
@@ -10,7 +9,6 @@ function scanFolder(folder: string): IPSWFile[] {
     .map(f => ({
       name: f,
       path: join(folder, f),
-      sizeMB: Math.round(statSync(join(folder, f)).size / 1e6),
       size: statSync(join(folder, f)).size
     }));
 
