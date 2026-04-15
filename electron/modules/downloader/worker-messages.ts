@@ -4,7 +4,7 @@
  * Keep this file free of any Electron imports — it must be importable in both contexts.
  */
 
-import type { Firmware, Task, TaskStatus, AddResult, IncompleteTask, DownloaderConfig } from "./types";
+import type { Task, TaskStatus, AddResult, IncompleteTask, DownloaderConfig } from "./types";
 
 // ─── Main → Worker ────────────────────────────────────────────────────────────
 
@@ -27,6 +27,7 @@ export type WorkerReply =
 
 /** Spontaneous event emissions */
 export type WorkerEvent =
+  | { type: "event"; channel: "started";            taskId: string; task: Task }
   | { type: "event"; channel: "progress";           taskId: string; task: Task }
   | { type: "event"; channel: "completed";          taskId: string; task: Task }
   | { type: "event"; channel: "error";              taskId: string; error: string; task: Task }

@@ -3,12 +3,10 @@ import { data, state } from "./data.js";
 
 import i18n from './i18n.js';
 
-const { t } = i18n;
-
 export const ipswClient = new IPSWClient();
 
 async function init() {
-    await Promise.all([
+    Promise.all([
         window.store.get('ipswFolder'),
         window.store.get('autoRemoveOldFiles'),
         window.store.get('autoRemoveDuplicateFiles'),
@@ -16,6 +14,7 @@ async function init() {
     ]).then(([savedFolder, savedDeleteOld, savedDeleteDuplicate, savedLanguage]) => {
         if (savedFolder) {
             state.currentFolder = savedFolder;
+            ipswClient.changeDir(savedFolder)
         }
         if (savedDeleteOld !== undefined && savedDeleteOld !== null) {
             state.autoRemoveOldFiles = savedDeleteOld;
@@ -31,4 +30,4 @@ async function init() {
     state.__init = true;
 };
 
-document.addEventListener("DOMContentLoaded", () => {init()});
+init();

@@ -81,7 +81,6 @@ class DownloaderMain {
         });
         if (win)
             this.registerIPC();
-        console.log("[Downloader-Main]: Used worker!!!");
     }
     // ─── Worker message handler ───────────────────────────────────────────────
     handleWorkerMessage(msg) {
@@ -135,6 +134,7 @@ class DownloaderMain {
             return;
         const { taskId, task, error } = payload;
         switch (channel) {
+            case "started":
             case "progress":
             case "completed":
             case "paused":

@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo, type JSX } from "react";
 import type { Task, TaskStatus, Firmware } from "../../global";
-import { download, deleteFile, parseIPSW, getFileNameFromUrl, updateFirmware } from "../core/helper";
+import { download, deleteFile, parseIPSW, getFileNameFromUrl, updateFirmware, getRedundantFilesFromProduct } from "../core/helper";
 import { state } from "../data";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ToastContainer, pushToast } from "./Toast";
 import { ProductId } from "./home";
 import { ipswClient } from "..";
+import type { IncompleteTaskClient } from "../core/ipswClient";
+import type { BulkUpdateItem } from "./BulkUpdateManager";
+import utils from "../core/utils";
 
-type CardTask = TaskStatus | "none" | "downloaded" | "old"
+type CardTask = TaskStatus | "none" | "downloaded" | "old" | "corrupted" | "incomplete_dl"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatBytes(bytes: number): string {
@@ -44,14 +47,44 @@ function Spinner({ className = "w-3.5 h-3.5" }: { className?: string }) {
 const STATUS_LABEL: Record<CardTask | "none", string> = {
   none: "Chưa tải", queued: "Đang chờ", downloading: "Đang tải",
   paused: "Đã tạm dừng", completed: "Đã tải", downloaded: "Đã tải",
-  error: "Lỗi", verifying: "Đang xác minh", moving: "Đang di chuyển", old: "Có phiên bản mới"
+  error: "Lỗi", verifying: "Đang xác minh", moving: "Đang di chuyển",
+  old: "Có phiên bản mới", corrupted: "Không hoàn chỉnh",
+  incomplete_dl: "Chưa tải xong",
 };
 
 const STATUS_COLOR: Record<CardTask | "none", string> = {
   none: "text-gray-500", queued: "text-yellow-400", downloading: "text-[#137fec]",
   paused: "text-orange-400", completed: "text-emerald-400", downloaded: "text-emerald-400",
-  error: "text-red-400", verifying: "text-purple-400", moving: "text-cyan-400", old: "text-cyan-400"
+  error: "text-red-400", verifying: "text-purple-400", moving: "text-cyan-400",
+  old: "text-cyan-400", corrupted: "text-amber-400", incomplete_dl: "text-sky-400",
 };
+
+const TASKBAR_ICON: Record<string, JSX.Element> = {
+  download: (
+    <svg viewBox="0 0 304 384" className="size-5">
+      <path fill="currentColor" d="M299 128L149 277L0 128h85V0h128v128h86zM0 320h299v43H0v-43z"></path>
+    </svg>
+  ),
+
+  delete: (
+    <svg viewBox="0 0 304 384" className="size-5">
+      <path fill="currentColor" d="M21 341V85h256v256q0 18-12.5 30.5T235 384H64q-18 0-30.5-12.5T21 341zM299 21v43H0V21h75L96 0h107l21 21h75z"></path>
+    </svg>
+  ),
+
+  update: (
+    <svg viewBox="0 0 32 32" className="size-5" fill="currentColor">
+      <path d="M21,24H11a2,2,0,0,0-2,2v2a2,2,0,0,0,2,2H21a2,2,0,0,0,2-2V26A2,2,0,0,0,21,24Z" />
+      <path d="M28.707,14.293l-12-12a1,1,0,0,0-1.414,0l-12,12A1,1,0,0,0,4,16H9v4a2,2,0,0,0,2,2H21a2,2,0,0,0,2-2V16h5a1,1,0,0,0,.707-1.707Z" />
+    </svg>
+  ),
+
+  close: (
+    <svg className="size-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 // ─── Product Icons ────────────────────────────────────────────────────────────
 const PRODUCT_ICON: Record<Product, JSX.Element> = {
@@ -111,49 +144,14 @@ const PRODUCT_ICON: Record<Product, JSX.Element> = {
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface DeviceEntry {
   device: Device;
-  firmwares: Firmware[] | null; // null = chưa load, sẽ lazy load khi card vào viewport
+  firmwares: Firmware[] | null;
   task?: Task;
 }
 
-type ControlAction = "download" | "pause" | "resume" | "cancel" | "delete" | "verify" | "redownload" | "update";
-
-// ─── computeCardStatus ────────────────────────────────────────────────────────
-function computeCardStatus(entry: DeviceEntry, allFiles: IPSWFile[]): CardTask {
-  // Firmware chưa load — chỉ trả về trạng thái task nếu có
-  if (!entry.firmwares || entry.firmwares.length === 0) {
-    const inProgress = !!entry.task &&
-      ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
-    if (inProgress) return entry.task!.status as CardTask;
-    if (entry.task?.status === "completed") return "completed";
-    if (entry.task?.status === "error") return "error";
-    return "none";
-  }
-
-  const latestFw = entry.firmwares[0];
-  const inProgress = !!entry.task &&
-    ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
-
-  if (inProgress) return entry.task!.status as CardTask;
-  if (entry.task?.status === "completed") return "completed";
-  if (entry.task?.status === "error") return "error";
-
-  if (latestFw?.signed && allFiles.length > 0) {
-    const info = parseIPSW(getFileNameFromUrl(latestFw.url));
-    if (info) {
-      const buildIdMap = new Set(entry.firmwares.map(fw => fw.buildid));
-      const deviceFiles = allFiles.filter(file => {
-        const parsed = parseIPSW(file.name);
-        return parsed?.id === info.id && buildIdMap.has(parsed.build);
-      });
-      if (deviceFiles.length > 0) {
-        const hasLatest = deviceFiles.some(f => f.name.includes(latestFw.buildid));
-        return hasLatest ? "downloaded" : "old";
-      }
-    }
-  }
-
-  return entry.task?.status ?? "none";
-}
+type ControlAction =
+  | "download" | "pause" | "resume" | "cancel"
+  | "delete" | "verify" | "redownload" | "update"
+  | "resume_incomplete" | "delete_incomplete";
 
 // ─── OS Label Mapping ─────────────────────────────────────────────────────────
 const OS_LABEL: Record<Product, string> = {
@@ -185,17 +183,20 @@ const STATUS_CONFIG: Record<CardTask | "none", {
   verifying: { label: "Đang xác minh", pill: "bg-violet-400/12", dot: "bg-violet-400", text: "text-violet-400", animate: true },
   moving: { label: "Đang di chuyển", pill: "bg-cyan-400/10", dot: "bg-cyan-400", text: "text-cyan-400", animate: true },
   old: { label: "Có phiên bản mới", pill: "bg-cyan-400/10", dot: "bg-cyan-400", text: "text-cyan-400" },
+  corrupted: { label: "Không hoàn chỉnh", pill: "bg-amber-400/12", dot: "bg-amber-400", text: "text-amber-400" },
+  incomplete_dl: { label: "Chưa tải xong", pill: "bg-sky-400/12", dot: "bg-sky-400", text: "text-sky-400" },
 };
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
-function ProgressBar({ value, status }: { value: number; status: TaskStatus }) {
-  const colorMap: Partial<Record<TaskStatus, string>> = {
+function ProgressBar({ value, status }: { value: number; status: TaskStatus | "incomplete_dl" }) {
+  const colorMap: Partial<Record<string, string>> = {
     downloading: "bg-[#137fec]",
     paused: "bg-orange-400",
     verifying: "bg-violet-400",
     moving: "bg-cyan-400",
     completed: "bg-emerald-400",
     error: "bg-red-400",
+    incomplete_dl: "bg-sky-400",
   };
   const color = colorMap[status] ?? "bg-[#137fec]";
   const animated = ["downloading", "verifying", "moving"].includes(status);
@@ -249,7 +250,7 @@ const DeviceName = memo(function DeviceName({ name }: { name: string }) {
   );
 });
 
-// ─── Card Skeleton (firmware chưa load) ───────────────────────────────────────
+// ─── Card Skeleton ─────────────────────────────────────────────────────────────
 function CardSkeleton() {
   return (
     <div className="px-4! py-4.5! flex flex-col gap-0" style={{ minHeight: 168 }}>
@@ -270,11 +271,66 @@ function CardSkeleton() {
   );
 }
 
+// ─── computeCardStatus ────────────────────────────────────────────────────────
+function computeCardStatus(
+  entry: DeviceEntry,
+  allFiles: IPSWFile[],
+  incompleteTasks: IncompleteTaskClient[],
+): CardTask {
+  // If a live download task is active, it takes priority
+  if (entry.firmwares !== null || entry.task) {
+    const inProgress = !!entry.task &&
+      ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+    if (inProgress) return entry.task!.status as CardTask;
+    if (entry.task?.status === "completed") return "completed";
+    if (entry.task?.status === "error") return "error";
+  }
+
+  if (!entry.firmwares || entry.firmwares.length === 0) {
+    return "none";
+  }
+
+  const latestFw = entry.firmwares[0];
+
+  // Check for incomplete downloads (tải dở) — only when no active task
+  const incompTask = incompleteTasks.find(
+    (t) =>
+      t.firmware.identifier === entry.device.identifier &&
+      t.firmware.buildid === latestFw.buildid
+  );
+  if (incompTask) return "incomplete_dl";
+
+  if (latestFw?.signed && allFiles.length > 0) {
+    const info = parseIPSW(getFileNameFromUrl(latestFw.url));
+    if (info) {
+      const buildIdMap = new Set(entry.firmwares.map(fw => fw.buildid));
+      const deviceFiles = allFiles.filter(file => {
+        const parsed = parseIPSW(file.name);
+        return parsed?.id === info.id && buildIdMap.has(parsed.build);
+      });
+      if (deviceFiles.length > 0) {
+        const latestFile = deviceFiles.find(f => f.name.includes(latestFw.buildid));
+        if (latestFile) {
+          // Check if file size matches expected (corrupted / incomplete file on disk)
+          if (latestFw.filesize > 0 && latestFile.size < latestFw.filesize) {
+            return "corrupted";
+          }
+          return "downloaded";
+        }
+        return "old";
+      }
+    }
+  }
+
+  return entry.task?.status ?? "none";
+}
+
 // ─── Device Card ──────────────────────────────────────────────────────────────
 const DeviceCard = memo(function DeviceCard({
   entry,
   selected,
   allFiles,
+  incompleteTasks,
   pending,
   onClick,
   onVisible,
@@ -282,19 +338,18 @@ const DeviceCard = memo(function DeviceCard({
   entry: DeviceEntry;
   selected: boolean;
   allFiles: IPSWFile[];
+  incompleteTasks: IncompleteTaskClient[];
   pending: boolean;
   onClick: () => void;
-  /** Fired once when card first enters viewport and firmware not yet loaded */
   onVisible: (identifier: string) => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [flash, setFlash] = useState(false);
 
-  const status = computeCardStatus(entry, allFiles);
+  const status = computeCardStatus(entry, allFiles, incompleteTasks);
   const cfg = STATUS_CONFIG[status];
 
-  // Flash when a pending action completes
   const prevPending = useRef(false);
   useEffect(() => {
     if (prevPending.current && !pending) {
@@ -304,7 +359,6 @@ const DeviceCard = memo(function DeviceCard({
     prevPending.current = pending;
   }, [pending]);
 
-  // Intersection observer — track card entering/leaving viewport
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
@@ -313,7 +367,6 @@ const DeviceCard = memo(function DeviceCard({
     return () => obs.disconnect();
   }, []);
 
-  // Signal parent once when card first becomes visible and firmware isn't loaded yet
   const signalledRef = useRef(false);
   useEffect(() => {
     if (!visible || signalledRef.current || entry.firmwares !== null) return;
@@ -324,6 +377,13 @@ const DeviceCard = memo(function DeviceCard({
   const latestFw = entry.firmwares?.[0] ?? null;
   const inProgress = !!entry.task &&
     ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+
+  // Find incomplete task for this device
+  const incompTask = latestFw
+    ? incompleteTasks.find(
+      t => t.firmware.identifier === entry.device.identifier && t.firmware.buildid === latestFw.buildid
+    )
+    : undefined;
 
   const product = entry.device.identifier.toLowerCase().startsWith("ipad") ? "ipad"
     : entry.device.identifier.toLowerCase().startsWith("watch") ? "watch"
@@ -355,24 +415,20 @@ const DeviceCard = memo(function DeviceCard({
         ${flash ? "animate-card-flash" : ""}
       `}
     >
-      {/* Pending overlay */}
       {pending && (
         <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-[14px]">
           <Spinner className="w-5 h-5 text-white/60" />
         </div>
       )}
 
-      {/* Selected left bar */}
       {selected && (
         <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r-full bg-[#137fec]" />
       )}
 
-      {/* Skeleton while firmware is loading */}
       {!firmwaresLoaded ? (
         <CardSkeleton />
       ) : (
         <div className="px-4! py-4.5! flex flex-col gap-0" style={{ minHeight: 168 }}>
-          {/* Header: icon + name + identifier */}
           <div className="flex items-start gap-2.5">
             <div className="text-gray-500 mt-0.5! shrink-0">
               {PRODUCT_ICON[product as Product]}
@@ -385,7 +441,6 @@ const DeviceCard = memo(function DeviceCard({
             </div>
           </div>
 
-          {/* OS Version badge */}
           {latestFw && (
             <div className="mt-2!">
               <div className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5! py-1! font-mono text-[13px]">
@@ -395,7 +450,6 @@ const DeviceCard = memo(function DeviceCard({
             </div>
           )}
 
-          {/* Status pill */}
           <div className="mt-1! pt-3! flex items-center justify-between">
             <div className={`inline-flex items-center gap-2 rounded-lg px-3! py-1.5! ${cfg.pill}`}>
               <div
@@ -409,16 +463,19 @@ const DeviceCard = memo(function DeviceCard({
                 {entry.task!.progress}%
               </span>
             )}
+            {status === "incomplete_dl" && incompTask && (
+              <span className="text-[11px] text-sky-500 font-mono tabular-nums">
+                {incompTask.progress}%
+              </span>
+            )}
           </div>
 
-          {/* Error message */}
           {status === "error" && entry.task?.error && (
             <p className="text-[11px] text-red-400/75 mt-1.5! truncate" title={entry.task.error}>
               {entry.task.error}
             </p>
           )}
 
-          {/* Progress bar */}
           {inProgress && (
             <>
               <ProgressBar value={entry.task!.progress} status={status as TaskStatus} />
@@ -429,6 +486,10 @@ const DeviceCard = memo(function DeviceCard({
                 </div>
               )}
             </>
+          )}
+
+          {status === "incomplete_dl" && incompTask && (
+            <ProgressBar value={incompTask.progress} status="incomplete_dl" />
           )}
         </div>
       )}
@@ -441,16 +502,21 @@ const ControlButtons = memo(function ControlButtons({
   entry,
   status,
   pendingAction,
+  incompTask,
+  corruptedFile,
   onAction,
 }: {
   entry: DeviceEntry;
   status: CardTask;
   pendingAction: ControlAction | null;
+  incompTask?: IncompleteTaskClient;
+  corruptedFile?: IPSWFile;
   onAction: (action: ControlAction, fw?: Firmware) => void;
 }) {
   const latestFw = entry.firmwares?.[0];
   const busy = pendingAction !== null;
 
+  // ── Chưa tải (none) ──────────────────────────────────────────────────────
   if (status === "none") {
     return (
       <button
@@ -472,6 +538,137 @@ const ControlButtons = memo(function ControlButtons({
     );
   }
 
+  // ── Không hoàn chỉnh (corrupted file on disk) ─────────────────────────────
+  if (status === "corrupted") {
+    const expectedSize = latestFw?.filesize ?? 0;
+    const actualSize = corruptedFile?.size ?? 0;
+
+    return (
+      <div className="space-y-2!">
+        {/* Info box */}
+        <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl px-3! py-2.5! space-y-1!">
+          <p className="text-[11px] text-amber-300 font-semibold">Tệp không hoàn chỉnh</p>
+          <p className="text-[10px] text-amber-400/70">
+            Kích thước: {formatBytes(actualSize)} / {formatBytes(expectedSize)}
+          </p>
+          <p className="text-[10px] text-amber-400/60">
+            Tệp tải về bị thiếu dữ liệu so với bản gốc.
+          </p>
+        </div>
+
+        {/* Check if there's a resumable tmp file for this firmware */}
+        {incompTask ? (
+          /* Has a .tmp cache — offer to complete */
+          <div className="space-y-2!">
+            <div className="bg-sky-500/8 border border-sky-500/20 rounded-xl px-3! py-2! text-[10px] text-sky-400/80">
+              Tìm thấy tệp tải dở ({incompTask.progress}%). Có thể tiếp tục.
+            </div>
+            <button
+              disabled={busy}
+              onClick={() => onAction("resume_incomplete")}
+              className="w-full py-2.5! rounded-xl bg-sky-500/12 hover:bg-sky-500/22 border border-sky-500/20 text-sky-300 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {pendingAction === "resume_incomplete"
+                ? <><Spinner className="w-3.5 h-3.5 text-sky-300" /> Đang tiếp tục…</>
+                : <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l10-6.86a1 1 0 0 0 0-1.72l-10-6.86A1 1 0 0 0 8 5.14z" />
+                  </svg>
+                  Hoàn thiện tệp tải dở
+                </>
+              }
+            </button>
+          </div>
+        ) : (
+          /* No tmp cache — only redownload or delete */
+          <div className="bg-amber-500/6 border border-amber-500/12 rounded-lg px-3! py-2! text-[10px] text-amber-400/60">
+            Không tìm thấy cache tải dở. Cần tải lại từ đầu.
+          </div>
+        )}
+
+        <div className="flex gap-2!">
+          <button
+            disabled={busy}
+            onClick={() => onAction("delete")}
+            className="flex-1 py-2! rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/18 text-red-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            {pendingAction === "delete" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang xoá…</> : "Xoá tệp lỗi"}
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => onAction("redownload", latestFw)}
+            className="flex-1 py-2! rounded-xl bg-[#137fec]/10 hover:bg-[#137fec]/20 border border-[#137fec]/18 text-[#4fa8f5] text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            {pendingAction === "redownload" ? <><Spinner className="w-3 h-3" /> Đang xử lý…</> : "Tải lại từ đầu"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Chưa tải xong (incomplete download in downloader state) ───────────────
+  if (status === "incomplete_dl" && incompTask) {
+    return (
+      <div className="space-y-2!">
+        {/* Progress info */}
+        <div className="bg-sky-500/8 border border-sky-500/20 rounded-xl px-3! py-2.5! space-y-1.5!">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-sky-300 font-semibold">Tải dở dang</p>
+            <span className="font-mono text-[11px] text-sky-400">{incompTask.progress}%</span>
+          </div>
+          <div className="w-full h-1 bg-white/8 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-sky-400 transition-all"
+              style={{ width: `${incompTask.progress}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-sky-400/60">
+            {formatBytes(incompTask.downloadedBytes)} / {formatBytes(incompTask.totalSize)}
+          </p>
+          {!incompTask.tmpExists && (
+            <p className="text-[10px] text-amber-400/80">
+              ⚠ File cache không tồn tại — sẽ tải lại từ đầu.
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-2!">
+          <button
+            disabled={busy}
+            onClick={() => onAction("resume_incomplete")}
+            className="flex-1 py-2.5! rounded-xl bg-sky-500/12 hover:bg-sky-500/22 border border-sky-500/20 text-sky-300 text-[13px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {pendingAction === "resume_incomplete"
+              ? <><Spinner className="w-3.5 h-3.5 text-sky-300" /> Đang tiếp tục…</>
+              : incompTask.tmpExists
+                ? <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l10-6.86a1 1 0 0 0 0-1.72l-10-6.86A1 1 0 0 0 8 5.14z" />
+                  </svg>
+                  Tải tiếp
+                </>
+                : <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M12 2v13m-5-5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M4 20h16" strokeLinecap="round" />
+                  </svg>
+                  Tải lại từ đầu
+                </>
+            }
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => onAction("delete_incomplete")}
+            className="px-4! py-2.5! rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/18 text-red-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+          >
+            {pendingAction === "delete_incomplete" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang xoá…</> : "Xoá"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Có phiên bản mới (old) ────────────────────────────────────────────────
   if (status === "old") {
     return (
       <div className="space-y-2!">
@@ -511,6 +708,7 @@ const ControlButtons = memo(function ControlButtons({
     );
   }
 
+  // ── Đã tải xong ───────────────────────────────────────────────────────────
   if (status === "completed" || status === "downloaded") {
     return (
       <div className="space-y-2!">
@@ -549,6 +747,7 @@ const ControlButtons = memo(function ControlButtons({
     );
   }
 
+  // ── Lỗi (error) ───────────────────────────────────────────────────────────
   if (status === "error") {
     return (
       <div className="space-y-2!">
@@ -577,6 +776,7 @@ const ControlButtons = memo(function ControlButtons({
     );
   }
 
+  // ── Đang tải / tạm dừng / đang chờ ──────────────────────────────────────
   if (["downloading", "paused", "queued"].includes(status)) {
     return (
       <div className="space-y-2!">
@@ -641,6 +841,7 @@ const ControlButtons = memo(function ControlButtons({
     );
   }
 
+  // ── Đang xác minh / di chuyển ─────────────────────────────────────────────
   if (status === "verifying" || status === "moving") {
     return (
       <div className="bg-white/4 rounded-xl p-3! border border-white/6 space-y-1.5">
@@ -729,17 +930,36 @@ function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]; onDow
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 function DetailPanel({
-  entry, product, allFiles, pendingAction, onClose, onAction,
+  entry, product, allFiles, incompleteTasks, pendingAction, onClose, onAction,
 }: {
   entry: DeviceEntry;
   product: Product;
   allFiles: IPSWFile[];
+  incompleteTasks: IncompleteTaskClient[];
   pendingAction: ControlAction | null;
   onClose: () => void;
   onAction: (action: ControlAction, fw?: Firmware) => void;
 }) {
   const latest = entry.firmwares?.[0] ?? null;
-  const status = computeCardStatus(entry, allFiles);
+  const status = computeCardStatus(entry, allFiles, incompleteTasks);
+
+  // Find matching incomplete task for this device's latest firmware
+  const incompTask = latest
+    ? incompleteTasks.find(
+      t => t.firmware.identifier === entry.device.identifier && t.firmware.buildid === latest.buildid
+    )
+    : undefined;
+
+  // Find corrupted file on disk (for "corrupted" status)
+  const corruptedFile = useMemo(() => {
+    if (status !== "corrupted" || !latest) return undefined;
+    const info = parseIPSW(getFileNameFromUrl(latest.url));
+    if (!info) return undefined;
+    return allFiles.find(f => {
+      const parsed = parseIPSW(f.name);
+      return parsed?.id === info.id && parsed?.build === latest.buildid;
+    });
+  }, [status, latest, allFiles]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -764,7 +984,6 @@ function DetailPanel({
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Phiên bản mới nhất</p>
           </div>
 
-          {/* Firmware chưa load trong detail panel */}
           {entry.firmwares === null ? (
             <div className="space-y-3!">
               <div className="bg-white/4 rounded-xl p-4! border border-white/6 animate-pulse">
@@ -810,7 +1029,14 @@ function DetailPanel({
                   </div>
                 </div>
               </div>
-              <ControlButtons entry={entry} status={status} pendingAction={pendingAction} onAction={onAction} />
+              <ControlButtons
+                entry={entry}
+                status={status}
+                pendingAction={pendingAction}
+                incompTask={incompTask}
+                corruptedFile={corruptedFile}
+                onAction={onAction}
+              />
             </>
           ) : (
             <p className="text-[12px] text-gray-500 py-2!">Không có firmware.</p>
@@ -886,6 +1112,7 @@ function Resizer({ onResize }: { onResize: (dx: number) => void }) {
 export default function IPSWManager() {
   const [entries, setEntries] = useState<DeviceEntry[]>([]);
   const [allFiles, setAllFiles] = useState<IPSWFile[]>([]);
+  const [incompleteTasks, setIncompleteTasks] = useState<IncompleteTaskClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -902,11 +1129,27 @@ export default function IPSWManager() {
   const { product }: { product: ProductId } = location.state;
   const navigate = useNavigate();
 
+  state.currentProduct = product;
+
   useEffect(() => { entriesRef.current = entries; }, [entries]);
+
+  // ── Sync incomplete tasks from ipswClient ────────────────────────────────
+  useEffect(() => {
+    // Initial load
+    setIncompleteTasks(ipswClient.getIncompleteTasks());
+
+    // Subscribe to changes (e.g. when a file is added matching an incomplete task)
+    const unsub = ipswClient.onIncompleteTasksChanged((tasks) => {
+      setIncompleteTasks([...tasks]);
+    });
+    return () => unsub();
+  }, []);
+
+  // ── Sync allFiles ────────────────────────────────────────────────────────
   useEffect(() => {
     ipswClient.onReload(() => {
-      setAllFiles(ipswClient.getFiles())
-    })
+      setAllFiles(ipswClient.getFiles());
+    });
   }, []);
 
   const setPending = useCallback((identifier: string, action: ControlAction | null) => {
@@ -946,9 +1189,8 @@ export default function IPSWManager() {
     applyTaskMap(next);
   }, [applyTaskMap]);
 
-  // ── IPC: listen for firmware data pushed back from DataHandle queue ──────────
+  // ── IPC: listen for firmware data ─────────────────────────────────────────
   useEffect(() => {
-    // window.api.onModelData wraps ipcRenderer.on("dh:modelData", cb)
     const unsub = window.api.onModelData((identifier: string, device: DeviceResponse | null) => {
       setEntries(prev => prev.map(e =>
         e.device.identifier === identifier
@@ -959,18 +1201,13 @@ export default function IPSWManager() {
     return () => unsub();
   }, []);
 
-  // ── Called by DeviceCard when it first enters the viewport ───────────────────
   const handleCardVisible = useCallback((identifier: string) => {
     if (requestedFwRef.current.has(identifier)) return;
     requestedFwRef.current.add(identifier);
-    // Triggers DataHandle.getModelDataForReact() on the main process.
-    // Main process sends empty payload immediately (already handled by initial
-    // firmwares: null state), then pushes real data via "dh:modelData" once
-    // the queue processes it.
     window.api.requestModelData(identifier);
   }, []);
 
-  // ── Register downloader events ───────────────────────────────────────────────
+  // ── Register downloader events ────────────────────────────────────────────
   useEffect(() => {
     const d = window.downloader;
     if (!d) return;
@@ -979,6 +1216,10 @@ export default function IPSWManager() {
       d.onAdded((_id, task) => {
         upsertTask(task);
         setPending(task.firmware.identifier, null);
+        // Refresh incomplete tasks since we may have just resumed one
+        ipswClient.refreshIncompleteTasks().then(() => {
+          setIncompleteTasks(ipswClient.getIncompleteTasks());
+        });
       }),
       d.onProgress((_id, task) => upsertTask(task)),
       d.onPaused((_id, task) => {
@@ -1010,6 +1251,8 @@ export default function IPSWManager() {
       }),
       d.onIncompleteDeleted((id) => {
         removeTaskById(id);
+        ipswClient.removeIncompleteTask(id);
+        setIncompleteTasks(ipswClient.getIncompleteTasks());
       }),
     ];
 
@@ -1017,7 +1260,7 @@ export default function IPSWManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load devices — firmware lazy-loaded per card ─────────────────────────────
+  // ── Load devices ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (loadedProductRef.current === product) return;
     loadedProductRef.current = product;
@@ -1046,7 +1289,6 @@ export default function IPSWManager() {
       for (const t of activeTasks) taskMap.set(t.firmware.identifier, t);
       taskMapRef.current = taskMap;
 
-      // firmwares: null → card shows skeleton, triggers lazy load on visible
       const builtEntries: DeviceEntry[] = devices.map(device => ({
         device,
         firmwares: null,
@@ -1055,6 +1297,7 @@ export default function IPSWManager() {
 
       setEntries(builtEntries);
       setAllFiles(initialFiles);
+      setIncompleteTasks(ipswClient.getIncompleteTasks());
       setLoading(false);
     }
 
@@ -1105,9 +1348,7 @@ export default function IPSWManager() {
           if (!firmware) { setPending(deviceIdentifier, null); return; }
           {
             const { success } = await download(firmware);
-            if (!success) {
-              setPending(deviceIdentifier, null);
-            }
+            if (!success) setPending(deviceIdentifier, null);
           }
           break;
 
@@ -1119,9 +1360,7 @@ export default function IPSWManager() {
             nextMap.delete(deviceIdentifier);
             applyTaskMap(nextMap);
             const { success } = await download(firmware);
-            if (!success) {
-              setPending(deviceIdentifier, null);
-            }
+            if (!success) setPending(deviceIdentifier, null);
           }
           break;
 
@@ -1157,6 +1396,69 @@ export default function IPSWManager() {
           setPending(deviceIdentifier, null);
           pushToast("info", `Đã làm mới trạng thái: ${deviceIdentifier}`);
           break;
+
+        // ── resume_incomplete: resume a previously interrupted download ──────
+        case "resume_incomplete": {
+          // Find the incomplete task for this device's latest firmware
+          const latestFw = entry.firmwares?.[0];
+          const incompTask = latestFw
+            ? ipswClient.getIncompleteTasks().find(
+              t => t.firmware.identifier === deviceIdentifier && t.firmware.buildid === latestFw.buildid
+            )
+            : undefined;
+
+          if (!incompTask) {
+            // No incomplete task found — just start a fresh download
+            if (firmware) {
+              // Delete corrupted file first if present
+              await deleteFile({ identifier: deviceIdentifier }).catch(() => { });
+              const { success } = await download(firmware);
+              if (!success) setPending(deviceIdentifier, null);
+            } else {
+              setPending(deviceIdentifier, null);
+            }
+            break;
+          }
+
+          const result = await d.resumeIncomplete(incompTask.id);
+          if (result.success) {
+            // Remove from local incomplete list — the "added" event will confirm
+            ipswClient.removeIncompleteTask(incompTask.id);
+            setIncompleteTasks(ipswClient.getIncompleteTasks());
+            // Delete corrupted file if there was one on disk
+            await deleteFile({ identifier: deviceIdentifier }).catch(() => { });
+          } else {
+            setPending(deviceIdentifier, null);
+            pushToast("error", `Không thể tiếp tục: ${result.error ?? "unknown"}`);
+          }
+          break;
+        }
+
+        // ── delete_incomplete: delete incomplete download state ───────────────
+        case "delete_incomplete": {
+          const latestFw = entry.firmwares?.[0];
+          const incompTask = latestFw
+            ? ipswClient.getIncompleteTasks().find(
+              t => t.firmware.identifier === deviceIdentifier && t.firmware.buildid === latestFw.buildid
+            )
+            : undefined;
+
+          if (incompTask) {
+            const result = await d.deleteIncomplete(incompTask.id);
+            if (result.success) {
+              ipswClient.removeIncompleteTask(incompTask.id);
+              setIncompleteTasks(ipswClient.getIncompleteTasks());
+              pushToast("success", `Đã xoá tệp tải dở`);
+            } else {
+              pushToast("error", `Xoá thất bại: ${result.error ?? "unknown"}`);
+            }
+          }
+          setPending(deviceIdentifier, null);
+          break;
+        }
+
+        default:
+          setPending(deviceIdentifier, null);
       }
     } catch (err) {
       console.error(`[IPSWManager] Action "${action}" on ${deviceIdentifier} failed:`, err);
@@ -1166,7 +1468,7 @@ export default function IPSWManager() {
   }, [setPending, applyTaskMap]);
 
   return (
-    <div className="fixed inset-0 z-1001">
+    <div className="fixed inset-0 z-1000">
       <div
         ref={containerRef}
         className="flex h-full bg-[#0c0c0f] text-white overflow-hidden"
@@ -1181,10 +1483,12 @@ export default function IPSWManager() {
           }}
         >
           {/* Toolbar */}
-          <div className="flex items-center gap-2 px-31 h-11 border-b border-white/7 shrink-0 bg-[#0e0e12]">
+          <div className="flex items-center gap-2 px-3! h-11 border-b border-white/7 shrink-0 bg-[#0e0e12]">
+            {/* Left */}
             <div className="flex items-center gap-2 shrink-0 min-w-0">
-              <span className="text-[16px] font-bold pl-2! text-gray-200 whitespace-nowrap">{entries.length} thiết bị</span>
+              <span className="text-[16px] font-bold text-gray-200 whitespace-nowrap">{entries.length} thiết bị</span>
             </div>
+            {/* Center */}
             <div className="flex-1 flex justify-center px-2!">
               <div className="flex items-center gap-2 px-2.5! py-1.5! rounded-lg bg-white/5 border border-white/8 w-full max-w-xs hover:border-white/15 focus-within:border-[#137fec]/45 transition-colors">
                 <svg className="w-3 h-3 text-gray-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1206,16 +1510,80 @@ export default function IPSWManager() {
                 )}
               </div>
             </div>
-            <div className="flex items-center pr-2! gap-1.5 shrink-0">
-              {/* NKP */}
+            {/* Right */}
+            <div className="flex items-center justify-between gap-1.5 shrink-0">
+              <button
+                title="Cập nhật tất cả fỉmware"
+                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
+                onClick={async () => {
+                  // Collect all entries with status "old" — có firmware mới nhưng chỉ có file cũ
+                  const oldEntries = entries.filter(e => {
+                    const status = computeCardStatus(e, allFiles, incompleteTasks);
+                    return status === "old";
+                  });
+
+                  if (oldEntries.length === 0) {
+                    pushToast("info", "Không có firmware nào cần cập nhật");
+                    return;
+                  }
+
+                  // Build BulkUpdateItem list
+                  const { oldFiles: productOldFiles, duplicateFiles: productDuplicateFiles } =
+                    await getRedundantFilesFromProduct(product);
+
+                  const redundantByIdentifier = new Map<string, IPSWFile[]>();
+                  [...productOldFiles, ...productDuplicateFiles].forEach(f => {
+                    const parsed = parseIPSW(f.name);
+                    if (!parsed) return;
+                    const id = parsed.id; // e.g. "iPhone14,3"
+                    if (!redundantByIdentifier.has(id)) redundantByIdentifier.set(id, []);
+                    redundantByIdentifier.get(id)!.push(f);
+                  });
+
+                  const seen = new Set();
+
+                  const items: BulkUpdateItem[] = oldEntries
+                    .map(e => {
+                      const fw = e.firmwares![0]; // latest firmware
+                      const oldFiles = redundantByIdentifier.get(e.device.identifier) ?? [];
+                      return { firmware: fw, oldFiles };
+                    })
+                    .filter(it => !!it.firmware)
+                    .filter(it => {
+                      if (seen.has(it.firmware.url)) return false;
+
+                      seen.add(it.firmware.url)
+                      return true;
+                    });
+
+                  navigate("/bulk-update", { state: { items, product } });
+                }}
+              >
+                {TASKBAR_ICON.update}
+              </button>
+              <button
+                onClick={async () => {
+                  const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
+                  utils.customConfirm(`Thao tác này sẽ xóa ${oldFiles.length} tệp cũ và ${duplicateFiles.length} têp bị trùng`)
+                }}
+                title="Xóa tệp không cần thiết"
+                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
+              >
+                {TASKBAR_ICON.delete}
+              </button>
+              <button
+                onClick={() => navigate("/downloads")}
+                title="Tải xuống"
+                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
+              >
+                {TASKBAR_ICON.download}
+              </button>
               <button
                 onClick={() => navigate("/")}
                 title="Đóng"
-                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 flex items-center justify-center transition-all"
+                className="w-10 h-8 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 flex items-center justify-center transition-all"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                </svg>
+                {TASKBAR_ICON.close}
               </button>
             </div>
           </div>
@@ -1242,6 +1610,7 @@ export default function IPSWManager() {
                     entry={entry}
                     selected={selectedId === entry.device.identifier}
                     allFiles={allFiles}
+                    incompleteTasks={incompleteTasks}
                     pending={pendingActions.has(entry.device.identifier)}
                     onClick={() => {
                       if (entry.firmwares === null) return;
@@ -1269,6 +1638,7 @@ export default function IPSWManager() {
                 entry={selectedEntry}
                 product={product}
                 allFiles={allFiles}
+                incompleteTasks={incompleteTasks}
                 pendingAction={pendingActions.get(selectedEntry.device.identifier) ?? null}
                 onClose={() => setSelectedId(null)}
                 onAction={(action, fw) => handleAction(selectedEntry.device.identifier, action, fw)}

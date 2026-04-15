@@ -26,6 +26,7 @@ function relay(channel: WorkerToMain & { type: "event" }): void {
   parentPort!.postMessage(channel);
 }
 
+dl.on("started",            (taskId, task)         => relay({ type: "event", channel: "started",            taskId, task}))
 dl.on("progress",           (taskId, task)         => relay({ type: "event", channel: "progress",           taskId, task }));
 dl.on("completed",          (taskId, task)         => relay({ type: "event", channel: "completed",          taskId, task }));
 dl.on("error",              (taskId, error, task)  => relay({ type: "event", channel: "error",              taskId, error, task }));

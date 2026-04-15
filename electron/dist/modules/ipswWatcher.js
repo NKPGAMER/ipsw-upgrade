@@ -34,6 +34,9 @@ class IPSWWatcher {
         this.watchDir = watchDir;
         this.registerIpcHandlers();
     }
+    normalizeDir(dir) {
+        return path_1.default.resolve(dir).replace(/[\\\/]+$/, "").toLowerCase();
+    }
     // ─────────────────────────────────────────
     // Public API
     // ─────────────────────────────────────────
@@ -62,6 +65,13 @@ class IPSWWatcher {
      * task mới nhất — bỏ qua mọi request ở giữa.
      */
     changeDir(newDir) {
+        const nextDir = this.normalizeDir(newDir);
+        const currentDir = this.normalizeDir(this.watchDir);
+        const pendingDir = this.pendingDir ? this.normalizeDir(this.pendingDir) : null;
+        if (nextDir === currentDir)
+            return;
+        if (pendingDir !== null && nextDir === pendingDir)
+            return;
         if (this.activeReload !== null) {
             // Có task đang chạy → ghi đè pending, không tạo thêm task
             this.pendingDir = newDir;

@@ -1,20 +1,6 @@
-export interface Firmware {
-  identifier: string;
-  version: string;
-  buildid: string;
-  sha1sum: string;
-  md5sum: string;
-  sha256sum: string;
-  filesize: number;
-  url: string;
-  releasedate: string;
-  uploaddate: string;
-  signed: boolean;
-}
-
 export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "cancelled";
 
-export type EventChannel = "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
+export type EventChannel = "started" | "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
 
 export interface Task {
   id: string;

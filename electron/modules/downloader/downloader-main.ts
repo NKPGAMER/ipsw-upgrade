@@ -27,7 +27,7 @@ import { Worker } from "worker_threads";
 import { randomUUID } from "crypto";
 
 import type { MainToWorker, WorkerToMain } from "./worker-messages";
-import type { Firmware, DownloaderConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
+import type { DownloaderConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
 
 // Electron types — resolved at runtime; typed loosely so this file compiles
 // without depending on a specific @types/electron version.
@@ -69,8 +69,6 @@ export class DownloaderMain {
     });
 
     if (win) this.registerIPC();
-
-    console.log("[Downloader-Main]: Used worker!!!")
   }
 
   // ─── Worker message handler ───────────────────────────────────────────────
@@ -142,6 +140,7 @@ export class DownloaderMain {
     if (!this.win || this.win.isDestroyed()) return;
     const { taskId, task, error } = payload;
     switch (channel) {
+      case "started":
       case "progress":
       case "completed":
       case "paused":

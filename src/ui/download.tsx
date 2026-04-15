@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { state as dataState } from "../data";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,12 +98,12 @@ function StatusBadge({ status }: StatusBadgeProps) {
 
   const cfg: Record<TaskStatus, { labelKey: any; cls: string }> = {
     downloading: { labelKey: "status.downloading", cls: "bg-[#137fec]/15 text-[#137fec] border-[#137fec]/30" },
-    paused:      { labelKey: "status.paused",      cls: "bg-[#7a96b0]/10 text-[#7a96b0] border-[#7a96b0]/25" },
-    completed:   { labelKey: "status.completed",   cls: "bg-[#1aab6d]/12 text-[#1aab6d] border-[#1aab6d]/30" },
-    error:       { labelKey: "status.error",       cls: "bg-[#e04a4a]/12 text-[#e04a4a] border-[#e04a4a]/30" },
-    queued:      { labelKey: "status.queued",      cls: "bg-white/5 text-[#4a6478] border-white/10" },
-    verifying:   { labelKey: "status.verifying",   cls: "bg-[#8b5cf6]/12 text-[#8b5cf6] border-[#8b5cf6]/30" },
-    moving:      { labelKey: "status.moving",      cls: "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30" },
+    paused: { labelKey: "status.paused", cls: "bg-[#7a96b0]/10 text-[#7a96b0] border-[#7a96b0]/25" },
+    completed: { labelKey: "status.completed", cls: "bg-[#1aab6d]/12 text-[#1aab6d] border-[#1aab6d]/30" },
+    error: { labelKey: "status.error", cls: "bg-[#e04a4a]/12 text-[#e04a4a] border-[#e04a4a]/30" },
+    queued: { labelKey: "status.queued", cls: "bg-white/5 text-[#4a6478] border-white/10" },
+    verifying: { labelKey: "status.verifying", cls: "bg-[#8b5cf6]/12 text-[#8b5cf6] border-[#8b5cf6]/30" },
+    moving: { labelKey: "status.moving", cls: "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30" },
   };
 
   const { labelKey, cls } = cfg[status];
@@ -125,12 +127,12 @@ interface ProgressBarProps {
 function ProgressBar({ progress, status }: ProgressBarProps) {
   const colorMap: Record<TaskStatus, string> = {
     downloading: "bg-[#137fec]",
-    paused:      "bg-[#7a96b0]",
-    completed:   "bg-[#1aab6d]",
-    error:       "bg-[#e04a4a]",
-    queued:      "bg-[#4a6478]",
-    verifying:   "bg-[#8b5cf6]",
-    moving:      "bg-[#e08b1a]",
+    paused: "bg-[#7a96b0]",
+    completed: "bg-[#1aab6d]",
+    error: "bg-[#e04a4a]",
+    queued: "bg-[#4a6478]",
+    verifying: "bg-[#8b5cf6]",
+    moving: "bg-[#e08b1a]",
   };
   const isAnim = status === "verifying" || status === "moving";
   return (
@@ -187,12 +189,12 @@ function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) 
 
   const accentMap: Record<TaskStatus, string> = {
     downloading: "border-l-[#137fec]",
-    paused:      "border-l-[#7a96b0]",
-    completed:   "border-l-[#1aab6d]",
-    error:       "border-l-[#e04a4a]",
-    queued:      "border-l-[#4a6478]",
-    verifying:   "border-l-[#8b5cf6]",
-    moving:      "border-l-[#e08b1a]",
+    paused: "border-l-[#7a96b0]",
+    completed: "border-l-[#1aab6d]",
+    error: "border-l-[#e04a4a]",
+    queued: "border-l-[#4a6478]",
+    verifying: "border-l-[#8b5cf6]",
+    moving: "border-l-[#e08b1a]",
   };
 
   return (
@@ -298,18 +300,18 @@ interface SidebarProps {
 function Sidebar({ tasks }: SidebarProps) {
   const { t } = useTranslation();
 
-  const active    = tasks.filter((t) => t.status === "downloading").length;
+  const active = tasks.filter((t) => t.status === "downloading").length;
   const completed = tasks.filter((t) => t.status === "completed").length;
-  const paused    = tasks.filter((t) => t.status === "paused").length;
-  const queued    = tasks.filter((t) => t.status === "queued").length;
-  const errored   = tasks.filter((t) => t.status === "error").length;
+  const paused = tasks.filter((t) => t.status === "paused").length;
+  const queued = tasks.filter((t) => t.status === "queued").length;
+  const errored = tasks.filter((t) => t.status === "error").length;
 
   const statItems = [
-    { labelKey: "sidebar.stat.active",    value: active,    color: "text-[#137fec]" },
+    { labelKey: "sidebar.stat.active", value: active, color: "text-[#137fec]" },
     { labelKey: "sidebar.stat.completed", value: completed, color: "text-[#1aab6d]" },
-    { labelKey: "sidebar.stat.paused",    value: paused,    color: "text-[#7a96b0]" },
-    { labelKey: "sidebar.stat.queued",    value: queued,    color: "text-[#4a6478]" },
-    { labelKey: "sidebar.stat.errors",    value: errored,   color: "text-[#e04a4a]" },
+    { labelKey: "sidebar.stat.paused", value: paused, color: "text-[#7a96b0]" },
+    { labelKey: "sidebar.stat.queued", value: queued, color: "text-[#4a6478]" },
+    { labelKey: "sidebar.stat.errors", value: errored, color: "text-[#e04a4a]" },
   ];
 
   return (
@@ -347,10 +349,11 @@ interface DownloadPageProps {
   onClose?: () => void;
 }
 
-export default function DownloadPage({ onClose }: DownloadPageProps = {}) {
+export default function DownloadPage() {
   const { t } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<TaskStatus | "all">("all");
+  const navigate = useNavigate();
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -429,12 +432,12 @@ export default function DownloadPage({ onClose }: DownloadPageProps = {}) {
     filter === "all" ? sorted : sorted.filter((t) => t.status === filter);
 
   const filterTabs: Array<{ key: TaskStatus | "all"; labelKey: string }> = [
-    { key: "all",         labelKey: "filter.all" },
+    { key: "all", labelKey: "filter.all" },
     { key: "downloading", labelKey: "filter.active" },
-    { key: "paused",      labelKey: "filter.paused" },
-    { key: "queued",      labelKey: "filter.queued" },
-    { key: "completed",   labelKey: "filter.done" },
-    { key: "error",       labelKey: "filter.errors" },
+    { key: "paused", labelKey: "filter.paused" },
+    { key: "queued", labelKey: "filter.queued" },
+    { key: "completed", labelKey: "filter.done" },
+    { key: "error", labelKey: "filter.errors" },
   ];
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -466,21 +469,19 @@ export default function DownloadPage({ onClose }: DownloadPageProps = {}) {
                 className={`
                   flex items-center gap-1.5 px-3! py-1.5! rounded text-[11px] font-semibold uppercase tracking-widest
                   border transition-all duration-150
-                  ${
-                    active
-                      ? "bg-[#137fec]/15 border-[#137fec]/40 text-[#137fec]"
-                      : "bg-transparent border-transparent text-[#4a6478] hover:text-[#7a96b0] hover:border-white/10"
+                  ${active
+                    ? "bg-[#137fec]/15 border-[#137fec]/40 text-[#137fec]"
+                    : "bg-transparent border-transparent text-[#4a6478] hover:text-[#7a96b0] hover:border-white/10"
                   }
                 `}
               >
                 {t(labelKey as any)}
                 {count > 0 && (
                   <span
-                    className={`font-mono text-[10px] px-1! py-0.5! rounded leading-none ${
-                      active
+                    className={`font-mono text-[10px] px-1! py-0.5! rounded leading-none ${active
                         ? "bg-[#137fec]/20 text-[#137fec]"
                         : "bg-white/6 text-[#4a6478]"
-                    }`}
+                      }`}
                   >
                     {count}
                   </span>
@@ -488,15 +489,17 @@ export default function DownloadPage({ onClose }: DownloadPageProps = {}) {
               </button>
             );
           })}
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="ml-auto! w-7 h-7 flex items-center justify-center rounded border border-white/10 text-[#4a6478] hover:bg-[#e04a4a]/15 hover:border-[#e04a4a]/40 hover:text-[#e04a4a] transition-all duration-150"
-              title={t("action.close")}
-            >
-              <IconClose />
-            </button>
-          )}
+          <button
+            onClick={() => navigate('/selectDevice', {
+              state: {
+                product: dataState.currentProduct
+              }
+            })}
+            className="ml-auto! w-7 h-7 flex items-center justify-center rounded border border-white/10 text-[#4a6478] hover:bg-[#e04a4a]/15 hover:border-[#e04a4a]/40 hover:text-[#e04a4a] transition-all duration-150"
+            title={t("action.close")}
+          >
+            <IconClose />
+          </button>
         </div>
 
         {/* List */}

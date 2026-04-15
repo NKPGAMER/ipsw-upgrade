@@ -9,8 +9,7 @@
  *  - undici used via ChunkManager.fetchMetadata
  *  - cancel(): sets task.status = "cancelled" BEFORE calling cm.abort()
  *  - runDownload(): catch block silently returns when status === "cancelled"
- *  - MoveQueue.copyStream: uses fs.promises.copyFile (kernel-level) for same-device,
- *    falls back to streaming copy with 64 MB highWaterMark for cross-device
+ *  - MoveQueue.copyStream: reports progress while copying tmp -> final file
  */
 
 import * as fs from "fs";
@@ -20,7 +19,6 @@ import { randomUUID } from "crypto";
 import { URL } from "url";
 
 import {
-  Firmware,
   Task,
   TaskStatus,
   DownloadState,
@@ -53,7 +51,7 @@ class MoveQueue {
     src: string,
     dest: string,
     isHDD: boolean,
-    onProgress?: (pct: number) => void
+    onProgress?: (info: { pct: number; speed: number; eta?: number }) => void
   ): Promise<void> {
     const key   = this.driveKey(dest);
     const limit = isHDD ? this.hddLimit : this.ssdLimit;
@@ -69,7 +67,7 @@ class MoveQueue {
     limit: number,
     src: string,
     dest: string,
-    onProgress?: (pct: number) => void
+    onProgress?: (info: { pct: number; speed: number; eta?: number }) => void
   ): Promise<void> {
     while ((this.concurrency.get(key) ?? 0) >= limit) {
       await new Promise(r => setTimeout(r, 100));
@@ -82,44 +80,55 @@ class MoveQueue {
     }
   }
 
-  private async doMove(src: string, dest: string, onProgress?: (pct: number) => void): Promise<void> {
+  private async doMove(
+    src: string,
+    dest: string,
+    onProgress?: (info: { pct: number; speed: number; eta?: number }) => void
+  ): Promise<void> {
     const destDir = path.dirname(dest);
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
 
     // Try atomic rename first (same filesystem — instant, no I/O)
     try {
       fs.renameSync(src, dest);
-      if (onProgress) onProgress(100);
+      if (onProgress) onProgress({ pct: 100, speed: 0, eta: 0 });
       return;
     } catch { /* cross-device — fall through */ }
 
-    // Cross-device: try kernel-level copy (sendfile / CopyFileEx) then unlink
-    try {
-      await fs.promises.copyFile(src, dest);
-      fs.unlinkSync(src);
-      if (onProgress) onProgress(100);
-    } catch {
-      // Last resort: manual streaming copy (e.g. FAT32 destination)
-      await this.copyStream(src, dest, onProgress);
-      fs.unlinkSync(src);
-    }
+    // Cross-device: use streaming copy so renderer can receive move progress.
+    await this.copyStream(src, dest, onProgress);
+    fs.unlinkSync(src);
   }
 
   /**
    * Streaming copy fallback — 64 MB chunks to minimize syscall overhead.
    * Uses async pipeline for non-blocking I/O.
    */
-  private copyStream(src: string, dest: string, onProgress?: (pct: number) => void): Promise<void> {
+  private copyStream(
+    src: string,
+    dest: string,
+    onProgress?: (info: { pct: number; speed: number; eta?: number }) => void
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       const totalSize = fs.statSync(src).size;
       let copied = 0;
+      const startedAt = Date.now();
 
       const rs = fs.createReadStream(src,  { highWaterMark: 64 * 1024 * 1024 });
       const ws = fs.createWriteStream(dest, { highWaterMark: 64 * 1024 * 1024 });
 
       rs.on("data", (chunk: Buffer | string) => {
         copied += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(chunk);
-        if (onProgress && totalSize > 0) onProgress(Math.floor((copied / totalSize) * 100));
+        if (onProgress && totalSize > 0) {
+          const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+          const speed = copied / elapsedSec;
+          const eta = speed > 0 ? Math.round((totalSize - copied) / speed) : undefined;
+          onProgress({
+            pct: Math.floor((copied / totalSize) * 100),
+            speed,
+            eta,
+          });
+        }
       });
 
       rs.pipe(ws);
@@ -181,7 +190,8 @@ export class IPSWDownloader extends EventEmitter {
     for (const task of this.tasks.values()) {
       if (
         task.firmware.identifier === firmware.identifier &&
-        task.firmware.buildid   === firmware.buildid
+        task.firmware.buildid   === firmware.buildid &&
+        (task.status === 'downloading' || task.status === 'moving' || task.status === 'verifying' || task.status === 'queued' || task.status === 'paused')
       ) return { success: false, error: "ALREADY_IN_LIST" };
     }
 
@@ -273,16 +283,37 @@ export class IPSWDownloader extends EventEmitter {
     const state = this.stateManager.load(id);
     if (!state) return { success: false, error: "STATE_NOT_FOUND" };
 
+    // ── Check if the .ipsw.tmp file still exists on disk ─────────────────────
+    const tmpExists = !!(state.tmpPath && fs.existsSync(state.tmpPath));
+
+    if (!tmpExists) {
+      // Tmp file is gone — reset chunk progress so the download starts from 0
+      console.log(
+        `[IPSWDownloader] resumeIncomplete(${id}): tmp file not found at "${state.tmpPath}", ` +
+        `resetting ${state.chunks.length} chunks for a fresh download.`
+      );
+      for (const chunk of state.chunks) {
+        chunk.downloaded = 0;
+        chunk.completed  = false;
+      }
+      // Persist the reset so ChunkManager sees clean state
+      this.stateManager.save(state);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const downloadedBytes = state.chunks.reduce((s, c) => s + c.downloaded, 0);
+
     const task: Task = {
       id,
       firmware: state.firmware,
       progress: state.totalSize > 0
-        ? Math.floor(state.chunks.reduce((s, c) => s + c.downloaded, 0) / state.totalSize * 100)
+        ? Math.floor(downloadedBytes / state.totalSize * 100)
         : 0,
-      speed: 0,
-      status: "queued",
+      speed:    0,
+      status:   "queued",
       savePath: state.savePath,
     };
+
     this.tasks.set(id, task);
     this.states.set(id, state);
     this.diskManager.reserveSpace(id, state.firmware.filesize);
@@ -317,6 +348,7 @@ export class IPSWDownloader extends EventEmitter {
 
     try {
       this.updateTaskStatus(id, "downloading");
+      this.emit("started", id, task);
 
       // Step 1: HEAD metadata (via undici in ChunkManager.fetchMetadata)
       const meta = await ChunkManager.fetchMetadata(task.firmware.url);
@@ -367,8 +399,7 @@ export class IPSWDownloader extends EventEmitter {
       await cm.start(tmpFile);
 
       // ── FIX: check for cancelled or paused abort ───────────────────────────
-      if (task.status === "paused"    ) return;
-      if (task.status === "cancelled" ) return; // silent — cancel() already emitted
+      if (task.status === "paused" || task.status === "cancelled") return;
 
       // Step 6: Verify integrity
       this.updateTaskStatus(id, "verifying");
@@ -391,10 +422,14 @@ export class IPSWDownloader extends EventEmitter {
       // Step 7: Move tmp → final path
       this.updateTaskStatus(id, "moving");
       task.progress = 0;
+      task.speed = 0;
+      task.eta = undefined;
       this.emit("progress", id, task);
       const finalPath = this.buildFinalPath(task.firmware, task.savePath);
-      await this.moveQueue.enqueue(tmpFile, finalPath, isHDD, (pct) => {
+      await this.moveQueue.enqueue(tmpFile, finalPath, isHDD, ({ pct, speed, eta }) => {
         task.progress = pct;
+        task.speed = speed;
+        task.eta = eta;
         this.emit("progress", id, task);
       });
 

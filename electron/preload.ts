@@ -130,6 +130,7 @@ const downloaderAPI: DownloaderAPI = {
   resumeIncomplete: (id) => ipcRenderer.invoke("dm:resumeIncomplete", id),
   deleteIncomplete: (id) => ipcRenderer.invoke("dm:deleteIncomplete", id),
 
+  onStarted: (cb) => listen("dm:started", cb),
   onAdded: (cb) => listen("dm:added", cb),
   onCompleted: (cb) => listen("dm:completed", cb),
   onProgress: (cb) => listen("dm:progress", cb),

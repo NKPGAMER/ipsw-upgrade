@@ -98,6 +98,7 @@ interface DownloaderAPI {
   deleteIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
 
   // Events
+  onStarted:           (cb: (id: string, task: Task) => void) => EventResponse;
   onAdded:             (cb: (id: string, task: Task) => void) => EventResponse;
   onCompleted:         (cb: (id: string, task: Task) => void) => EventResponse;
   onProgress:          (cb: (id: string, task: Task) => void) => EventResponse;
