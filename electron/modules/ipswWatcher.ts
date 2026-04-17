@@ -21,11 +21,15 @@ export const IPSW_IPC = {
   GET_FILES: "ipsw:get-files",
 } as const;
 
+type IPSWWatcherCallback = (files: IPSWFile[]) => void | Promise<void>;
+
 export class IPSWWatcher {
   private readonly win: BrowserWindow;
   private watchDir: string;
   private files: Map<string, IPSWFile> = new Map();
   private watcher: FSWatcher | null = null;
+  private addedCallbacks = new Set<IPSWWatcherCallback>();
+  private removedCallbacks = new Set<IPSWWatcherCallback>();
 
   // ── Task-aware debounce state ──────────────────────────────────────────────
   /** Promise của lần reload đang chạy. null = rảnh. */
@@ -51,6 +55,7 @@ export class IPSWWatcher {
   async start(): Promise<void> {
     await this.scanExisting();
     this.beginWatch();
+    this.sendReload(this.getFiles());
   }
 
   /** Dừng watcher, giải phóng tài nguyên và gỡ IPC handlers. */
@@ -58,8 +63,20 @@ export class IPSWWatcher {
     ipcMain.removeHandler(IPSW_IPC.GET_FILES);
     ipcMain.removeHandler(IPSW_IPC.DELETE_FILE);
     ipcMain.removeHandler(IPSW_IPC.CHANGE_DIR);
+    this.addedCallbacks.clear();
+    this.removedCallbacks.clear();
     await this.watcher?.close();
     this.watcher = null;
+  }
+
+  onFilesAdded(callback: IPSWWatcherCallback): () => void {
+    this.addedCallbacks.add(callback);
+    return () => this.addedCallbacks.delete(callback);
+  }
+
+  onFilesRemoved(callback: IPSWWatcherCallback): () => void {
+    this.removedCallbacks.add(callback);
+    return () => this.removedCallbacks.delete(callback);
   }
 
   /** Trả về tất cả IPSWFile đang theo dõi. */
@@ -118,6 +135,10 @@ export class IPSWWatcher {
   // ─────────────────────────────────────────
 
   private registerIpcHandlers(): void {
+    try { ipcMain.removeHandler(IPSW_IPC.GET_FILES); } catch {}
+    try { ipcMain.removeHandler(IPSW_IPC.DELETE_FILE); } catch {}
+    try { ipcMain.removeHandler(IPSW_IPC.CHANGE_DIR); } catch {}
+
     ipcMain.handle(IPSW_IPC.GET_FILES, () => this.getFiles());
 
     ipcMain.handle(IPSW_IPC.DELETE_FILE, (_event, target: string | string[]) =>
@@ -191,7 +212,7 @@ export class IPSWWatcher {
     });
 
     this.watcher.on("add", (filePath) => void this.onAdded(filePath));
-    this.watcher.on("unlink", (filePath) => this.onRemoved(filePath));
+    this.watcher.on("unlink", (filePath) => void this.onRemoved(filePath));
     this.watcher.on("error", (err) =>
       console.error("[IPSWWatcher] watcher error:", err)
     );
@@ -205,12 +226,15 @@ export class IPSWWatcher {
 
     this.files.set(filePath, file);
     this.sendReload([file]);
+    await Promise.all([...this.addedCallbacks].map((callback) => Promise.resolve(callback([file]))));
   }
 
-  private onRemoved(filePath: string): void {
-    if (!this.files.has(filePath)) return;
+  private async onRemoved(filePath: string): Promise<void> {
+    const file = this.files.get(filePath);
+    if (!file) return;
     this.files.delete(filePath);
     this.sendReload([]);
+    await Promise.all([...this.removedCallbacks].map((callback) => Promise.resolve(callback([file]))));
   }
 
   /** Gửi event `ipsw:reload` kèm danh sách file. */

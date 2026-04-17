@@ -36,7 +36,11 @@ export interface DownloadState {
 export interface AddResult {
   success: boolean;
   id?: string;
-  error?: "DISK_FULL" | "ALREADY_IN_LIST" | "INVALID_URL" | "UNKNOWN";
+  error?: "DISK_FULL" | "ALREADY_IN_LIST" | "INVALID_URL" | "INVALID_SAVE_PATH" | "UNKNOWN";
+}
+
+export interface DownloadRequestConfig {
+  deleteFiles?: IPSWFile[];
 }
 
 export interface DiskInfo {

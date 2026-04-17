@@ -8,7 +8,7 @@ export default {
         ipswFolder: app.getPath('downloads')
     },
 
-    DataVersion: "2.1.0",
+    DataVersion: "2.2.0",
     
     appleVendorId: 1452
 }

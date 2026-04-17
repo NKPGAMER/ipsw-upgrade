@@ -4,13 +4,13 @@
  * Keep this file free of any Electron imports — it must be importable in both contexts.
  */
 
-import type { Task, TaskStatus, AddResult, IncompleteTask, DownloaderConfig } from "./types";
+import type { Task, TaskStatus, AddResult, IncompleteTask, DownloaderConfig, DownloadRequestConfig } from "./types";
 
 // ─── Main → Worker ────────────────────────────────────────────────────────────
 
 export type MainToWorker =
   | { type: "init";               config: DownloaderConfig; stateDir: string }
-  | { type: "add";                reqId: string; firmware: Firmware; savePath: string }
+  | { type: "add";                reqId: string; firmware: Firmware; savePath: string; config?: DownloadRequestConfig }
   | { type: "pause";              id: string }
   | { type: "resume";             id: string }
   | { type: "cancel";             id: string }

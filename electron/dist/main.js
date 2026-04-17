@@ -17,23 +17,23 @@ const userData_1 = require("./modules/userData");
 const localFile_1 = require("./modules/localFile");
 const disk_1 = require("./modules/disk");
 const internetService_1 = require("./modules/internetService");
-const downloader_1 = require("./modules/downloader");
 const dataHandle_1 = require("./modules/dataHandle");
 const ipswWatcher_1 = require("./modules/ipswWatcher");
+const ipswHardLinkManager_1 = require("./modules/ipswHardLinkManager");
+const downloader_1 = require("./modules/downloader");
 // Config
 const config_1 = __importDefault(require("./config"));
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STORE_METHODS = new Set(["get", "set", "has", "delete"]);
 const SPLASH_TIMEOUT_MS = 10_000;
-const UPDATER_INIT_DELAY = 2_000;
 const UPDATER_CHECK_DELAY = 6_000;
-const MAX_CONCURRENT_DOWNLOADS = 3;
 // ─── App State ────────────────────────────────────────────────────────────────
 exports.store = new electron_store_1.default({ defaults: config_1.default.defaultAppSettings });
 const internet = new internetService_1.InternetService();
 let dl;
 let dh;
 let watcher = null;
+let linkManager = null;
 let splash;
 let mainWindow;
 let isReady = false;
@@ -71,26 +71,35 @@ function createMainWindow(width, height) {
 // ─── Initialisation ───────────────────────────────────────────────────────────
 async function init() {
     const { width, height } = electron_1.screen.getPrimaryDisplay().workAreaSize;
+    const ipswFolder = exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder;
+    const isEnabled = exports.store.get("enable") ?? true;
     splash = createSplashWindow(width, height);
     mainWindow = createMainWindow(width, height);
+    loadRenderer(mainWindow);
+    registerMainWindowEvents(mainWindow);
+    initInternet(mainWindow);
+    watcher = new ipswWatcher_1.IPSWWatcher(mainWindow, ipswFolder);
+    dh = new dataHandle_1.DataHandle(mainWindow);
+    linkManager = new ipswHardLinkManager_1.IPSWHardLinkManager(mainWindow, watcher, dh, {
+        savePath: ipswFolder,
+        enabled: isEnabled,
+    });
     dl = new downloader_1.DownloaderMain(mainWindow, {
         stateDir: ".ipsw-state",
         config: {
             maxConcurrentTasks: 3,
             maxConnectionsPerTask: 16,
             initialConnectionsPerTask: 4,
-            chunkSize: 128 * 1024 * 1024, // MB
-            // skipVerify: true,
-            // adaptiveBuffer: false,
+            chunkSize: 128 * 1024 * 1024,
         }
     });
-    dh = new dataHandle_1.DataHandle(mainWindow);
-    watcher = new ipswWatcher_1.IPSWWatcher(mainWindow, exports.store.get('ipswFolder') ?? config_1.default.defaultAppSettings.ipswFolder);
-    watcher.start();
-    dh.loadDevices();
-    loadRenderer(mainWindow);
-    registerMainWindowEvents(mainWindow);
-    initInternet(mainWindow);
+    void Promise.all([
+        dh.loadDevices(),
+        watcher.start(),
+        linkManager.start(),
+    ]).catch((error) => {
+        console.error("[AppInit] background initialization failed:", error);
+    });
 }
 function loadRenderer(win) {
     if (process.env.VITE_DEV_SERVER_URL || !electron_1.app.isPackaged) {
@@ -123,8 +132,8 @@ async function initInternet(win) {
     internet.on("offline", () => win.webContents.send("internet-changed", false));
 }
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
-electron_1.app.whenReady().then(() => {
-    init();
+electron_1.app.whenReady().then(async () => {
+    await init();
     new appleDevice_1.AppleDevice(mainWindow);
     // Fallback: show main window if `ready-to-show` never fires
     setTimeout(() => {
@@ -134,15 +143,21 @@ electron_1.app.whenReady().then(() => {
         splash = undefined;
         mainWindow?.show();
     }, SPLASH_TIMEOUT_MS);
-    setTimeout(() => initAutoUpdater(), UPDATER_INIT_DELAY);
+    void initAutoUpdater();
 });
 electron_1.app.on("window-all-closed", () => {
-    if (process.platform !== "darwin")
+    if (process.platform !== "darwin") {
+        void dl?.destroy();
         electron_1.app.quit();
+    }
 });
 electron_1.app.on("activate", () => {
     if (electron_1.BrowserWindow.getAllWindows().length === 0)
-        init();
+        void init();
+});
+electron_1.ipcMain.handle("ipsw:sync-link-config", async (_event, savePath, enabled) => {
+    await linkManager?.updateConfig({ savePath, enabled });
+    return { success: true };
 });
 // ─── Auto Updater ─────────────────────────────────────────────────────────────
 function initAutoUpdater() {

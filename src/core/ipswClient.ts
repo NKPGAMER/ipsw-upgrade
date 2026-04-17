@@ -44,8 +44,7 @@ export class IPSWClient {
 
     constructor() {
         window.api.file.onReload((f) => this.applyReload(f));
-        this.init();
-        this.initIncompleteTasks();
+        void this.init().then(() => this.initIncompleteTasks());
     }
 
     // ─────────────────────────────────────────
@@ -65,12 +64,27 @@ export class IPSWClient {
      * Lấy danh sách incomplete tasks từ downloader và lưu vào bộ nhớ local.
      */
     async initIncompleteTasks(): Promise<void> {
-        try {
+        const load = async () => {
             const tasks = await window.downloader.getIncompleteTasks() as unknown as IncompleteTaskClient[];
             if (!Array.isArray(tasks)) return;
             this.incompleteTasks = new Map(tasks.map((t) => [t.id, t]));
             this.emitIncompleteTasks();
+        };
+
+        try {
+            await load();
         } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (message.includes("No handler registered for 'dm:getIncompleteTasks'")) {
+                await new Promise((resolve) => setTimeout(resolve, 150));
+                try {
+                    await load();
+                    return;
+                } catch (retryErr) {
+                    console.error("[IPSWClient] initIncompleteTasks retry failed:", retryErr);
+                    return;
+                }
+            }
             console.error("[IPSWClient] initIncompleteTasks failed:", err);
         }
     }

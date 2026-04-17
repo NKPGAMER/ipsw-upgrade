@@ -88,7 +88,7 @@ interface EventResponse {
 }
 
 interface DownloaderAPI {
-  add: (firmware: Firmware, savePath) => Promise<AddResult>;
+  add: (firmware: Firmware, savePath: string, config?: { deleteFiles?: IPSWFile[] }) => Promise<AddResult>;
   pause: (id: string) => Promise<void>;
   resume: (id: string) => Promise<void>;
   cancel: (id: string) => Promise<void>;

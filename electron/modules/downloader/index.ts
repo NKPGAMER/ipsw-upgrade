@@ -8,7 +8,6 @@ export { Scheduler } from "./scheduler";
 export { IntegrityChecker } from "./integrity";
 
 export type {
-  Firmware,
   Task,
   TaskStatus,
   ChunkState,

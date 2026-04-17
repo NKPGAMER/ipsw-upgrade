@@ -64,27 +64,27 @@
     }
 
     /* ── Rings ── */
-    .ring {
+    .orbit {
       position: absolute;
       border-radius: 50%;
       border: 2px solid transparent;
     }
 
-    .ring-1 {
+    .orbit-1 {
       width: 210px; height: 210px;
       border-top-color:   var(--ring1);
       border-right-color: var(--ring1);
       box-shadow: 0 0 18px var(--ring1), inset 0 0 8px rgba(0,255,224,.1);
       animation: spin 2.4s linear infinite;
     }
-    .ring-2 {
+    .orbit-2 {
       width: 160px; height: 160px;
       border-bottom-color: var(--ring2);
       border-left-color:   var(--ring2);
       box-shadow: 0 0 14px var(--ring2);
       animation: spin 1.8s linear infinite reverse;
     }
-    .ring-3 {
+    .orbit-3 {
       width: 110px; height: 110px;
       border-top-color:  var(--ring3);
       border-left-color: var(--ring3);
@@ -163,55 +163,10 @@
   <div class="ambient"></div>
 
   <div class="scene">
-    <div class="ring ring-1"></div>
-    <div class="ring ring-2"></div>
-    <div class="ring ring-3"></div>
+    <div class="orbit orbit-1"></div>
+    <div class="orbit orbit-2"></div>
+    <div class="orbit orbit-3"></div>
     <div class="core"></div>
   </div>
-
-  <script>
-    /**
-     * Splash screen controller
-     * ─────────────────────────────────────────────
-     * Cách dùng:
-     *   1. Nhúng file này vào trang chính TRƯỚC khi tải nội dung.
-     *   2. Khi trang chính sẵn sàng, gọi:  SplashScreen.dismiss()
-     *
-     * Hoặc dùng chế độ tự động: SplashScreen.waitFor('#main-app')
-     *   → sẽ quan sát DOM và tự dismiss khi phần tử xuất hiện.
-     */
-    const SplashScreen = (() => {
-      let dismissed = false;
-
-      function dismiss(delay = 300) {
-        if (dismissed) return;
-        dismissed = true;
-        setTimeout(() => {
-          document.body.classList.add('done');
-          setTimeout(() => {
-            document.body.style.display = 'none';
-            document.dispatchEvent(new Event('splashDone'));
-          }, 650);
-        }, delay);
-      }
-
-      function waitFor(selector, timeout = 15000) {
-        const el = document.querySelector(selector);
-        if (el) { dismiss(); return; }
-
-        const obs = new MutationObserver(() => {
-          if (document.querySelector(selector)) {
-            obs.disconnect();
-            dismiss();
-          }
-        });
-        obs.observe(document.body, { childList: true, subtree: true });
-
-        setTimeout(() => { obs.disconnect(); dismiss(); }, timeout);
-      }
-
-      return { dismiss, waitFor };
-    })();
-  </script>
 </body>
 </html>

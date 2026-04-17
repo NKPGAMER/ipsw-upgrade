@@ -1,20 +1,6 @@
-export interface Firmware {
-  identifier: string;
-  version: string;
-  buildid: string;
-  sha1sum: string;
-  md5sum: string;
-  sha256sum: string;
-  filesize: number;
-  url: string;
-  releasedate: string;
-  uploaddate: string;
-  signed: boolean;
-}
+export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "cancelled";
 
-export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving";
-
-export type EventChannel = "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
+export type EventChannel = "started" | "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
 
 export interface Task {
   id: string;
@@ -50,7 +36,11 @@ export interface DownloadState {
 export interface AddResult {
   success: boolean;
   id?: string;
-  error?: "DISK_FULL" | "ALREADY_IN_LIST" | "INVALID_URL" | "UNKNOWN";
+  error?: "DISK_FULL" | "ALREADY_IN_LIST" | "INVALID_URL" | "INVALID_SAVE_PATH" | "UNKNOWN";
+}
+
+export interface DownloadRequestConfig {
+  deleteFiles?: IPSWFile[];
 }
 
 export interface DiskInfo {
@@ -69,7 +59,6 @@ export interface IncompleteTask {
   downloadedBytes: number;
   progress: number;          // 0–100
   tmpExists: boolean;        // tmp file still on disk
-  tmpValid: boolean;         // tmp size matches downloaded state (safe to resume)
   savedAt: number;           // updatedAt timestamp from state
 }
 

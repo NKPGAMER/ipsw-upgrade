@@ -44,31 +44,39 @@ export interface DownloaderMainOptions {
 }
 
 export class DownloaderMain {
-  private worker: Worker;
+  private worker: Worker | null = null;
   private win?: BrowserWindow;
+  private readonly stateDir: string;
+  private readonly config: DownloaderConfig;
   private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
 
   constructor(win?: BrowserWindow, opts: DownloaderMainOptions = { stateDir: ".ipsw-state" }) {
     this.win = win;
+    this.stateDir = opts.stateDir;
+    this.config = opts.config ?? {};
 
-    this.worker = new Worker(
-      path.join(__dirname, "downloader-worker.js"),
-      {
-        workerData: {
-          stateDir: opts.stateDir,
-          config:   opts.config ?? {},
-        },
-        resourceLimits: { maxOldGenerationSizeMb: 256 },
-      }
-    );
+    this.registerIPC();
+  }
 
-    this.worker.on("message", (msg: WorkerToMain) => this.handleWorkerMessage(msg));
-    this.worker.on("error",   (err: Error) => console.error("[DownloaderMain] worker error:", err));
-    this.worker.on("exit",    (code: number) => {
-      if (code !== 0) console.error(`[DownloaderMain] worker exited with code ${code}`);
+  private ensureWorker(): Worker {
+    if (this.worker) return this.worker;
+
+    this.worker = new Worker(path.join(__dirname, "downloader-worker.js"), {
+      workerData: {
+        stateDir: this.stateDir,
+        config: this.config,
+      },
+      resourceLimits: { maxOldGenerationSizeMb: 256 },
     });
 
-    if (win) this.registerIPC();
+    this.worker.on("message", (msg: WorkerToMain) => this.handleWorkerMessage(msg));
+    this.worker.on("error", (err: Error) => console.error("[DownloaderMain] worker error:", err));
+    this.worker.on("exit", (code: number) => {
+      if (code !== 0) console.error(`[DownloaderMain] worker exited with code ${code}`);
+      this.worker = null;
+    });
+
+    return this.worker;
   }
 
   // ─── Worker message handler ───────────────────────────────────────────────
@@ -95,19 +103,19 @@ export class DownloaderMain {
     return new Promise<T>((resolve, reject) => {
       const reqId = randomUUID();
       this.pending.set(reqId, { resolve, reject });
-      this.worker.postMessage({ ...msg, reqId });
+      this.ensureWorker().postMessage({ ...msg, reqId });
     });
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────
 
-  add(firmware: Firmware, savePath: string): Promise<AddResult> {
-    return this.call<AddResult>({ type: "add", reqId: randomUUID(), firmware, savePath });
+  add(firmware: Firmware, savePath: string, config: { deleteFiles?: IPSWFile[] } = {}): Promise<AddResult> {
+    return this.call<AddResult>({ type: "add", reqId: randomUUID(), firmware, savePath, config });
   }
 
-  pause(id: string): void  { this.worker.postMessage({ type: "pause",  id } satisfies MainToWorker); }
-  resume(id: string): void { this.worker.postMessage({ type: "resume", id } satisfies MainToWorker); }
-  cancel(id: string): void { this.worker.postMessage({ type: "cancel", id } satisfies MainToWorker); }
+  pause(id: string): void  { this.ensureWorker().postMessage({ type: "pause",  id } satisfies MainToWorker); }
+  resume(id: string): void { this.ensureWorker().postMessage({ type: "resume", id } satisfies MainToWorker); }
+  cancel(id: string): void { this.ensureWorker().postMessage({ type: "cancel", id } satisfies MainToWorker); }
 
   getAllTask(): Promise<Task[]> {
     return this.call<Task[]>({ type: "getAllTask", reqId: randomUUID() });
@@ -127,7 +135,10 @@ export class DownloaderMain {
 
   /** Terminate the worker gracefully. Call on app quit. */
   async destroy(): Promise<void> {
-    await this.worker.terminate();
+    if (!this.worker) return;
+    const worker = this.worker;
+    this.worker = null;
+    await worker.terminate();
   }
 
   // ─── Renderer bridge ─────────────────────────────────────────────────────
@@ -162,7 +173,7 @@ export class DownloaderMain {
 
   private registerIPC(): void {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let ipcMain: { handle(channel: string, listener: (...args: any[]) => any): void };
+    let ipcMain: { handle(channel: string, listener: (...args: any[]) => any): void; removeHandler(channel: string): void };
     try {
       ipcMain = require("electron").ipcMain;
     } catch {
@@ -170,13 +181,20 @@ export class DownloaderMain {
       return;
     }
 
-    ipcMain.handle("dm:add",                (_e: any, firmware: Firmware, savePath: string) => this.add(firmware, savePath));
-    ipcMain.handle("dm:pause",              (_e: any, id: string) => { this.pause(id); });
-    ipcMain.handle("dm:resume",             (_e: any, id: string) => { this.resume(id); });
-    ipcMain.handle("dm:cancel",             (_e: any, id: string) => { this.cancel(id); });
-    ipcMain.handle("dm:getAllTask",          () => this.getAllTask());
-    ipcMain.handle("dm:getIncompleteTasks", () => this.getIncompleteTasks());
-    ipcMain.handle("dm:resumeIncomplete",   (_e: any, id: string) => this.resumeIncomplete(id));
-    ipcMain.handle("dm:deleteIncomplete",   (_e: any, id: string) => this.deleteIncomplete(id));
+    const handlers: Array<[string, (...args: any[]) => any]> = [
+      ["dm:add", (_e: any, firmware: Firmware, savePath: string) => this.add(firmware, savePath)],
+      ["dm:pause", (_e: any, id: string) => { this.pause(id); }],
+      ["dm:resume", (_e: any, id: string) => { this.resume(id); }],
+      ["dm:cancel", (_e: any, id: string) => { this.cancel(id); }],
+      ["dm:getAllTask", () => this.getAllTask()],
+      ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
+      ["dm:resumeIncomplete", (_e: any, id: string) => this.resumeIncomplete(id)],
+      ["dm:deleteIncomplete", (_e: any, id: string) => this.deleteIncomplete(id)],
+    ];
+
+    for (const [channel, handler] of handlers) {
+      try { ipcMain.removeHandler(channel); } catch {}
+      ipcMain.handle(channel, handler);
+    }
   }
 }

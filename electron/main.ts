@@ -11,12 +11,13 @@ import { join } from "path";
 // Modules
 import { AppleDevice } from "./modules/appleDevice";
 import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
-import { scanFolder, createMd5, deleteFile } from "./modules/localFile";
+import { scanFolder, deleteFile } from "./modules/localFile";
 import { getDiskSpace, formatBytes } from "./modules/disk";
 import { InternetService } from "./modules/internetService";
-import { DownloaderMain } from "./modules/downloader";
 import { DataHandle } from "./modules/dataHandle";
 import { IPSWWatcher } from "./modules/ipswWatcher";
+import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
+import { DownloaderMain } from "./modules/downloader";
 // Config
 import config from "./config";
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,9 +36,7 @@ const STORE_METHODS = new Set(["get", "set", "has", "delete"] as const);
 type StoreMethod = "get" | "set" | "has" | "delete";
 
 const SPLASH_TIMEOUT_MS = 10_000;
-const UPDATER_INIT_DELAY = 2_000;
 const UPDATER_CHECK_DELAY = 6_000;
-const MAX_CONCURRENT_DOWNLOADS = 3;
 
 // ─── App State ────────────────────────────────────────────────────────────────
 
@@ -47,6 +46,7 @@ const internet = new InternetService();
 let dl: DownloaderMain | undefined;
 let dh: DataHandle | undefined;
 let watcher: IPSWWatcher | null = null;
+let linkManager: IPSWHardLinkManager | null = null;
 let splash: BrowserWindow | undefined;
 let mainWindow: BrowserWindow | undefined;
 let isReady = false;
@@ -89,29 +89,38 @@ function createMainWindow(width: number, height: number): BrowserWindow {
 
 async function init(): Promise<void> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const ipswFolder = (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder;
+  const isEnabled = (store as any).get("enable") ?? true;
 
   splash = createSplashWindow(width, height);
   mainWindow = createMainWindow(width, height);
+  loadRenderer(mainWindow);
+  registerMainWindowEvents(mainWindow);
+  initInternet(mainWindow);
+
+  watcher = new IPSWWatcher(mainWindow, ipswFolder);
+  dh = new DataHandle(mainWindow);
+  linkManager = new IPSWHardLinkManager(mainWindow, watcher, dh, {
+    savePath: ipswFolder,
+    enabled: isEnabled,
+  });
   dl = new DownloaderMain(mainWindow, {
     stateDir: ".ipsw-state",
     config: {
       maxConcurrentTasks: 3,
       maxConnectionsPerTask: 16,
       initialConnectionsPerTask: 4,
-      chunkSize: 128 * 1024 * 1024, // MB
-      // skipVerify: true,
-      // adaptiveBuffer: false,
+      chunkSize: 128 * 1024 * 1024,
     }
   });
-  dh = new DataHandle(mainWindow);
-  watcher = new IPSWWatcher(mainWindow, (store as any).get('ipswFolder') ?? config.defaultAppSettings.ipswFolder)
 
-  watcher.start()
-
-  dh.loadDevices()
-  loadRenderer(mainWindow);
-  registerMainWindowEvents(mainWindow);
-  initInternet(mainWindow);
+  void Promise.all([
+    dh.loadDevices(),
+    watcher.start(),
+    linkManager.start(),
+  ]).catch((error) => {
+    console.error("[AppInit] background initialization failed:", error);
+  });
 }
 
 function loadRenderer(win: BrowserWindow): void {
@@ -147,8 +156,8 @@ async function initInternet(win: BrowserWindow): Promise<void> {
 
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
-  init();
+app.whenReady().then(async () => {
+  await init();
   new AppleDevice(mainWindow);
 
   // Fallback: show main window if `ready-to-show` never fires
@@ -159,15 +168,23 @@ app.whenReady().then(() => {
     mainWindow?.show();
   }, SPLASH_TIMEOUT_MS);
 
-  setTimeout(() => initAutoUpdater(), UPDATER_INIT_DELAY);
+  void initAutoUpdater();
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") {
+    void dl?.destroy();
+    app.quit();
+  }
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) init();
+  if (BrowserWindow.getAllWindows().length === 0) void init();
+});
+
+ipcMain.handle("ipsw:sync-link-config", async (_event, savePath: string, enabled: boolean) => {
+  await linkManager?.updateConfig({ savePath, enabled });
+  return { success: true };
 });
 
 // ─── Auto Updater ─────────────────────────────────────────────────────────────

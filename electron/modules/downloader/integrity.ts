@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import * as crypto from "crypto";
-import { Firmware } from "./types";
 
 type HashAlgo = "sha256" | "sha1" | "md5";
 
@@ -24,7 +23,7 @@ export class IntegrityChecker {
   async verify(
     filePath: string,
     firmware: Firmware,
-    onProgress?: (pct: number) => void
+    onProgress?: (info: { pct: number; speed: number; eta?: number }) => void
   ): Promise<{ ok: boolean; algo: HashAlgo | null; expected: string; actual: string }> {
     const checks: { algo: HashAlgo; expected: string }[] = [];
 
@@ -42,6 +41,7 @@ export class IntegrityChecker {
 
     const fileSize = fs.statSync(filePath).size;
     let processed = 0;
+    const startedAt = Date.now();
 
     const actual = await new Promise<string>((resolve, reject) => {
       const hash = crypto.createHash(algo);
@@ -51,7 +51,12 @@ export class IntegrityChecker {
         const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         hash.update(buf);
         processed += buf.length;
-        if (onProgress) onProgress(Math.floor((processed / fileSize) * 100));
+        if (onProgress && fileSize > 0) {
+          const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+          const speed = processed / elapsedSec;
+          const eta = speed > 0 ? Math.round((fileSize - processed) / speed) : undefined;
+          onProgress({ pct: Math.floor((processed / fileSize) * 100), speed, eta });
+        }
       });
 
       stream.on("end", () => resolve(hash.digest("hex")));

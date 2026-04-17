@@ -68,6 +68,7 @@ class IntegrityChecker {
         const { algo, expected } = checks[0];
         const fileSize = fs.statSync(filePath).size;
         let processed = 0;
+        const startedAt = Date.now();
         const actual = await new Promise((resolve, reject) => {
             const hash = crypto.createHash(algo);
             const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 * 1024 });
@@ -75,8 +76,12 @@ class IntegrityChecker {
                 const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
                 hash.update(buf);
                 processed += buf.length;
-                if (onProgress)
-                    onProgress(Math.floor((processed / fileSize) * 100));
+                if (onProgress && fileSize > 0) {
+                    const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+                    const speed = processed / elapsedSec;
+                    const eta = speed > 0 ? Math.round((fileSize - processed) / speed) : undefined;
+                    onProgress({ pct: Math.floor((processed / fileSize) * 100), speed, eta });
+                }
             });
             stream.on("end", () => resolve(hash.digest("hex")));
             stream.on("error", reject);

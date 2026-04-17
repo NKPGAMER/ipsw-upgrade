@@ -24,6 +24,8 @@ class IPSWWatcher {
     watchDir;
     files = new Map();
     watcher = null;
+    addedCallbacks = new Set();
+    removedCallbacks = new Set();
     // ── Task-aware debounce state ──────────────────────────────────────────────
     /** Promise của lần reload đang chạy. null = rảnh. */
     activeReload = null;
@@ -44,14 +46,25 @@ class IPSWWatcher {
     async start() {
         await this.scanExisting();
         this.beginWatch();
+        this.sendReload(this.getFiles());
     }
     /** Dừng watcher, giải phóng tài nguyên và gỡ IPC handlers. */
     async stop() {
         electron_1.ipcMain.removeHandler(exports.IPSW_IPC.GET_FILES);
         electron_1.ipcMain.removeHandler(exports.IPSW_IPC.DELETE_FILE);
         electron_1.ipcMain.removeHandler(exports.IPSW_IPC.CHANGE_DIR);
+        this.addedCallbacks.clear();
+        this.removedCallbacks.clear();
         await this.watcher?.close();
         this.watcher = null;
+    }
+    onFilesAdded(callback) {
+        this.addedCallbacks.add(callback);
+        return () => this.addedCallbacks.delete(callback);
+    }
+    onFilesRemoved(callback) {
+        this.removedCallbacks.add(callback);
+        return () => this.removedCallbacks.delete(callback);
     }
     /** Trả về tất cả IPSWFile đang theo dõi. */
     getFiles() {
@@ -101,6 +114,18 @@ class IPSWWatcher {
     // IPC handlers (renderer ↔ main)
     // ─────────────────────────────────────────
     registerIpcHandlers() {
+        try {
+            electron_1.ipcMain.removeHandler(exports.IPSW_IPC.GET_FILES);
+        }
+        catch { }
+        try {
+            electron_1.ipcMain.removeHandler(exports.IPSW_IPC.DELETE_FILE);
+        }
+        catch { }
+        try {
+            electron_1.ipcMain.removeHandler(exports.IPSW_IPC.CHANGE_DIR);
+        }
+        catch { }
         electron_1.ipcMain.handle(exports.IPSW_IPC.GET_FILES, () => this.getFiles());
         electron_1.ipcMain.handle(exports.IPSW_IPC.DELETE_FILE, (_event, target) => this.deleteFile(target));
         electron_1.ipcMain.handle(exports.IPSW_IPC.CHANGE_DIR, (_event, newDir) => {
@@ -160,7 +185,7 @@ class IPSWWatcher {
             },
         });
         this.watcher.on("add", (filePath) => void this.onAdded(filePath));
-        this.watcher.on("unlink", (filePath) => this.onRemoved(filePath));
+        this.watcher.on("unlink", (filePath) => void this.onRemoved(filePath));
         this.watcher.on("error", (err) => console.error("[IPSWWatcher] watcher error:", err));
     }
     async onAdded(filePath) {
@@ -170,12 +195,15 @@ class IPSWWatcher {
             return;
         this.files.set(filePath, file);
         this.sendReload([file]);
+        await Promise.all([...this.addedCallbacks].map((callback) => Promise.resolve(callback([file]))));
     }
-    onRemoved(filePath) {
-        if (!this.files.has(filePath))
+    async onRemoved(filePath) {
+        const file = this.files.get(filePath);
+        if (!file)
             return;
         this.files.delete(filePath);
         this.sendReload([]);
+        await Promise.all([...this.removedCallbacks].map((callback) => Promise.resolve(callback([file]))));
     }
     /** Gửi event `ipsw:reload` kèm danh sách file. */
     sendReload(files) {

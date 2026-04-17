@@ -1,61 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { state as dataState } from "../data";
+import { useDownloadStore } from "../stores/download-store";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type TaskStatus =
-  | "queued"
-  | "downloading"
-  | "paused"
-  | "completed"
-  | "error"
-  | "verifying"
-  | "moving";
-
-export interface Firmware {
-  identifier: string;
-  version: string;
-  buildid: string;
-  sha1sum: string;
-  md5sum: string;
-  sha256sum: string;
-  filesize: number;
-  url: string;
-  releasedate: string;
-  uploaddate: string;
-  signed: boolean;
-}
-
-export interface Task {
-  id: string;
-  firmware: Firmware;
-  progress: number;
-  speed: number;
-  status: TaskStatus;
-  eta?: number;
-  error?: string;
-  savePath: string;
-}
-
-export interface AddResult {
-  success: boolean;
-  id?: string;
-  error?: "DISK_FULL" | "ALREADY_IN_LIST" | "INVALID_URL" | "UNKNOWN";
-}
-
-export interface IncompleteTask {
-  id: string;
-  firmware: Firmware;
-  savePath: string;
-  tmpPath: string;
-  totalSize: number;
-  downloadedBytes: number;
-  progress: number;
-  tmpExists: boolean;
-  savedAt: number;
-}
+import type { Task, TaskStatus } from "../../global";
+import { getFileNameFromUrl } from "../core/helper";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +36,7 @@ const STATUS_ORDER: Record<TaskStatus, number> = {
   queued: 4,
   error: 5,
   completed: 6,
+  cancelled: 7,
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -93,7 +44,7 @@ const STATUS_ORDER: Record<TaskStatus, number> = {
 interface StatusBadgeProps {
   status: TaskStatus;
 }
-function StatusBadge({ status }: StatusBadgeProps) {
+const StatusBadge = memo(function StatusBadge({ status }: StatusBadgeProps) {
   const { t } = useTranslation();
 
   const cfg: Record<TaskStatus, { labelKey: any; cls: string }> = {
@@ -104,6 +55,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
     queued: { labelKey: "status.queued", cls: "bg-white/5 text-[#4a6478] border-white/10" },
     verifying: { labelKey: "status.verifying", cls: "bg-[#8b5cf6]/12 text-[#8b5cf6] border-[#8b5cf6]/30" },
     moving: { labelKey: "status.moving", cls: "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30" },
+    cancelled: { labelKey: "status.cancelled", cls: "bg-white/5 text-[#4a6478] border-white/10" },
   };
 
   const { labelKey, cls } = cfg[status];
@@ -118,13 +70,13 @@ function StatusBadge({ status }: StatusBadgeProps) {
       {t(labelKey)}
     </span>
   );
-}
+});
 
 interface ProgressBarProps {
   progress: number;
   status: TaskStatus;
 }
-function ProgressBar({ progress, status }: ProgressBarProps) {
+const ProgressBar = memo(function ProgressBar({ progress, status }: ProgressBarProps) {
   const colorMap: Record<TaskStatus, string> = {
     downloading: "bg-[#137fec]",
     paused: "bg-[#7a96b0]",
@@ -133,6 +85,7 @@ function ProgressBar({ progress, status }: ProgressBarProps) {
     queued: "bg-[#4a6478]",
     verifying: "bg-[#8b5cf6]",
     moving: "bg-[#e08b1a]",
+    cancelled: "bg-[#4a6478]",
   };
   const isAnim = status === "verifying" || status === "moving";
   return (
@@ -143,7 +96,7 @@ function ProgressBar({ progress, status }: ProgressBarProps) {
       />
     </div>
   );
-}
+});
 
 // Icon components
 const IconPause = () => (
@@ -179,13 +132,14 @@ interface DownloadCardProps {
   onCancel: (id: string) => void;
 }
 
-function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) {
+const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) {
   const { t } = useTranslation();
   const { id, firmware, progress, speed, status, eta, error } = task;
   const isActive = status === "downloading";
   const canPause = status === "downloading";
   const canResume = status === "paused" || status === "error";
   const canCancel = status !== "completed";
+  const filename = useMemo(() => getFileNameFromUrl(firmware.url), [firmware.url]);
 
   const accentMap: Record<TaskStatus, string> = {
     downloading: "border-l-[#137fec]",
@@ -195,14 +149,15 @@ function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) 
     queued: "border-l-[#4a6478]",
     verifying: "border-l-[#8b5cf6]",
     moving: "border-l-[#e08b1a]",
+    cancelled: "border-l-[#4a6478]",
   };
 
   return (
     <div
       className={`
         group relative flex flex-col gap-2.5
-        bg-[#16212d] hover:bg-[#1c2d3e]
-        border border-[#137fec]/10 hover:border-[#137fec]/25
+        bg-[#121212] hover:bg-[#171717]
+        border border-[#137fec]/12 hover:border-[#137fec]/30
         border-l-2 ${accentMap[status]}
         rounded-lg px-4! py-3!
         transition-all duration-200
@@ -213,7 +168,7 @@ function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5!">
             <span className="text-[13px] font-semibold text-[#e8f0f8] truncate leading-tight">
-              {firmware.url.split("/").pop()}
+              {filename}
             </span>
             {firmware.signed && (
               <span className="shrink-0 text-[10px] font-semibold tracking-wide px-1.5! py-0.5! rounded bg-[#1aab6d]/10 text-[#1aab6d] border border-[#1aab6d]/20">
@@ -236,7 +191,7 @@ function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) 
             {canPause && (
               <button
                 onClick={() => onPause(id)}
-                className="w-7 h-7 flex items-center justify-center rounded bg-white/4 border border-[#137fec]/15 text-[#7a96b0] hover:bg-[#137fec]/15 hover:border-[#137fec]/40 hover:text-[#137fec] transition-all duration-150"
+                className="w-7 h-7 flex items-center justify-center rounded bg-white/4 border border-[#137fec]/18 text-[#8ba6ba] hover:bg-[#137fec]/18 hover:border-[#137fec]/45 hover:text-[#137fec] transition-all duration-150"
                 title={t("action.pause")}
               >
                 <IconPause />
@@ -245,7 +200,7 @@ function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) 
             {canResume && (
               <button
                 onClick={() => onResume(id)}
-                className="w-7 h-7 flex items-center justify-center rounded bg-white/4 border border-[#137fec]/15 text-[#7a96b0] hover:bg-[#137fec]/15 hover:border-[#137fec]/40 hover:text-[#137fec] transition-all duration-150"
+                className="w-7 h-7 flex items-center justify-center rounded bg-white/4 border border-[#137fec]/18 text-[#8ba6ba] hover:bg-[#137fec]/18 hover:border-[#137fec]/45 hover:text-[#137fec] transition-all duration-150"
                 title={status === "error" ? t("action.retry") : t("action.resume")}
               >
                 {status === "error" ? <IconRetry /> : <IconPlay />}
@@ -290,23 +245,22 @@ function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) 
       )}
     </div>
   );
-}
+});
 
 // ─── Sidebar Stats ─────────────────────────────────────────────────────────────
 
 interface SidebarProps {
-  tasks: Task[];
+  active: number;
+  completed: number;
+  paused: number;
+  queued: number;
+  errored: number;
+  total: number;
 }
-function Sidebar({ tasks }: SidebarProps) {
+const Sidebar = memo(function Sidebar({ active, completed, paused, queued, errored, total }: SidebarProps) {
   const { t } = useTranslation();
 
-  const active = tasks.filter((t) => t.status === "downloading").length;
-  const completed = tasks.filter((t) => t.status === "completed").length;
-  const paused = tasks.filter((t) => t.status === "paused").length;
-  const queued = tasks.filter((t) => t.status === "queued").length;
-  const errored = tasks.filter((t) => t.status === "error").length;
-
-  const statItems = [
+  const statItems: Array<{ labelKey: string; value: number; color: string }> = [
     { labelKey: "sidebar.stat.active", value: active, color: "text-[#137fec]" },
     { labelKey: "sidebar.stat.completed", value: completed, color: "text-[#1aab6d]" },
     { labelKey: "sidebar.stat.paused", value: paused, color: "text-[#7a96b0]" },
@@ -317,12 +271,12 @@ function Sidebar({ tasks }: SidebarProps) {
   return (
     <aside className="w-55 shrink-0 flex flex-col gap-4">
       <div className="pb-4! border-b border-[#137fec]/15">
-        <div className="text-[15px] font-semibold tracking-tight text-[#e8f0f8]">
+        <div className="text-[15px] font-semibold tracking-tight text-[#f5f7fb]">
           IPSW{" "}
           <span className="text-[#137fec]">Downloads</span>
         </div>
-        <div className="text-[11px] text-[#4a6478] mt-0.5! font-mono">
-          {tasks.length} total task{tasks.length !== 1 ? "s" : ""}
+        <div className="text-[11px] text-[#6b7f92] mt-0.5! font-mono">
+          {total} total task{total !== 1 ? "s" : ""}
         </div>
       </div>
 
@@ -330,9 +284,9 @@ function Sidebar({ tasks }: SidebarProps) {
         {statItems.map(({ labelKey, value, color }) => (
           <div
             key={labelKey}
-            className="flex items-center justify-between px-3! py-2! rounded-md bg-[#16212d] border border-[#137fec]/8"
+            className="flex items-center justify-between px-3! py-2! rounded-md bg-[#121212] border border-[#137fec]/12"
           >
-            <span className="text-[11px] text-[#4a6478] uppercase tracking-wider">
+            <span className="text-[11px] text-[#6b7f92] uppercase tracking-wider">
               {t(labelKey as any)}
             </span>
             <span className={`font-mono text-[14px] font-semibold ${color}`}>{value}</span>
@@ -341,41 +295,33 @@ function Sidebar({ tasks }: SidebarProps) {
       </div>
     </aside>
   );
-}
+});
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
-interface DownloadPageProps {
-  onClose?: () => void;
-}
-
 export default function DownloadPage() {
   const { t } = useTranslation();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [filter, setFilter] = useState<TaskStatus | "all">("all");
   const navigate = useNavigate();
-
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-
-  const upsertTask = useCallback((task: Task) => {
-    setTasks((prev) => {
-      const idx = prev.findIndex((t) => t.id === task.id);
-      if (idx === -1) return [...prev, task];
-      const next = [...prev];
-      next[idx] = task;
-      return next;
-    });
-  }, []);
-
-  const removeTask = useCallback((id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const taskIds = useDownloadStore((state) => state.taskIds);
+  const tasksById = useDownloadStore((state) => state.tasksById);
+  const filter = useDownloadStore((state) => state.filter);
+  const setTasks = useDownloadStore((state) => state.setTasks);
+  const upsertTask = useDownloadStore((state) => state.upsertTask);
+  const removeTask = useDownloadStore((state) => state.removeTask);
+  const patchTask = useDownloadStore((state) => state.patchTask);
+  const setFilter = useDownloadStore((state) => state.setFilter);
+  const hydrated = useDownloadStore((state) => state.hydrated);
+  const markHydrated = useDownloadStore((state) => state.markHydrated);
 
   // ── Subscribe events ────────────────────────────────────────────────────────
 
   useEffect(() => {
+    if (hydrated) return;
     window.downloader.getAllTask().then(setTasks).catch(console.error);
+    markHydrated();
+  }, [hydrated, markHydrated, setTasks]);
 
+  useEffect(() => {
     const subs = [
       window.downloader.onAdded((_id, task) => upsertTask(task)),
       window.downloader.onProgress((_id, task) => upsertTask(task)),
@@ -383,13 +329,7 @@ export default function DownloadPage() {
       window.downloader.onPaused((_id, task) => upsertTask(task)),
       window.downloader.onResumed((_id, task) => {
         if (task) upsertTask(task);
-        else {
-          setTasks((prev) =>
-            prev.map((t) =>
-              t.id === _id ? { ...t, status: "downloading" as TaskStatus } : t
-            )
-          );
-        }
+        else patchTask(_id, { status: "downloading" as TaskStatus });
       }),
       window.downloader.onCancelled((id) => removeTask(id)),
       window.downloader.onIncompleteDeleted((id) => removeTask(id)),
@@ -399,23 +339,19 @@ export default function DownloadPage() {
     return () => {
       subs.forEach((s) => s.unsubscribe());
     };
-  }, [upsertTask, removeTask]);
+  }, [upsertTask, removeTask, patchTask]);
 
   // ── Action handlers ─────────────────────────────────────────────────────────
 
   const handlePause = useCallback(async (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "paused" as TaskStatus } : t))
-    );
+    patchTask(id, { status: "paused" as TaskStatus });
     await window.downloader.pause(id);
-  }, []);
+  }, [patchTask]);
 
   const handleResume = useCallback(async (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "downloading" as TaskStatus } : t))
-    );
+    patchTask(id, { status: "downloading" as TaskStatus });
     await window.downloader.resume(id);
-  }, []);
+  }, [patchTask]);
 
   const handleCancel = useCallback(async (id: string) => {
     removeTask(id);
@@ -424,12 +360,49 @@ export default function DownloadPage() {
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
-  const sorted = [...tasks].sort(
-    (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+  const tasks = useMemo(() => taskIds.map((id) => tasksById[id]).filter((task): task is Task => Boolean(task)), [taskIds, tasksById]);
+  const sorted = useMemo(() => [...tasks].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]), [tasks]);
+  const filtered = useMemo(
+    () => (filter === "all" ? sorted : sorted.filter((task) => task.status === filter)),
+    [filter, sorted]
   );
 
-  const filtered =
-    filter === "all" ? sorted : sorted.filter((t) => t.status === filter);
+  const stats = useMemo(() => {
+    let active = 0;
+    let completed = 0;
+    let paused = 0;
+    let queued = 0;
+    let errored = 0;
+
+    for (const task of tasks) {
+      switch (task.status) {
+        case "downloading": active++; break;
+        case "completed": completed++; break;
+        case "paused": paused++; break;
+        case "queued": queued++; break;
+        case "error": errored++; break;
+      }
+    }
+
+    return { active, completed, paused, queued, errored, total: tasks.length };
+  }, [tasks]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<TaskStatus | "all", number> = {
+      all: tasks.length,
+      downloading: 0,
+      verifying: 0,
+      moving: 0,
+      paused: 0,
+      queued: 0,
+      error: 0,
+      completed: 0,
+      cancelled: 0,
+    };
+
+    for (const task of tasks) counts[task.status] += 1;
+    return counts;
+  }, [tasks]);
 
   const filterTabs: Array<{ key: TaskStatus | "all"; labelKey: string }> = [
     { key: "all", labelKey: "filter.all" },
@@ -445,22 +418,19 @@ export default function DownloadPage() {
   return (
     <div
       className="flex h-screen w-screen overflow-hidden"
-      style={{ background: "#101922", fontFamily: "'Syne', 'JetBrains Mono', sans-serif" }}
+      style={{ background: "#0d0d0d", fontFamily: "'Syne', 'JetBrains Mono', sans-serif" }}
     >
       {/* Sidebar */}
-      <div className="h-full px-5! py-5! border-r border-[#137fec]/10 flex flex-col">
-        <Sidebar tasks={tasks} />
+      <div className="h-full px-5! py-5! border-r border-[#137fec]/20 flex flex-col">
+        <Sidebar {...stats} />
       </div>
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Toolbar */}
-        <div className="shrink-0 flex items-center gap-2 px-5! py-3! border-b border-[#137fec]/10">
+        <div className="shrink-0 flex items-center gap-2 px-5! py-3! border-b border-[#137fec]/20 bg-[#0d0d0d]/80 backdrop-blur-sm">
           {filterTabs.map(({ key, labelKey }) => {
-            const count =
-              key === "all"
-                ? tasks.length
-                : tasks.filter((t) => t.status === key).length;
+            const count = statusCounts[key];
             const active = filter === key;
             return (
               <button
@@ -470,8 +440,8 @@ export default function DownloadPage() {
                   flex items-center gap-1.5 px-3! py-1.5! rounded text-[11px] font-semibold uppercase tracking-widest
                   border transition-all duration-150
                   ${active
-                    ? "bg-[#137fec]/15 border-[#137fec]/40 text-[#137fec]"
-                    : "bg-transparent border-transparent text-[#4a6478] hover:text-[#7a96b0] hover:border-white/10"
+                    ? "bg-[#137fec]/18 border-[#137fec]/45 text-[#137fec] shadow-[0_0_0_1px_rgba(19,127,236,0.12)]"
+                    : "bg-transparent border-transparent text-[#5d7284] hover:text-[#9fb4c4] hover:border-white/10"
                   }
                 `}
               >
@@ -479,8 +449,8 @@ export default function DownloadPage() {
                 {count > 0 && (
                   <span
                     className={`font-mono text-[10px] px-1! py-0.5! rounded leading-none ${active
-                        ? "bg-[#137fec]/20 text-[#137fec]"
-                        : "bg-white/6 text-[#4a6478]"
+                        ? "bg-[#137fec]/22 text-[#137fec]"
+                        : "bg-white/6 text-[#5d7284]"
                       }`}
                   >
                     {count}

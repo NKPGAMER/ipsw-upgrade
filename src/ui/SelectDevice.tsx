@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo, type JSX } from "react";
-import type { Task, TaskStatus, Firmware } from "../../global";
+import type { Task, TaskStatus } from "../../global";
 import { download, deleteFile, parseIPSW, getFileNameFromUrl, updateFirmware, getRedundantFilesFromProduct } from "../core/helper";
 import { state } from "../data";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -7,7 +7,7 @@ import { ToastContainer, pushToast } from "./Toast";
 import { ProductId } from "./home";
 import { ipswClient } from "..";
 import type { IncompleteTaskClient } from "../core/ipswClient";
-import type { BulkUpdateItem } from "./BulkUpdateManager";
+import { state as globalState } from "../data";
 import utils from "../core/utils";
 
 type CardTask = TaskStatus | "none" | "downloaded" | "old" | "corrupted" | "incomplete_dl"
@@ -48,7 +48,7 @@ const STATUS_LABEL: Record<CardTask | "none", string> = {
   none: "Chưa tải", queued: "Đang chờ", downloading: "Đang tải",
   paused: "Đã tạm dừng", completed: "Đã tải", downloaded: "Đã tải",
   error: "Lỗi", verifying: "Đang xác minh", moving: "Đang di chuyển",
-  old: "Có phiên bản mới", corrupted: "Không hoàn chỉnh",
+  cancelled: "Đã huỷ", old: "Có phiên bản mới", corrupted: "Không hoàn chỉnh",
   incomplete_dl: "Chưa tải xong",
 };
 
@@ -56,7 +56,7 @@ const STATUS_COLOR: Record<CardTask | "none", string> = {
   none: "text-gray-500", queued: "text-yellow-400", downloading: "text-[#137fec]",
   paused: "text-orange-400", completed: "text-emerald-400", downloaded: "text-emerald-400",
   error: "text-red-400", verifying: "text-purple-400", moving: "text-cyan-400",
-  old: "text-cyan-400", corrupted: "text-amber-400", incomplete_dl: "text-sky-400",
+  cancelled: "text-gray-400", old: "text-cyan-400", corrupted: "text-amber-400", incomplete_dl: "text-sky-400",
 };
 
 const TASKBAR_ICON: Record<string, JSX.Element> = {
@@ -148,6 +148,29 @@ interface DeviceEntry {
   task?: Task;
 }
 
+interface DeviceGroup {
+  name: string;
+  ids: string[];
+}
+
+const DEVICE_GROUPS: DeviceGroup[] = [
+  { name: "iPhone 17 Series", ids: ["iPhone18,1", "iPhone18,2", "iPhone18,3", "iPhone18,4", "iPhone18,5"] },
+  { name: "iPhone 16 Series", ids: ["iPhone17,1", "iPhone17,2", "iPhone17,3", "iPhone17,4", "iPhone17,5"] },
+  { name: "iPhone 15 Series", ids: ["iPhone16,1", "iPhone16,2", "iPhone15,4", "iPhone15,5"] },
+  { name: "iPhone 14 Series", ids: ["iPhone15,2", "iPhone15,3", "iPhone14,7", "iPhone14,8"] },
+  { name: "iPhone 13 Series", ids: ["iPhone14,2", "iPhone14,3", "iPhone14,4", "iPhone14,5", "iPhone14,6"] },
+  { name: "iPhone 12 Series", ids: ["iPhone13,1", "iPhone13,2", "iPhone13,3", "iPhone13,4"] },
+  { name: "iPhone 11 Series", ids: ["iPhone12,1", "iPhone12,3", "iPhone12,5", "iPhone12,8"] },
+  { name: "iPhone X Series", ids: ["iPhone10,3", "iPhone10,6", "iPhone11,2", "iPhone11,4", "iPhone11,6", "iPhone11,8"] },
+  { name: "iPhone 8 Series", ids: ["iPhone10,1", "iPhone10,2", "iPhone10,4", "iPhone10,5"] },
+  { name: "iPhone 7 Series", ids: ["iPhone9,1", "iPhone9,2", "iPhone9,3", "iPhone9,4"] },
+  { name: "iPhone 6 Series", ids: ["iPhone7,1", "iPhone7,2", "iPhone8,1", "iPhone8,2", "iPhone8,4"] },
+  { name: "iPhone 5 Series", ids: ["iPhone5,1", "iPhone5,2", "iPhone5,3", "iPhone5,4", "iPhone6,1", "iPhone6,2"] },
+  { name: "iPhone 4 Series", ids: ["iPhone3,1", "iPhone3,2", "iPhone3,3", "iPhone4,1"] },
+  { name: "iPhone 3 Series", ids: ["iPhone1,2", "iPhone2,1"] },
+  { name: "iPhone 2 Series", ids: ["iPhone1,1"] },
+];
+
 type ControlAction =
   | "download" | "pause" | "resume" | "cancel"
   | "delete" | "verify" | "redownload" | "update"
@@ -182,6 +205,7 @@ const STATUS_CONFIG: Record<CardTask | "none", {
   error: { label: "Lỗi", pill: "bg-red-400/12", dot: "bg-red-400", text: "text-red-400" },
   verifying: { label: "Đang xác minh", pill: "bg-violet-400/12", dot: "bg-violet-400", text: "text-violet-400", animate: true },
   moving: { label: "Đang di chuyển", pill: "bg-cyan-400/10", dot: "bg-cyan-400", text: "text-cyan-400", animate: true },
+  cancelled: { label: "Đã huỷ", pill: "bg-gray-500/15", dot: "bg-gray-500", text: "text-gray-400" },
   old: { label: "Có phiên bản mới", pill: "bg-cyan-400/10", dot: "bg-cyan-400", text: "text-cyan-400" },
   corrupted: { label: "Không hoàn chỉnh", pill: "bg-amber-400/12", dot: "bg-amber-400", text: "text-amber-400" },
   incomplete_dl: { label: "Chưa tải xong", pill: "bg-sky-400/12", dot: "bg-sky-400", text: "text-sky-400" },
@@ -1118,8 +1142,10 @@ export default function IPSWManager() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listWidthPct, setListWidthPct] = useState(65);
   const [pendingActions, setPendingActions] = useState<Map<string, ControlAction>>(new Map());
+  const [isScanning, setIsScanning] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const loadedProductRef = useRef<Product | null>(null);
   const taskMapRef = useRef<Map<string, Task>>(new Map());
   const entriesRef = useRef<DeviceEntry[]>([]);
@@ -1317,6 +1343,22 @@ export default function IPSWManager() {
     );
   }, [entries, search]);
 
+  const groupedEntries = useMemo(() => {
+    const selectedGroups = DEVICE_GROUPS
+      .map(group => ({
+        name: group.name,
+        entries: filtered.filter(entry => group.ids.includes(entry.device.identifier)),
+      }))
+      .filter(group => group.entries.length > 0);
+
+    const groupedIds = new Set(DEVICE_GROUPS.flatMap(group => group.ids));
+    const ungroupedEntries = filtered.filter(entry => !groupedIds.has(entry.device.identifier));
+
+    return { selectedGroups, ungroupedEntries };
+  }, [filtered]);
+
+  const ungroupedTitle = `${product.charAt(0).toUpperCase()}${product.slice(1)} Series`;
+
   const selectedEntry = useMemo(
     () => entries.find(e => e.device.identifier === selectedId) ?? null,
     [entries, selectedId]
@@ -1513,64 +1555,31 @@ export default function IPSWManager() {
             {/* Right */}
             <div className="flex items-center justify-between gap-1.5 shrink-0">
               <button
-                title="Cập nhật tất cả fỉmware"
-                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
-                onClick={async () => {
-                  // Collect all entries with status "old" — có firmware mới nhưng chỉ có file cũ
-                  const oldEntries = entries.filter(e => {
-                    const status = computeCardStatus(e, allFiles, incompleteTasks);
-                    return status === "old";
-                  });
-
-                  if (oldEntries.length === 0) {
-                    pushToast("info", "Không có firmware nào cần cập nhật");
-                    return;
-                  }
-
-                  // Build BulkUpdateItem list
-                  const { oldFiles: productOldFiles, duplicateFiles: productDuplicateFiles } =
-                    await getRedundantFilesFromProduct(product);
-
-                  const redundantByIdentifier = new Map<string, IPSWFile[]>();
-                  [...productOldFiles, ...productDuplicateFiles].forEach(f => {
-                    const parsed = parseIPSW(f.name);
-                    if (!parsed) return;
-                    const id = parsed.id; // e.g. "iPhone14,3"
-                    if (!redundantByIdentifier.has(id)) redundantByIdentifier.set(id, []);
-                    redundantByIdentifier.get(id)!.push(f);
-                  });
-
-                  const seen = new Set();
-
-                  const items: BulkUpdateItem[] = oldEntries
-                    .map(e => {
-                      const fw = e.firmwares![0]; // latest firmware
-                      const oldFiles = redundantByIdentifier.get(e.device.identifier) ?? [];
-                      return { firmware: fw, oldFiles };
-                    })
-                    .filter(it => !!it.firmware)
-                    .filter(it => {
-                      if (seen.has(it.firmware.url)) return false;
-
-                      seen.add(it.firmware.url)
-                      return true;
-                    });
-
-                  navigate("/bulk-update", { state: { items, product } });
-                }}
+                disabled={isScanning}
+                title="Cập nhật tất cả firmware"
+                className={`w-10 h-8 p-2! rounded-lg border flex items-center justify-center transition-colors shrink-0 
+                  ${isScanning 
+                    ? "bg-[#137fec]/15 border-[#137fec]/30 text-[#137fec] cursor-wait" 
+                    : "bg-white/5 hover:bg-white/10 border-white/8 text-gray-500 hover:text-gray-400"
+                  }`}
+                onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
               >
-                {TASKBAR_ICON.update}
+                {isScanning ? <Spinner className="w-5 h-5" /> : TASKBAR_ICON.update}
               </button>
-              <button
-                onClick={async () => {
-                  const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
-                  utils.customConfirm(`Thao tác này sẽ xóa ${oldFiles.length} tệp cũ và ${duplicateFiles.length} têp bị trùng`)
-                }}
-                title="Xóa tệp không cần thiết"
-                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
-              >
-                {TASKBAR_ICON.delete}
-              </button>
+              
+              {!isScanning && (
+                <button
+                  onClick={async () => {
+                    const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
+                    utils.customConfirm(`Thao tác này sẽ xóa ${oldFiles.length} tệp cũ và ${duplicateFiles.length} têp bị trùng`)
+                  }}
+                  title="Xóa tệp không cần thiết"
+                  className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
+                >
+                  {TASKBAR_ICON.delete}
+                </button>
+              )}
+
               <button
                 onClick={() => navigate("/downloads")}
                 title="Tải xuống"
@@ -1589,7 +1598,7 @@ export default function IPSWManager() {
           </div>
 
           {/* Card Grid */}
-          <div className="flex-1 overflow-y-auto p-3! scrollbar-thin">
+          <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-3! scrollbar-thin">
             {loading ? (
               <div className="flex items-center justify-center h-32 gap-2 text-gray-600">
                 <Spinner className="w-4 h-4 text-gray-600" />
@@ -1603,23 +1612,63 @@ export default function IPSWManager() {
                 <span className="text-[12px]">{search ? "Không tìm thấy thiết bị" : "Không có thiết bị"}</span>
               </div>
             ) : (
-              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}>
-                {filtered.map(entry => (
-                  <DeviceCard
-                    key={entry.device.identifier}
-                    entry={entry}
-                    selected={selectedId === entry.device.identifier}
-                    allFiles={allFiles}
-                    incompleteTasks={incompleteTasks}
-                    pending={pendingActions.has(entry.device.identifier)}
-                    onClick={() => {
-                      if (entry.firmwares === null) return;
-                      setSelectedId(prev =>
-                        prev === entry.device.identifier ? null : entry.device.identifier
-                      );
-                    }}
-                    onVisible={handleCardVisible}
-                  />
+              <div className="space-y-4">
+                {groupedEntries.ungroupedEntries.length > 0 && (
+                  <div className="space-y-2!">
+                    <div className="flex items-center gap-2 px-1! mt3! mb-2!">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#137fec]" />
+                      <h3 className="text-[18px] font-bold text-gray-200">{ungroupedTitle}</h3>
+                      <span className="text-[12px] text-gray-400">{groupedEntries.ungroupedEntries.length} models</span>
+                    </div>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}>
+                      {groupedEntries.ungroupedEntries.map(entry => (
+                        <DeviceCard
+                          key={entry.device.identifier}
+                          entry={entry}
+                          selected={selectedId === entry.device.identifier}
+                          allFiles={allFiles}
+                          incompleteTasks={incompleteTasks}
+                          pending={pendingActions.has(entry.device.identifier)}
+                          onClick={() => {
+                            if (entry.firmwares === null) return;
+                            setSelectedId(prev =>
+                              prev === entry.device.identifier ? null : entry.device.identifier
+                            );
+                          }}
+                          onVisible={handleCardVisible}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {groupedEntries.selectedGroups.map(group => (
+                  <div key={group.name} className="space-y-2!">
+                    <div className="flex items-center gap-2 px-1! mt-2.5!">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#137fec]" />
+                      <h3 className="text-[16px] font-semibold text-gray-200">{group.name}</h3>
+                      <span className="text-[12px] text-gray-400">{group.entries.length} models</span>
+                    </div>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}>
+                      {group.entries.map(entry => (
+                        <DeviceCard
+                          key={entry.device.identifier}
+                          entry={entry}
+                          selected={selectedId === entry.device.identifier}
+                          allFiles={allFiles}
+                          incompleteTasks={incompleteTasks}
+                          pending={pendingActions.has(entry.device.identifier)}
+                          onClick={() => {
+                            if (entry.firmwares === null) return;
+                            setSelectedId(prev =>
+                              prev === entry.device.identifier ? null : entry.device.identifier
+                            );
+                          }}
+                          onVisible={handleCardVisible}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -1649,6 +1698,11 @@ export default function IPSWManager() {
       </div>
 
       <ToastContainer />
+      
+      {/* Khóa chuột toàn bộ app khi đang quét */}
+      {isScanning && (
+        <div className="fixed inset-0 z-9999 cursor-wait pointer-events-auto" />
+      )}
 
       <style>{`
         @keyframes slideIn {

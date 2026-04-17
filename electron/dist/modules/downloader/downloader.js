@@ -49,6 +49,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.IPSWDownloader = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const os = __importStar(require("os"));
 const events_1 = require("events");
 const crypto_1 = require("crypto");
 const url_1 = require("url");
@@ -101,39 +102,72 @@ class MoveQueue {
             return;
         }
         catch { /* cross-device — fall through */ }
-        // Cross-device: use streaming copy so renderer can receive move progress.
-        await this.copyStream(src, dest, onProgress);
+        // Cross-device: use the OS copy path for best throughput, and poll progress.
+        await this.copyViaKernel(src, dest, onProgress);
         fs.unlinkSync(src);
     }
-    /**
-     * Streaming copy fallback — 64 MB chunks to minimize syscall overhead.
-     * Uses async pipeline for non-blocking I/O.
-     */
-    copyStream(src, dest, onProgress) {
-        return new Promise((resolve, reject) => {
-            const totalSize = fs.statSync(src).size;
+    async copyViaKernel(src, dest, onProgress) {
+        const totalSize = fs.statSync(src).size;
+        const startedAt = Date.now();
+        const bufferSize = this.getMoveBufferSize(totalSize, this.getAvailableMemoryBytes());
+        const srcHandle = await fs.promises.open(src, "r");
+        const destHandle = await fs.promises.open(dest, "w");
+        try {
+            const buffer = Buffer.allocUnsafe(bufferSize);
             let copied = 0;
-            const startedAt = Date.now();
-            const rs = fs.createReadStream(src, { highWaterMark: 64 * 1024 * 1024 });
-            const ws = fs.createWriteStream(dest, { highWaterMark: 64 * 1024 * 1024 });
-            rs.on("data", (chunk) => {
-                copied += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(chunk);
+            let lastEmitAt = 0;
+            let lastPct = -1;
+            while (true) {
+                const { bytesRead } = await srcHandle.read(buffer, 0, buffer.length, copied);
+                if (bytesRead <= 0)
+                    break;
+                await destHandle.write(buffer, 0, bytesRead, copied);
+                copied += bytesRead;
                 if (onProgress && totalSize > 0) {
-                    const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+                    const now = Date.now();
+                    const pct = Math.min(99, Math.floor((copied / totalSize) * 100));
+                    const elapsedSec = Math.max((now - startedAt) / 1000, 0.001);
                     const speed = copied / elapsedSec;
-                    const eta = speed > 0 ? Math.round((totalSize - copied) / speed) : undefined;
-                    onProgress({
-                        pct: Math.floor((copied / totalSize) * 100),
-                        speed,
-                        eta,
-                    });
+                    const eta = speed > 0 ? Math.max(0, Math.round((totalSize - copied) / speed)) : undefined;
+                    if (pct !== lastPct || now - lastEmitAt >= 200 || copied === totalSize) {
+                        lastEmitAt = now;
+                        lastPct = pct;
+                        onProgress({ pct, speed, eta });
+                    }
                 }
-            });
-            rs.pipe(ws);
-            ws.on("finish", resolve);
-            ws.on("error", reject);
-            rs.on("error", reject);
-        });
+            }
+            await destHandle.sync().catch(() => { });
+            if (onProgress)
+                onProgress({ pct: 100, speed: totalSize, eta: 0 });
+        }
+        finally {
+            await destHandle.close().catch(() => { });
+            await srcHandle.close().catch(() => { });
+        }
+    }
+    getMoveBufferSize(totalSize, availableMemoryBytes) {
+        const mb = 1024 * 1024;
+        const fileBased = totalSize <= 128 * mb ? 16 * mb :
+            totalSize <= 512 * mb ? 32 * mb :
+                totalSize <= 2 * GB ? 64 * mb :
+                    totalSize <= 8 * GB ? 96 * mb :
+                        128 * mb;
+        const memoryBudget = Math.max(16 * mb, Math.floor(availableMemoryBytes * 0.02));
+        const memoryAware = Math.max(8 * mb, Math.min(fileBased, memoryBudget));
+        return this.alignBufferSize(memoryAware);
+    }
+    getAvailableMemoryBytes() {
+        const free = typeof os.freemem === "function" ? os.freemem() : 0;
+        const total = typeof os.totalmem === "function" ? os.totalmem() : 0;
+        if (free > 0)
+            return free;
+        if (total > 0)
+            return total * 0.25;
+        return 256 * 1024 * 1024;
+    }
+    alignBufferSize(size) {
+        const mb = 1024 * 1024;
+        return Math.max(mb, Math.floor(size / mb) * mb);
     }
     driveKey(filePath) {
         const resolved = path.resolve(filePath);
@@ -154,6 +188,10 @@ class IPSWDownloader extends events_1.EventEmitter {
     scheduler;
     integrity;
     moveQueue;
+    progressEmitState = new Map();
+    progressEmitIntervalMs = 150;
+    progressEmitMinDelta = 1;
+    moveProgressEmitIntervalMs = 200;
     constructor(stateDir, config = {}) {
         super();
         this.config = {
@@ -175,7 +213,9 @@ class IPSWDownloader extends events_1.EventEmitter {
         this.scheduler.on("started", (id) => this.updateTaskStatus(id, "downloading"));
     }
     // ─── PUBLIC API ──────────────────────────────────────────────────────────────
-    async add(firmware, savePath) {
+    async add(firmware, savePath, config = {}) {
+        if (!savePath || savePath.trim() === "")
+            return { success: false, error: "INVALID_SAVE_PATH" };
         try {
             new url_1.URL(firmware.url);
         }
@@ -187,6 +227,16 @@ class IPSWDownloader extends events_1.EventEmitter {
                 task.firmware.buildid === firmware.buildid &&
                 (task.status === 'downloading' || task.status === 'moving' || task.status === 'verifying' || task.status === 'queued' || task.status === 'paused'))
                 return { success: false, error: "ALREADY_IN_LIST" };
+        }
+        if (config.deleteFiles?.length) {
+            for (const file of config.deleteFiles) {
+                if (file?.path && fs.existsSync(file.path)) {
+                    try {
+                        fs.unlinkSync(file.path);
+                    }
+                    catch { }
+                }
+            }
         }
         const spaceCheck = await this.diskManager.hasEnoughSpace(savePath, firmware.filesize, this.config.diskBufferGB * GB);
         if (!spaceCheck.ok)
@@ -354,9 +404,8 @@ class IPSWDownloader extends events_1.EventEmitter {
                 const total = p.totalBytes > 0 ? p.totalBytes : state.totalSize;
                 task.progress = Math.min(99, Math.floor((downloaded / total) * 100));
                 task.speed = cm.getSpeed();
-                if (task.speed > 0)
-                    task.eta = Math.round((total - downloaded) / task.speed);
-                this.emit("progress", id, task);
+                task.eta = task.speed > 0 ? Math.round((total - downloaded) / task.speed) : undefined;
+                this.emitThrottledProgress(id, task);
             });
             cm.on("error", (err) => console.error(`[ChunkManager][${id}]`, err.message));
             // Step 5: Download
@@ -367,10 +416,20 @@ class IPSWDownloader extends events_1.EventEmitter {
             // Step 6: Verify integrity
             this.updateTaskStatus(id, "verifying");
             task.speed = 0;
-            this.emit("progress", id, task);
-            const result = await this.integrity.verify(tmpFile, task.firmware, (pct) => {
+            task.eta = undefined;
+            this.emitProgressNow(id, task);
+            let lastVerifyEmitAt = 0;
+            const result = await this.integrity.verify(tmpFile, task.firmware, ({ pct, speed, eta }) => {
                 task.progress = pct;
-                this.emit("progress", id, task);
+                task.speed = speed;
+                task.eta = eta;
+                const now = Date.now();
+                if (now - lastVerifyEmitAt >= this.moveProgressEmitIntervalMs || pct === 100) {
+                    lastVerifyEmitAt = now;
+                    this.emitThrottledProgress(id, task);
+                    return;
+                }
+                this.emitThrottledProgress(id, task);
             });
             if (!result.ok) {
                 this.updateTaskStatus(id, "error");
@@ -384,18 +443,20 @@ class IPSWDownloader extends events_1.EventEmitter {
             task.progress = 0;
             task.speed = 0;
             task.eta = undefined;
-            this.emit("progress", id, task);
+            this.emitProgressNow(id, task);
             const finalPath = this.buildFinalPath(task.firmware, task.savePath);
             await this.moveQueue.enqueue(tmpFile, finalPath, isHDD, ({ pct, speed, eta }) => {
                 task.progress = pct;
                 task.speed = speed;
                 task.eta = eta;
-                this.emit("progress", id, task);
+                this.emitThrottledProgress(id, task);
             });
             // Done
             task.progress = 100;
             task.speed = 0;
+            task.eta = 0;
             this.updateTaskStatus(id, "completed");
+            this.emitProgressNow(id, task);
             this.emit("completed", id, task);
             this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: false });
         }
@@ -445,7 +506,47 @@ class IPSWDownloader extends events_1.EventEmitter {
         if (task)
             task.status = status;
     }
+    emitProgressNow(id, task) {
+        const state = this.progressEmitState.get(id);
+        if (state?.timer) {
+            clearTimeout(state.timer);
+        }
+        this.progressEmitState.delete(id);
+        this.emit("progress", id, task);
+    }
+    emitThrottledProgress(id, task) {
+        const now = Date.now();
+        const prev = this.progressEmitState.get(id);
+        const progressChanged = !prev || Math.abs(task.progress - prev.lastProgress) >= this.progressEmitMinDelta;
+        const shouldFlushNow = !prev || progressChanged || (now - prev.lastAt) >= this.progressEmitIntervalMs;
+        if (shouldFlushNow) {
+            if (prev?.timer)
+                clearTimeout(prev.timer);
+            this.progressEmitState.set(id, { lastAt: now, lastProgress: task.progress, timer: null, pending: null });
+            this.emit("progress", id, task);
+            return;
+        }
+        if (!prev)
+            return;
+        prev.pending = { ...task };
+        if (!prev.timer) {
+            const delay = Math.max(0, this.progressEmitIntervalMs - (now - prev.lastAt));
+            prev.timer = setTimeout(() => {
+                const current = this.progressEmitState.get(id);
+                if (!current)
+                    return;
+                const pending = current.pending;
+                this.progressEmitState.delete(id);
+                if (pending)
+                    this.emit("progress", id, pending);
+            }, delay);
+        }
+    }
     cleanupRuntime(id, options) {
+        const progressState = this.progressEmitState.get(id);
+        if (progressState?.timer)
+            clearTimeout(progressState.timer);
+        this.progressEmitState.delete(id);
         if (options.releaseSpace) {
             this.diskManager.releaseSpace(id);
         }

@@ -41,7 +41,7 @@ worker_threads_1.parentPort.on("message", async (msg) => {
             // Already initialised above via workerData; ignore duplicate inits.
             break;
         case "add": {
-            const result = await dl.add(msg.firmware, msg.savePath).catch(e => ({ success: false, error: e.message }));
+            const result = await dl.add(msg.firmware, msg.savePath, msg.config).catch(e => ({ success: false, error: e.message }));
             reply(msg.reqId, result);
             break;
         }

@@ -61,15 +61,24 @@ const path = __importStar(require("path"));
 const worker_threads_1 = require("worker_threads");
 const crypto_1 = require("crypto");
 class DownloaderMain {
-    worker;
+    worker = null;
     win;
+    stateDir;
+    config;
     pending = new Map();
     constructor(win, opts = { stateDir: ".ipsw-state" }) {
         this.win = win;
+        this.stateDir = opts.stateDir;
+        this.config = opts.config ?? {};
+        this.registerIPC();
+    }
+    ensureWorker() {
+        if (this.worker)
+            return this.worker;
         this.worker = new worker_threads_1.Worker(path.join(__dirname, "downloader-worker.js"), {
             workerData: {
-                stateDir: opts.stateDir,
-                config: opts.config ?? {},
+                stateDir: this.stateDir,
+                config: this.config,
             },
             resourceLimits: { maxOldGenerationSizeMb: 256 },
         });
@@ -78,9 +87,9 @@ class DownloaderMain {
         this.worker.on("exit", (code) => {
             if (code !== 0)
                 console.error(`[DownloaderMain] worker exited with code ${code}`);
+            this.worker = null;
         });
-        if (win)
-            this.registerIPC();
+        return this.worker;
     }
     // ─── Worker message handler ───────────────────────────────────────────────
     handleWorkerMessage(msg) {
@@ -102,16 +111,16 @@ class DownloaderMain {
         return new Promise((resolve, reject) => {
             const reqId = (0, crypto_1.randomUUID)();
             this.pending.set(reqId, { resolve, reject });
-            this.worker.postMessage({ ...msg, reqId });
+            this.ensureWorker().postMessage({ ...msg, reqId });
         });
     }
     // ─── Public API ───────────────────────────────────────────────────────────
-    add(firmware, savePath) {
-        return this.call({ type: "add", reqId: (0, crypto_1.randomUUID)(), firmware, savePath });
+    add(firmware, savePath, config = {}) {
+        return this.call({ type: "add", reqId: (0, crypto_1.randomUUID)(), firmware, savePath, config });
     }
-    pause(id) { this.worker.postMessage({ type: "pause", id }); }
-    resume(id) { this.worker.postMessage({ type: "resume", id }); }
-    cancel(id) { this.worker.postMessage({ type: "cancel", id }); }
+    pause(id) { this.ensureWorker().postMessage({ type: "pause", id }); }
+    resume(id) { this.ensureWorker().postMessage({ type: "resume", id }); }
+    cancel(id) { this.ensureWorker().postMessage({ type: "cancel", id }); }
     getAllTask() {
         return this.call({ type: "getAllTask", reqId: (0, crypto_1.randomUUID)() });
     }
@@ -126,7 +135,11 @@ class DownloaderMain {
     }
     /** Terminate the worker gracefully. Call on app quit. */
     async destroy() {
-        await this.worker.terminate();
+        if (!this.worker)
+            return;
+        const worker = this.worker;
+        this.worker = null;
+        await worker.terminate();
     }
     // ─── Renderer bridge ─────────────────────────────────────────────────────
     sendToRenderer(channel, payload) {
@@ -162,14 +175,23 @@ class DownloaderMain {
             console.warn("[DownloaderMain] electron not available — IPC not registered");
             return;
         }
-        ipcMain.handle("dm:add", (_e, firmware, savePath) => this.add(firmware, savePath));
-        ipcMain.handle("dm:pause", (_e, id) => { this.pause(id); });
-        ipcMain.handle("dm:resume", (_e, id) => { this.resume(id); });
-        ipcMain.handle("dm:cancel", (_e, id) => { this.cancel(id); });
-        ipcMain.handle("dm:getAllTask", () => this.getAllTask());
-        ipcMain.handle("dm:getIncompleteTasks", () => this.getIncompleteTasks());
-        ipcMain.handle("dm:resumeIncomplete", (_e, id) => this.resumeIncomplete(id));
-        ipcMain.handle("dm:deleteIncomplete", (_e, id) => this.deleteIncomplete(id));
+        const handlers = [
+            ["dm:add", (_e, firmware, savePath) => this.add(firmware, savePath)],
+            ["dm:pause", (_e, id) => { this.pause(id); }],
+            ["dm:resume", (_e, id) => { this.resume(id); }],
+            ["dm:cancel", (_e, id) => { this.cancel(id); }],
+            ["dm:getAllTask", () => this.getAllTask()],
+            ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
+            ["dm:resumeIncomplete", (_e, id) => this.resumeIncomplete(id)],
+            ["dm:deleteIncomplete", (_e, id) => this.deleteIncomplete(id)],
+        ];
+        for (const [channel, handler] of handlers) {
+            try {
+                ipcMain.removeHandler(channel);
+            }
+            catch { }
+            ipcMain.handle(channel, handler);
+        }
     }
 }
 exports.DownloaderMain = DownloaderMain;
