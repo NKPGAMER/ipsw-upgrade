@@ -16,7 +16,6 @@ const appleDevice_1 = require("./modules/appleDevice");
 const userData_1 = require("./modules/userData");
 const localFile_1 = require("./modules/localFile");
 const disk_1 = require("./modules/disk");
-const internetService_1 = require("./modules/internetService");
 const dataHandle_1 = require("./modules/dataHandle");
 const ipswWatcher_1 = require("./modules/ipswWatcher");
 const ipswHardLinkManager_1 = require("./modules/ipswHardLinkManager");
@@ -26,10 +25,10 @@ const config_1 = __importDefault(require("./config"));
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STORE_METHODS = new Set(["get", "set", "has", "delete"]);
 const SPLASH_TIMEOUT_MS = 10_000;
+const UPDATER_INIT_DELAY = 2_000;
 const UPDATER_CHECK_DELAY = 6_000;
 // ─── App State ────────────────────────────────────────────────────────────────
 exports.store = new electron_store_1.default({ defaults: config_1.default.defaultAppSettings });
-const internet = new internetService_1.InternetService();
 let dl;
 let dh;
 let watcher = null;
@@ -71,35 +70,37 @@ function createMainWindow(width, height) {
 // ─── Initialisation ───────────────────────────────────────────────────────────
 async function init() {
     const { width, height } = electron_1.screen.getPrimaryDisplay().workAreaSize;
-    const ipswFolder = exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder;
-    const isEnabled = exports.store.get("enable") ?? true;
     splash = createSplashWindow(width, height);
     mainWindow = createMainWindow(width, height);
-    loadRenderer(mainWindow);
-    registerMainWindowEvents(mainWindow);
-    initInternet(mainWindow);
-    watcher = new ipswWatcher_1.IPSWWatcher(mainWindow, ipswFolder);
-    dh = new dataHandle_1.DataHandle(mainWindow);
-    linkManager = new ipswHardLinkManager_1.IPSWHardLinkManager(mainWindow, watcher, dh, {
-        savePath: ipswFolder,
-        enabled: isEnabled,
-    });
     dl = new downloader_1.DownloaderMain(mainWindow, {
         stateDir: ".ipsw-state",
         config: {
             maxConcurrentTasks: 3,
             maxConnectionsPerTask: 16,
             initialConnectionsPerTask: 4,
-            chunkSize: 128 * 1024 * 1024,
+            chunkSize: 32 * 1024 * 1024,
         }
     });
-    void Promise.all([
-        dh.loadDevices(),
-        watcher.start(),
-        linkManager.start(),
-    ]).catch((error) => {
-        console.error("[AppInit] background initialization failed:", error);
+    dh = new dataHandle_1.DataHandle(mainWindow);
+    const ipswFolder = exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder;
+    const isEnabled = exports.store.get("enable") ?? true;
+    watcher = new ipswWatcher_1.IPSWWatcher(mainWindow, ipswFolder);
+    linkManager = new ipswHardLinkManager_1.IPSWHardLinkManager(mainWindow, watcher, dh, {
+        savePath: ipswFolder,
+        enabled: isEnabled,
     });
+    loadRenderer(mainWindow);
+    registerMainWindowEvents(mainWindow);
+    void (async () => {
+        try {
+            await dh.loadDevices();
+            await watcher.start();
+            await linkManager.start();
+        }
+        catch (error) {
+            console.error("[main] Failed to initialize IPSW background services:", error);
+        }
+    })();
 }
 function loadRenderer(win) {
     if (process.env.VITE_DEV_SERVER_URL || !electron_1.app.isPackaged) {
@@ -111,7 +112,7 @@ function loadRenderer(win) {
         catch { }
     }
     else {
-        win.loadFile("index.html");
+        win.loadFile("dist/index.html");
     }
 }
 function registerMainWindowEvents(win) {
@@ -121,15 +122,6 @@ function registerMainWindowEvents(win) {
         win.show();
         isReady = true;
     });
-    // win.on("close", (e) => {
-    //   e.preventDefault();
-    //   win.webContents.send("onAppClose", { taskCount: activeTasks.length });
-    // });
-}
-async function initInternet(win) {
-    internet.start();
-    internet.on("online", () => win.webContents.send("internet-changed", true));
-    internet.on("offline", () => win.webContents.send("internet-changed", false));
 }
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 electron_1.app.whenReady().then(async () => {
@@ -143,7 +135,7 @@ electron_1.app.whenReady().then(async () => {
         splash = undefined;
         mainWindow?.show();
     }, SPLASH_TIMEOUT_MS);
-    void initAutoUpdater();
+    setTimeout(() => initAutoUpdater(), UPDATER_INIT_DELAY);
 });
 electron_1.app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
@@ -175,20 +167,10 @@ function initAutoUpdater() {
 }
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 const handlers = [
-    // App
-    ["get-version", () => electron_1.app.getVersion()],
-    ["app-get-online-state", () => internet.isOnline()],
-    // Updater
-    ["updater:check", async () => {
-            try {
-                const result = await electron_updater_1.autoUpdater.checkForUpdates();
-                if (!result?.isUpdateAvailable)
-                    return { status: "no-update" };
-                return { status: "update-available", info: result.updateInfo };
-            }
-            catch (error) {
-                return { status: "error", error: error.message };
-            }
+    ["app:relaunch", async () => {
+            electron_1.app.relaunch();
+            electron_1.app.exit(0);
+            return { success: true };
         }],
     // Dialogs
     ["select-folder", async () => {
@@ -227,15 +209,6 @@ const handlers = [
     // Disk
     ["getDiskSpace", (_, targetPath) => (0, disk_1.getDiskSpace)(targetPath)],
     ["formatBytes", (_, bytes, decimals) => (0, disk_1.formatBytes)(bytes, decimals)],
-    // Close confirmation
-    // ["closeAppResult", (_: IpcMainInvokeEvent, confirmed: boolean) => {
-    //   if (confirmed) {
-    //     mainWindow?.destroy();
-    //   } else {
-    //     downloadManager?.getActiveDownloads()
-    //       .forEach(({ downloadId }) => downloadManager?.resumeDownload(downloadId));
-    //   }
-    // }],
     ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
     ["dh:getDevices", (_, product) => dh?.getDevices(product)],
     ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]

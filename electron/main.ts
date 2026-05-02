@@ -13,7 +13,6 @@ import { AppleDevice } from "./modules/appleDevice";
 import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
 import { scanFolder, deleteFile } from "./modules/localFile";
 import { getDiskSpace, formatBytes } from "./modules/disk";
-import { InternetService } from "./modules/internetService";
 import { DataHandle } from "./modules/dataHandle";
 import { IPSWWatcher } from "./modules/ipswWatcher";
 import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
@@ -36,12 +35,12 @@ const STORE_METHODS = new Set(["get", "set", "has", "delete"] as const);
 type StoreMethod = "get" | "set" | "has" | "delete";
 
 const SPLASH_TIMEOUT_MS = 10_000;
+const UPDATER_INIT_DELAY = 2_000;
 const UPDATER_CHECK_DELAY = 6_000;
 
 // ─── App State ────────────────────────────────────────────────────────────────
 
 export const store = new Store({ defaults: config.defaultAppSettings });
-const internet = new InternetService();
 
 let dl: DownloaderMain | undefined;
 let dh: DataHandle | undefined;
@@ -89,38 +88,40 @@ function createMainWindow(width: number, height: number): BrowserWindow {
 
 async function init(): Promise<void> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const ipswFolder = (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder;
-  const isEnabled = (store as any).get("enable") ?? true;
-
   splash = createSplashWindow(width, height);
   mainWindow = createMainWindow(width, height);
-  loadRenderer(mainWindow);
-  registerMainWindowEvents(mainWindow);
-  initInternet(mainWindow);
 
-  watcher = new IPSWWatcher(mainWindow, ipswFolder);
-  dh = new DataHandle(mainWindow);
-  linkManager = new IPSWHardLinkManager(mainWindow, watcher, dh, {
-    savePath: ipswFolder,
-    enabled: isEnabled,
-  });
   dl = new DownloaderMain(mainWindow, {
     stateDir: ".ipsw-state",
     config: {
       maxConcurrentTasks: 3,
       maxConnectionsPerTask: 16,
       initialConnectionsPerTask: 4,
-      chunkSize: 128 * 1024 * 1024,
+      chunkSize: 32 * 1024 * 1024,
     }
   });
 
-  void Promise.all([
-    dh.loadDevices(),
-    watcher.start(),
-    linkManager.start(),
-  ]).catch((error) => {
-    console.error("[AppInit] background initialization failed:", error);
+  dh = new DataHandle(mainWindow);
+  const ipswFolder = (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder;
+  const isEnabled = (store as any).get("enable") ?? true;
+  watcher = new IPSWWatcher(mainWindow, ipswFolder);
+  linkManager = new IPSWHardLinkManager(mainWindow, watcher, dh, {
+    savePath: ipswFolder,
+    enabled: isEnabled,
   });
+
+  loadRenderer(mainWindow);
+  registerMainWindowEvents(mainWindow);
+
+  void (async () => {
+    try {
+      await dh.loadDevices();
+      await watcher.start();
+      await linkManager.start();
+    } catch (error) {
+      console.error("[main] Failed to initialize IPSW background services:", error);
+    }
+  })();
 }
 
 function loadRenderer(win: BrowserWindow): void {
@@ -129,7 +130,7 @@ function loadRenderer(win: BrowserWindow): void {
     win.webContents.openDevTools({ mode: "detach" });
     try { require("electron-reloader")(module, { debug: false, watchRenderer: true }); } catch { }
   } else {
-    win.loadFile("index.html");
+    win.loadFile("dist/index.html");
   }
 }
 
@@ -140,20 +141,7 @@ function registerMainWindowEvents(win: BrowserWindow): void {
     win.show();
     isReady = true;
   });
-
-  // win.on("close", (e) => {
-  //   e.preventDefault();
-  //   win.webContents.send("onAppClose", { taskCount: activeTasks.length });
-  // });
 }
-
-async function initInternet(win: BrowserWindow): Promise<void> {
-  internet.start();
-
-  internet.on("online", () => win.webContents.send("internet-changed", true));
-  internet.on("offline", () => win.webContents.send("internet-changed", false));
-}
-
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
@@ -168,7 +156,7 @@ app.whenReady().then(async () => {
     mainWindow?.show();
   }, SPLASH_TIMEOUT_MS);
 
-  void initAutoUpdater();
+  setTimeout(() => initAutoUpdater(), UPDATER_INIT_DELAY);
 });
 
 app.on("window-all-closed", () => {
@@ -214,19 +202,10 @@ function initAutoUpdater(): void {
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
 const handlers: IpcHandler[] = [
-  // App
-  ["get-version", () => app.getVersion()],
-  ["app-get-online-state", () => internet.isOnline()],
-
-  // Updater
-  ["updater:check", async (): Promise<UpdateResult> => {
-    try {
-      const result = await autoUpdater.checkForUpdates();
-      if (!result?.isUpdateAvailable) return { status: "no-update" };
-      return { status: "update-available", info: result.updateInfo };
-    } catch (error) {
-      return { status: "error", error: (error as Error).message };
-    }
+  ["app:relaunch", async () => {
+    app.relaunch();
+    app.exit(0);
+    return { success: true };
   }],
 
   // Dialogs
@@ -270,17 +249,9 @@ const handlers: IpcHandler[] = [
   ["getDiskSpace", (_: IpcMainInvokeEvent, targetPath?: string) => getDiskSpace(targetPath)],
   ["formatBytes", (_: IpcMainInvokeEvent, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
 
-  // Close confirmation
-  // ["closeAppResult", (_: IpcMainInvokeEvent, confirmed: boolean) => {
-  //   if (confirmed) {
-  //     mainWindow?.destroy();
-  //   } else {
-  //     downloadManager?.getActiveDownloads()
-  //       .forEach(({ downloadId }) => downloadManager?.resumeDownload(downloadId));
-  //   }
-  // }],
   ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
   ["dh:getDevices", (_, product) => dh?.getDevices(product)],
   ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]
 ];
-handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler));
+
+handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler))

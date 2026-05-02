@@ -26,10 +26,7 @@ class IPSWWatcher {
     watcher = null;
     addedCallbacks = new Set();
     removedCallbacks = new Set();
-    // ── Task-aware debounce state ──────────────────────────────────────────────
-    /** Promise của lần reload đang chạy. null = rảnh. */
     activeReload = null;
-    /** Đường dẫn của request đang chờ (luôn giữ cái cuối nhất). */
     pendingDir = null;
     constructor(win, watchDir) {
         this.win = win;
@@ -37,18 +34,13 @@ class IPSWWatcher {
         this.registerIpcHandlers();
     }
     normalizeDir(dir) {
-        return path_1.default.resolve(dir).replace(/[\\\/]+$/, "").toLowerCase();
+        return path_1.default.resolve(dir).replace(/[\\/]+$/, "").toLowerCase();
     }
-    // ─────────────────────────────────────────
-    // Public API
-    // ─────────────────────────────────────────
-    /** Khởi tạo: scan tất cả .ipsw hiện có rồi bắt đầu watch. */
     async start() {
         await this.scanExisting();
         this.beginWatch();
         this.sendReload(this.getFiles());
     }
-    /** Dừng watcher, giải phóng tài nguyên và gỡ IPC handlers. */
     async stop() {
         electron_1.ipcMain.removeHandler(exports.IPSW_IPC.GET_FILES);
         electron_1.ipcMain.removeHandler(exports.IPSW_IPC.DELETE_FILE);
@@ -66,17 +58,9 @@ class IPSWWatcher {
         this.removedCallbacks.add(callback);
         return () => this.removedCallbacks.delete(callback);
     }
-    /** Trả về tất cả IPSWFile đang theo dõi. */
     getFiles() {
         return [...this.files.values()];
     }
-    /**
-     * Đổi thư mục theo dõi.
-     *
-     * Chiến lược debounce: nếu đang có task reload chạy, lưu dir mới vào
-     * `pendingDir` (ghi đè liên tục). Khi task hiện tại xong sẽ tự nhảy sang
-     * task mới nhất — bỏ qua mọi request ở giữa.
-     */
     changeDir(newDir) {
         const nextDir = this.normalizeDir(newDir);
         const currentDir = this.normalizeDir(this.watchDir);
@@ -86,14 +70,11 @@ class IPSWWatcher {
         if (pendingDir !== null && nextDir === pendingDir)
             return;
         if (this.activeReload !== null) {
-            // Có task đang chạy → ghi đè pending, không tạo thêm task
             this.pendingDir = newDir;
             return;
         }
-        // Không có task nào đang chạy → chạy ngay
         this.activeReload = this.runReload(newDir).finally(() => {
             this.activeReload = null;
-            // Nếu trong lúc chạy có request mới → chạy tiếp với dir cuối nhất
             if (this.pendingDir !== null) {
                 const next = this.pendingDir;
                 this.pendingDir = null;
@@ -101,18 +82,11 @@ class IPSWWatcher {
             }
         });
     }
-    /**
-     * Xoá một hoặc nhiều tệp theo path (string) hoặc IPSWFile.
-     * Hỗ trợ mọi dạng: string | string[] | IPSWFile | IPSWFile[]
-     */
     async deleteFile(target) {
         const targets = Array.isArray(target) ? target : [target];
         const paths = targets.map((t) => (typeof t === "string" ? t : t.path));
         await Promise.all(paths.map((p) => promises_1.default.unlink(p)));
     }
-    // ─────────────────────────────────────────
-    // IPC handlers (renderer ↔ main)
-    // ─────────────────────────────────────────
     registerIpcHandlers() {
         try {
             electron_1.ipcMain.removeHandler(exports.IPSW_IPC.GET_FILES);
@@ -132,13 +106,6 @@ class IPSWWatcher {
             this.changeDir(newDir);
         });
     }
-    // ─────────────────────────────────────────
-    // Private helpers
-    // ─────────────────────────────────────────
-    /**
-     * Thực sự reload: dừng watcher cũ, đổi dir, scan lại, watch mới.
-     * Gửi toàn bộ file list (hoặc [] nếu dir không tồn tại) đến renderer.
-     */
     async runReload(newDir) {
         console.log(`[IPSWWatcher] Reloading dir: ${newDir}`);
         await this.watcher?.close();
@@ -146,10 +113,8 @@ class IPSWWatcher {
         this.watchDir = newDir;
         await this.scanExisting();
         this.beginWatch();
-        // Thông báo renderer toàn bộ danh sách hiện tại
         this.sendReload(this.getFiles());
     }
-    /** Quét thư mục lần đầu để lấy các tệp .ipsw sẵn có. */
     async scanExisting() {
         this.files = new Map();
         let entries;
@@ -157,7 +122,6 @@ class IPSWWatcher {
             entries = await promises_1.default.readdir(this.watchDir);
         }
         catch {
-            // Thư mục chưa tồn tại – bỏ qua, chokidar sẽ watch khi có
             return;
         }
         await Promise.all(entries
@@ -169,7 +133,6 @@ class IPSWWatcher {
                 this.files.set(fullPath, file);
         }));
     }
-    /** Tạo và khởi động chokidar watcher. */
     beginWatch() {
         this.watcher = chokidar_1.default.watch(this.watchDir, {
             ignored: (filePath) => {
@@ -177,8 +140,8 @@ class IPSWWatcher {
                 return !isDir && !filePath.toLowerCase().endsWith(".ipsw");
             },
             persistent: true,
-            ignoreInitial: true, // đã scan thủ công ở trên
-            depth: 0, // chỉ watch flat (không đệ quy)
+            ignoreInitial: true,
+            depth: 0,
             awaitWriteFinish: {
                 stabilityThreshold: 3000,
                 pollInterval: 500,
@@ -189,6 +152,9 @@ class IPSWWatcher {
         this.watcher.on("error", (err) => console.error("[IPSWWatcher] watcher error:", err));
     }
     async onAdded(filePath) {
+        const ready = await this.waitForStableFile(filePath);
+        if (!ready)
+            return;
         console.log(`[IPSWWatcher] File write finished: ${filePath}`);
         const file = await this.buildIPSWFile(filePath);
         if (!file)
@@ -205,13 +171,11 @@ class IPSWWatcher {
         this.sendReload([]);
         await Promise.all([...this.removedCallbacks].map((callback) => Promise.resolve(callback([file]))));
     }
-    /** Gửi event `ipsw:reload` kèm danh sách file. */
     sendReload(files) {
         if (this.win.isDestroyed())
             return;
         this.win.webContents.send(exports.IPSW_IPC.RELOAD, files);
     }
-    /** Đọc stat và tạo IPSWFile; trả về null nếu lỗi. */
     async buildIPSWFile(filePath) {
         try {
             const stat = await promises_1.default.stat(filePath);
@@ -224,6 +188,38 @@ class IPSWWatcher {
         catch {
             return null;
         }
+    }
+    async waitForStableFile(filePath) {
+        const timeoutMs = 15_000;
+        const stableChecksRequired = 3;
+        const pollIntervalMs = 1000;
+        let lastSize = -1;
+        let stableChecks = 0;
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < timeoutMs) {
+            try {
+                const stat = await promises_1.default.stat(filePath);
+                if (!stat.isFile())
+                    return false;
+                if (stat.size > 0 && stat.size === lastSize) {
+                    stableChecks += 1;
+                    if (stableChecks >= stableChecksRequired)
+                        return true;
+                }
+                else {
+                    stableChecks = 0;
+                    lastSize = stat.size;
+                }
+            }
+            catch {
+                return false;
+            }
+            await this.sleep(pollIntervalMs);
+        }
+        return false;
+    }
+    sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 }
 exports.IPSWWatcher = IPSWWatcher;
