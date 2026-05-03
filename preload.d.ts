@@ -93,7 +93,7 @@ interface DownloaderAPI {
   resume: (id: string) => Promise<void>;
   cancel: (id: string) => Promise<void>;
   getAllTask: () => Promise<Task[]>;
-  getIncompleteTasks: () => Promise<IncompleteTask[]>;
+  getIncompleteTasks: () => Promise<IncompleteTask>;
   resumeIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
   deleteIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
 
@@ -107,58 +107,6 @@ interface DownloaderAPI {
   onCancelled:         (cb: (id: string) => void) => EventResponse;
   onIncompleteDeleted: (cb: (id: string) => void) => EventResponse;
   onError:             (cb: (id: string, error: string, task: Task) => void) => EventResponse;
-}
-
-interface DownloadProgressInfo {
-  downloaded: number;
-  total: number;
-  pct: number;
-  speed: number;
-  eta?: number;
-  activeChunks: number;
-  source: "lan" | "cdn";
-}
-
-interface LANShareStatus {
-  role: "coordinator" | "peer";
-  coordinatorUrl: string;
-  peerPort: number;
-  nodeId: string;
-  shareDir: string;
-  fileCount: number;
-  storageType: string;
-}
-
-interface FileFindResult {
-  fileId: string;
-  ip: string;
-  port: number;
-  name: string;
-  size: number;
-}
-
-interface LANDownloadOpts {
-  fileId: string;
-  peerIp: string;
-  peerPort: number;
-  fileName: string;
-  fileSize: number;
-  firmware: Firmware;
-  savePath: string;
-}
-
-interface LANShareAPI {
-  findFile: (fileName: string) => Promise<FileFindResult | "none">;
-  download: (opts: LANDownloadOpts) => Promise<{ success: boolean; via: "lan" | "cdn"; downloadId: string; error?: string }>;
-  cancelDownload: (downloadId: string) => Promise<{ success: boolean; error?: string }>;
-  isFileOnLAN: (fileName: string) => Promise<{ available: boolean; peerCount: number }>;
-  getStatus: () => Promise<LANShareStatus | null>;
-  listPeers: () => Promise<{ peers: any[] }>;
-  getPeerFiles: (nodeId: string) => Promise<any>;
-  getPeerDetail: (nodeId: string) => Promise<any>;
-  rescan: () => Promise<void>;
-  onProgress: (cb: (info: DownloadProgressInfo) => void) => EventResponse;
-  onFallback: (cb: (downloadId: string) => void) => EventResponse;
 }
 
 declare global {
@@ -241,7 +189,6 @@ declare global {
 
   interface Window {
     downloader: DownloaderAPI
-    lanShare: LANShareAPI;
     api: ElectronApi;
     store: ElectronStoreApi;
     updater: ElectronUpdaterApi;
@@ -258,10 +205,5 @@ export type {
   ElectronApi,
   ElectronStoreApi,
   ElectronUpdaterApi,
-  DownloaderAPI,
-  LANShareAPI,
-  FileFindResult,
-  LANDownloadOpts,
-  DownloadProgressInfo,
-  LANShareStatus
+  DownloaderAPI
 };

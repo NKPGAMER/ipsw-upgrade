@@ -60,15 +60,13 @@ exports.DownloaderMain = void 0;
 const path = __importStar(require("path"));
 const worker_threads_1 = require("worker_threads");
 const crypto_1 = require("crypto");
-const events_1 = require("events");
-class DownloaderMain extends events_1.EventEmitter {
+class DownloaderMain {
     worker = null;
     win;
     stateDir;
     config;
     pending = new Map();
     constructor(win, opts = { stateDir: ".ipsw-state" }) {
-        super();
         this.win = win;
         this.stateDir = opts.stateDir;
         this.config = opts.config ?? {};
@@ -105,7 +103,6 @@ class DownloaderMain extends events_1.EventEmitter {
         }
         if (msg.type === "event") {
             const { channel, ...rest } = msg;
-            this.emit(channel, rest);
             this.sendToRenderer(channel, rest);
         }
     }
@@ -120,15 +117,6 @@ class DownloaderMain extends events_1.EventEmitter {
     // ─── Public API ───────────────────────────────────────────────────────────
     add(firmware, savePath, config = {}) {
         return this.call({ type: "add", reqId: (0, crypto_1.randomUUID)(), firmware, savePath, config });
-    }
-    onTaskEvent(listener) {
-        for (const channel of ["started", "progress", "completed", "paused", "resumed", "added", "cancelled", "incomplete_deleted", "error"]) {
-            this.on(channel, (payload) => listener({ event: channel, ...payload }));
-        }
-        return this;
-    }
-    getActiveTaskSnapshots() {
-        return this.getAllTask();
     }
     pause(id) { this.ensureWorker().postMessage({ type: "pause", id }); }
     resume(id) { this.ensureWorker().postMessage({ type: "resume", id }); }

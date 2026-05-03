@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -43,7 +10,7 @@ const electron_1 = require("electron");
 const electron_store_1 = __importDefault(require("electron-store"));
 const electron_updater_1 = require("electron-updater");
 // System
-const path_1 = __importStar(require("path"));
+const path_1 = require("path");
 // Modules
 const appleDevice_1 = require("./modules/appleDevice");
 const userData_1 = require("./modules/userData");
@@ -53,8 +20,6 @@ const dataHandle_1 = require("./modules/dataHandle");
 const ipswWatcher_1 = require("./modules/ipswWatcher");
 const ipswHardLinkManager_1 = require("./modules/ipswHardLinkManager");
 const downloader_1 = require("./modules/downloader");
-const main_1 = require("./modules/lan-share/main");
-const state_manager_1 = require("./modules/downloader/state-manager");
 // Config
 const config_1 = __importDefault(require("./config"));
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -65,7 +30,6 @@ const UPDATER_CHECK_DELAY = 6_000;
 // ─── App State ────────────────────────────────────────────────────────────────
 exports.store = new electron_store_1.default({ defaults: config_1.default.defaultAppSettings });
 let dl;
-let lanShare;
 let dh;
 let watcher = null;
 let linkManager = null;
@@ -108,11 +72,8 @@ async function init() {
     const { width, height } = electron_1.screen.getPrimaryDisplay().workAreaSize;
     splash = createSplashWindow(width, height);
     mainWindow = createMainWindow(width, height);
-    const stateDir = path_1.default.join(electron_1.app.getPath("userData"), "ipsw-state");
-    const saveDir = exports.store.get("ipswFolder") ?? electron_1.app.getPath("downloads");
-    const sharedStateManager = new state_manager_1.StateManager(stateDir);
     dl = new downloader_1.DownloaderMain(mainWindow, {
-        stateDir,
+        stateDir: ".ipsw-state",
         config: {
             maxConcurrentTasks: 3,
             maxConnectionsPerTask: 16,
@@ -120,26 +81,21 @@ async function init() {
             chunkSize: 32 * 1024 * 1024,
         }
     });
-    lanShare = new main_1.LANShare({
-        shareDir: saveDir,
-        storageType: (0, disk_1.getDriveType)(saveDir),
-        stateManager: sharedStateManager,
-    });
     dh = new dataHandle_1.DataHandle(mainWindow);
-    watcher = new ipswWatcher_1.IPSWWatcher(mainWindow, saveDir);
+    const ipswFolder = exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder;
+    const isEnabled = exports.store.get("enable") ?? true;
+    watcher = new ipswWatcher_1.IPSWWatcher(mainWindow, ipswFolder);
     linkManager = new ipswHardLinkManager_1.IPSWHardLinkManager(mainWindow, watcher, dh, {
-        savePath: saveDir,
-        enabled: true,
+        savePath: ipswFolder,
+        enabled: isEnabled,
     });
     loadRenderer(mainWindow);
     registerMainWindowEvents(mainWindow);
     void (async () => {
         try {
-            await lanShare.start();
             await dh.loadDevices();
             await watcher.start();
             await linkManager.start();
-            wireDownloaderToLanShare();
         }
         catch (error) {
             console.error("[main] Failed to initialize IPSW background services:", error);
@@ -184,7 +140,6 @@ electron_1.app.whenReady().then(async () => {
 electron_1.app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
         void dl?.destroy();
-        void lanShare?.stop();
         electron_1.app.quit();
     }
 });
@@ -192,42 +147,10 @@ electron_1.app.on("activate", () => {
     if (electron_1.BrowserWindow.getAllWindows().length === 0)
         void init();
 });
-electron_1.app.on("before-quit", () => {
-    void dl?.destroy();
-    void lanShare?.stop();
-});
 electron_1.ipcMain.handle("ipsw:sync-link-config", async (_event, savePath, enabled) => {
     await linkManager?.updateConfig({ savePath, enabled });
     return { success: true };
 });
-function wireDownloaderToLanShare() {
-    if (!dl || !lanShare)
-        return;
-    // Give LANShare access to main downloader for CDN fallback
-    lanShare.setDownloader(dl);
-    // When LAN download has partial progress and falls back to CDN, notify renderer
-    lanShare.on("fallback-to-cdn", (downloadId) => {
-        mainWindow?.webContents.send("lan-download:fallback", downloadId);
-    });
-    const sync = () => void lanShare?.notifyDownloadState();
-    dl.onTaskEvent(({ event }) => {
-        if (event === "started") {
-            void lanShare?.beginLocalDownload();
-            return;
-        }
-        if (event === "completed" || event === "cancelled" || event === "error") {
-            void lanShare?.endLocalDownload();
-            return;
-        }
-        if (event === "paused") {
-            void lanShare?.notifyDownloadState();
-            return;
-        }
-        if (event === "resumed" || event === "progress" || event === "added" || event === "incomplete_deleted") {
-            sync();
-        }
-    });
-}
 // ─── Auto Updater ─────────────────────────────────────────────────────────────
 function initAutoUpdater() {
     electron_updater_1.autoUpdater.autoDownload = true;
@@ -288,46 +211,6 @@ const handlers = [
     ["formatBytes", (_, bytes, decimals) => (0, disk_1.formatBytes)(bytes, decimals)],
     ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
     ["dh:getDevices", (_, product) => dh?.getDevices(product)],
-    ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)],
-    ["lan:getStatus", () => lanShare?.getStatus() ?? null],
-    ["lan:listPeers", () => lanShare?.listPeers() ?? null],
-    ["lan:getPeerFiles", (_, nodeId) => lanShare?.getPeerFiles(nodeId) ?? null],
-    ["lan:getPeerDetail", (_, nodeId) => lanShare?.getPeerDetail(nodeId) ?? null],
-    ["lan:rescan", () => lanShare?.rescan()],
-    // LAN file search by filename
-    ["lan:findFile", async (_event, fileName) => {
-            if (!lanShare)
-                return "none";
-            return lanShare.findFile(fileName);
-        }],
-    // LAN direct P2P download (fileId from findFile)
-    ["lan:download", async (_event, opts) => {
-            if (!lanShare)
-                return { success: false, error: "LANShare not initialized" };
-            const stateDir = path_1.default.join(electron_1.app.getPath("userData"), "ipsw-state");
-            const result = await lanShare.download({
-                fileId: opts.fileId,
-                fileName: opts.fileName,
-                fileSize: opts.fileSize,
-                peerIp: opts.peerIp,
-                peerPort: opts.peerPort,
-                firmware: opts.firmware,
-                savePath: opts.savePath,
-                tmpDir: stateDir,
-                onProgress: (info) => {
-                    mainWindow?.webContents.send("lan-download:progress", info);
-                },
-            });
-            return result;
-        }],
-    ["lan:cancelDownload", (_event, downloadId) => {
-            return lanShare?.cancelDownload(downloadId) ?? { success: false, error: "LANShare not initialized" };
-        }],
-    ["lan:isFileOnLAN", async (_event, fileName) => {
-            if (!lanShare)
-                return { available: false, peerCount: 0 };
-            const result = await lanShare.findFile(fileName);
-            return { available: result !== "none", peerCount: result !== "none" ? 1 : 0 };
-        }],
+    ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]
 ];
 handlers.forEach(([channel, handler]) => electron_1.ipcMain.handle(channel, handler));

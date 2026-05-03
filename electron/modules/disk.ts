@@ -2,61 +2,6 @@ import { execSync } from 'child_process';
 import { platform } from 'os';
 import { parse, resolve } from "path";
 
-type DriveType = 'SSD' | 'HDD' | 'unknown';
-
-function getDriveType(dir: string): DriveType {
-  const p = platform();
-  const driveRoot = parse(resolve(dir)).root;
-
-  if (p === 'win32') {
-    return getWindowsDriveType(driveRoot);
-  } else if (p === 'darwin') {
-    return getMacOSDriveType(driveRoot);
-  } else {
-    return getLinuxDriveType(driveRoot);
-  }
-}
-
-function getWindowsDriveType(driveRoot: string): DriveType {
-  try {
-    const driveLetter = driveRoot.charAt(0);
-    const cmd = `powershell "Get-PhysicalDisk | Where-Object { (Get-Partition -DriveLetter ${driveLetter}).DiskNumber -eq $_.DeviceId } | Select-Object -ExpandProperty MediaType"`;
-    const output = execSync(cmd, { encoding: 'utf8' }).trim();
-    if (output === 'SSD') return 'SSD';
-    if (output === 'HDD') return 'HDD';
-    return 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
-
-function getLinuxDriveType(driveRoot: string): DriveType {
-  try {
-    const cmd = `df -P "${driveRoot}" | tail -1 | awk '{print $1}'`;
-    const device = execSync(cmd, { encoding: 'utf8' }).trim();
-
-    const rotationalCmd = `lsblk -no ROTA "${device}" 2>/dev/null`;
-    const rotational = execSync(rotationalCmd, { encoding: 'utf8' }).trim();
-    if (rotational === '0') return 'SSD';
-    if (rotational === '1') return 'HDD';
-    return 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
-
-function getMacOSDriveType(driveRoot: string): DriveType {
-  try {
-    const cmd = `diskutil info "${driveRoot}" | grep -i "solid state\\|rotational"`;
-    const output = execSync(cmd, { encoding: 'utf8' }).toLowerCase();
-    if (output.includes('solid state') && output.includes('yes')) return 'SSD';
-    if (output.includes('rotational') && output.includes('yes')) return 'HDD';
-    return 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
-
 function getDiskSpace(targetPath?: string): DiskSpace {
   const p = platform();
   const checkPath = targetPath || process.cwd();
@@ -130,4 +75,4 @@ function formatBytes(bytes: number, decimals: number = 2): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
 }
 
-export { getDiskSpace, formatBytes, getDriveType, DriveType };
+export { getDiskSpace, formatBytes };

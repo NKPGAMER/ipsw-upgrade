@@ -5,23 +5,27 @@ import {
   OpenDialogOptions, FileFilter, IpcMainInvokeEvent, screen
 } from "electron";
 import Store from "electron-store";
-import { autoUpdater } from "electron-updater";
+import { autoUpdater, UpdateInfo } from "electron-updater";
 // System
-import path, { join } from "path";
+import { join } from "path";
 // Modules
 import { AppleDevice } from "./modules/appleDevice";
 import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
 import { scanFolder, deleteFile } from "./modules/localFile";
-import { getDiskSpace, formatBytes, getDriveType } from "./modules/disk";
+import { getDiskSpace, formatBytes } from "./modules/disk";
 import { DataHandle } from "./modules/dataHandle";
 import { IPSWWatcher } from "./modules/ipswWatcher";
 import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
 import { DownloaderMain } from "./modules/downloader";
-import { LANShare } from "./modules/lan-share/main";
-import { StateManager } from "./modules/downloader/state-manager";
 // Config
 import config from "./config";
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface UpdateResult {
+  status: "no-update" | "update-available" | "error";
+  info?: UpdateInfo;
+  error?: string;
+}
 
 type IpcHandler = [string, (event: IpcMainInvokeEvent, ...args: any[]) => any];
 
@@ -39,7 +43,6 @@ const UPDATER_CHECK_DELAY = 6_000;
 export const store = new Store({ defaults: config.defaultAppSettings });
 
 let dl: DownloaderMain | undefined;
-let lanShare: LANShare | undefined;
 let dh: DataHandle | undefined;
 let watcher: IPSWWatcher | null = null;
 let linkManager: IPSWHardLinkManager | null = null;
@@ -88,12 +91,8 @@ async function init(): Promise<void> {
   splash = createSplashWindow(width, height);
   mainWindow = createMainWindow(width, height);
 
-  const stateDir = path.join(app.getPath("userData"), "ipsw-state");
-  const saveDir = (store as any).get("ipswFolder") ?? app.getPath("downloads");
-  const sharedStateManager = new StateManager(stateDir);
-
   dl = new DownloaderMain(mainWindow, {
-    stateDir,
+    stateDir: ".ipsw-state",
     config: {
       maxConcurrentTasks: 3,
       maxConnectionsPerTask: 16,
@@ -102,17 +101,13 @@ async function init(): Promise<void> {
     }
   });
 
-  lanShare = new LANShare({
-    shareDir: saveDir,
-    storageType: getDriveType(saveDir),
-    stateManager: sharedStateManager,
-  });
-
   dh = new DataHandle(mainWindow);
-  watcher = new IPSWWatcher(mainWindow, saveDir);
+  const ipswFolder = (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder;
+  const isEnabled = (store as any).get("enable") ?? true;
+  watcher = new IPSWWatcher(mainWindow, ipswFolder);
   linkManager = new IPSWHardLinkManager(mainWindow, watcher, dh, {
-    savePath: saveDir,
-    enabled: true,
+    savePath: ipswFolder,
+    enabled: isEnabled,
   });
 
   loadRenderer(mainWindow);
@@ -120,11 +115,9 @@ async function init(): Promise<void> {
 
   void (async () => {
     try {
-      await lanShare.start();
       await dh.loadDevices();
       await watcher.start();
       await linkManager.start();
-      wireDownloaderToLanShare();
     } catch (error) {
       console.error("[main] Failed to initialize IPSW background services:", error);
     }
@@ -169,7 +162,6 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     void dl?.destroy();
-    void lanShare?.stop();
     app.quit();
   }
 });
@@ -178,50 +170,10 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) void init();
 });
 
-app.on("before-quit", () => {
-  void dl?.destroy();
-  void lanShare?.stop();
-});
-
 ipcMain.handle("ipsw:sync-link-config", async (_event, savePath: string, enabled: boolean) => {
   await linkManager?.updateConfig({ savePath, enabled });
   return { success: true };
 });
-
-function wireDownloaderToLanShare(): void {
-  if (!dl || !lanShare) return;
-
-  // Give LANShare access to main downloader for CDN fallback
-  lanShare.setDownloader(dl);
-
-  // When LAN download has partial progress and falls back to CDN, notify renderer
-  lanShare.on("fallback-to-cdn", (downloadId: string) => {
-    mainWindow?.webContents.send("lan-download:fallback", downloadId);
-  });
-
-  const sync = () => void lanShare?.notifyDownloadState();
-
-  dl.onTaskEvent(({ event }) => {
-    if (event === "started") {
-      void lanShare?.beginLocalDownload();
-      return;
-    }
-
-    if (event === "completed" || event === "cancelled" || event === "error") {
-      void lanShare?.endLocalDownload();
-      return;
-    }
-
-    if (event === "paused") {
-      void lanShare?.notifyDownloadState();
-      return;
-    }
-
-    if (event === "resumed" || event === "progress" || event === "added" || event === "incomplete_deleted") {
-      sync();
-    }
-  });
-}
 
 // ─── Auto Updater ─────────────────────────────────────────────────────────────
 
@@ -299,59 +251,7 @@ const handlers: IpcHandler[] = [
 
   ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
   ["dh:getDevices", (_, product) => dh?.getDevices(product)],
-  ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)],
-  ["lan:getStatus", () => lanShare?.getStatus() ?? null],
-  ["lan:listPeers", () => lanShare?.listPeers() ?? null],
-  ["lan:getPeerFiles", (_: IpcMainInvokeEvent, nodeId: string) => lanShare?.getPeerFiles(nodeId) ?? null],
-  ["lan:getPeerDetail", (_: IpcMainInvokeEvent, nodeId: string) => lanShare?.getPeerDetail(nodeId) ?? null],
-  ["lan:rescan", () => lanShare?.rescan()],
-
-  // LAN file search by filename
-  ["lan:findFile", async (_event: IpcMainInvokeEvent, fileName: string) => {
-    if (!lanShare) return "none";
-    return lanShare.findFile(fileName);
-  }],
-
-  // LAN direct P2P download (fileId from findFile)
-  ["lan:download", async (_event: IpcMainInvokeEvent, opts: {
-    fileId: string;
-    peerIp: string;
-    peerPort: number;
-    fileName: string;
-    fileSize: number;
-    firmware: Firmware;
-    savePath: string;
-  }) => {
-    if (!lanShare) return { success: false, error: "LANShare not initialized" };
-    const stateDir = path.join(app.getPath("userData"), "ipsw-state");
-
-    const result = await lanShare.download({
-      fileId: opts.fileId,
-      fileName: opts.fileName,
-      fileSize: opts.fileSize,
-      peerIp: opts.peerIp,
-      peerPort: opts.peerPort,
-      firmware: opts.firmware,
-      savePath: opts.savePath,
-      tmpDir: stateDir,
-      onProgress: (info) => {
-        mainWindow?.webContents.send("lan-download:progress", info);
-      },
-    });
-
-    return result;
-  }],
-
-  ["lan:cancelDownload", (_event: IpcMainInvokeEvent, downloadId: string) => {
-    return lanShare?.cancelDownload(downloadId) ?? { success: false, error: "LANShare not initialized" };
-  }],
-
-  ["lan:isFileOnLAN", async (_event: IpcMainInvokeEvent, fileName: string) => {
-    if (!lanShare) return { available: false, peerCount: 0 };
-    const result = await lanShare.findFile(fileName);
-    return { available: result !== "none", peerCount: result !== "none" ? 1 : 0 };
-  }],
+  ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]
 ];
 
-handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler));
-
+handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler))

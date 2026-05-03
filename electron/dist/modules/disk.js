@@ -2,68 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDiskSpace = getDiskSpace;
 exports.formatBytes = formatBytes;
-exports.getDriveType = getDriveType;
 const child_process_1 = require("child_process");
 const os_1 = require("os");
 const path_1 = require("path");
-function getDriveType(dir) {
-    const p = (0, os_1.platform)();
-    const driveRoot = (0, path_1.parse)((0, path_1.resolve)(dir)).root;
-    if (p === 'win32') {
-        return getWindowsDriveType(driveRoot);
-    }
-    else if (p === 'darwin') {
-        return getMacOSDriveType(driveRoot);
-    }
-    else {
-        return getLinuxDriveType(driveRoot);
-    }
-}
-function getWindowsDriveType(driveRoot) {
-    try {
-        const driveLetter = driveRoot.charAt(0);
-        const cmd = `powershell "Get-PhysicalDisk | Where-Object { (Get-Partition -DriveLetter ${driveLetter}).DiskNumber -eq $_.DeviceId } | Select-Object -ExpandProperty MediaType"`;
-        const output = (0, child_process_1.execSync)(cmd, { encoding: 'utf8' }).trim();
-        if (output === 'SSD')
-            return 'SSD';
-        if (output === 'HDD')
-            return 'HDD';
-        return 'unknown';
-    }
-    catch {
-        return 'unknown';
-    }
-}
-function getLinuxDriveType(driveRoot) {
-    try {
-        const cmd = `df -P "${driveRoot}" | tail -1 | awk '{print $1}'`;
-        const device = (0, child_process_1.execSync)(cmd, { encoding: 'utf8' }).trim();
-        const rotationalCmd = `lsblk -no ROTA "${device}" 2>/dev/null`;
-        const rotational = (0, child_process_1.execSync)(rotationalCmd, { encoding: 'utf8' }).trim();
-        if (rotational === '0')
-            return 'SSD';
-        if (rotational === '1')
-            return 'HDD';
-        return 'unknown';
-    }
-    catch {
-        return 'unknown';
-    }
-}
-function getMacOSDriveType(driveRoot) {
-    try {
-        const cmd = `diskutil info "${driveRoot}" | grep -i "solid state\\|rotational"`;
-        const output = (0, child_process_1.execSync)(cmd, { encoding: 'utf8' }).toLowerCase();
-        if (output.includes('solid state') && output.includes('yes'))
-            return 'SSD';
-        if (output.includes('rotational') && output.includes('yes'))
-            return 'HDD';
-        return 'unknown';
-    }
-    catch {
-        return 'unknown';
-    }
-}
 function getDiskSpace(targetPath) {
     const p = (0, os_1.platform)();
     const checkPath = targetPath || process.cwd();
