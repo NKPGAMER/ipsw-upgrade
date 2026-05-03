@@ -18,6 +18,8 @@ import { IPSWWatcher } from "./modules/ipswWatcher";
 import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
 import { DownloaderMain } from "./modules/downloader";
 import { LANShare } from "./modules/lan-share/main";
+import { StateManager } from "./modules/downloader/state-manager";
+import { createHash } from "crypto";
 // Config
 import config from "./config";
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -87,8 +89,11 @@ async function init(): Promise<void> {
   splash = createSplashWindow(width, height);
   mainWindow = createMainWindow(width, height);
 
+  const stateDir = path.join(app.getPath("userData"), "ipsw-state");
+  const sharedStateManager = new StateManager(stateDir);
+
   dl = new DownloaderMain(mainWindow, {
-    stateDir: path.join(app.getPath("userData"), "ipsw-state"),
+    stateDir,
     config: {
       maxConcurrentTasks: 3,
       maxConnectionsPerTask: 16,
@@ -100,6 +105,7 @@ async function init(): Promise<void> {
   lanShare = new LANShare({
     shareDir: (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder,
     storageType: "SSD",
+    stateManager: sharedStateManager,
   });
 
   dh = new DataHandle(mainWindow);
@@ -186,6 +192,14 @@ ipcMain.handle("ipsw:sync-link-config", async (_event, savePath: string, enabled
 
 function wireDownloaderToLanShare(): void {
   if (!dl || !lanShare) return;
+
+  // Give LANShare access to main downloader for CDN fallback
+  lanShare.setDownloader(dl);
+
+  // When LAN download has partial progress and falls back to CDN, notify renderer
+  lanShare.on("fallback-to-cdn", (downloadId: string) => {
+    mainWindow?.webContents.send("lan-download:fallback", downloadId);
+  });
 
   const sync = () => void lanShare?.notifyDownloadState();
 
@@ -292,7 +306,45 @@ const handlers: IpcHandler[] = [
   ["lan:listPeers", () => lanShare?.listPeers() ?? null],
   ["lan:getPeerFiles", (_: IpcMainInvokeEvent, nodeId: string) => lanShare?.getPeerFiles(nodeId) ?? null],
   ["lan:getPeerDetail", (_: IpcMainInvokeEvent, nodeId: string) => lanShare?.getPeerDetail(nodeId) ?? null],
-  ["lan:rescan", () => lanShare?.rescan()]
+  ["lan:rescan", () => lanShare?.rescan()],
+
+  // LAN download with CDN fallback
+  ["lan:download", async (_event: IpcMainInvokeEvent, firmware: Firmware, savePath: string) => {
+    if (!lanShare) return { success: false, error: "LANShare not initialized" };
+
+    const fileId = createHash("sha256")
+      .update(firmware.url).digest("hex").slice(0, 16);
+    const fileName = firmware.url.split("/").pop() || `${firmware.identifier}_${firmware.buildid}.ipsw`;
+    const stateDir = path.join(app.getPath("userData"), "ipsw-state");
+
+    const result = await lanShare.download({
+      fileId,
+      fileName,
+      fileSize: firmware.filesize,
+      firmware,
+      firmwareUrl: firmware.url,
+      savePath,
+      tmpDir: stateDir,
+      onProgress: (info) => {
+        mainWindow?.webContents.send("lan-download:progress", info);
+      },
+    });
+
+    return result;
+  }],
+
+  ["lan:cancelDownload", (_event: IpcMainInvokeEvent, downloadId: string) => {
+    return lanShare?.cancelDownload(downloadId) ?? { success: false, error: "LANShare not initialized" };
+  }],
+
+  ["lan:isFileOnLAN", async (_event: IpcMainInvokeEvent, firmware: Firmware) => {
+    if (!lanShare) return { available: false, peerCount: 0 };
+    const fileId = createHash("sha256")
+      .update(firmware.url).digest("hex").slice(0, 16);
+    const result = await lanShare.findFile(fileId);
+    const locations = (result as any)?.locations ?? [];
+    return { available: locations.length > 0, peerCount: locations.length };
+  }],
 ];
 
 handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler));

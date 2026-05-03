@@ -193,6 +193,11 @@ function createCoordinatorApp(registry) {
         const peers = registry.listLivePeers();
         res.json({ status: "ok", livePeers: peers.length, uptime: process.uptime() });
     });
+    // ── GET /get-health ──────────────────────────────────────────────────────────
+    // Plain-text response used by isIPSWManager() for coordinator detection
+    app.get("/get-health", (_req, res) => {
+        res.type("text/plain").send("ipsw-manager");
+    });
     // ── 404 catch-all ──────────────────────────────────────────────────────────
     app.use((_req, res) => {
         res.status(404).json({ error: "Not found" });

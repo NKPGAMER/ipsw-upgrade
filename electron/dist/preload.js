@@ -116,6 +116,19 @@ const downloaderAPI = {
     onIncompleteDeleted: (cb) => listen("dm:incomplete_deleted", cb),
     onError: (cb) => listen("dm:error", cb),
 };
+const lanShareAPI = {
+    download: (firmware, savePath) => electron_1.ipcRenderer.invoke("lan:download", firmware, savePath),
+    cancelDownload: (downloadId) => electron_1.ipcRenderer.invoke("lan:cancelDownload", downloadId),
+    isFileOnLAN: (firmware) => electron_1.ipcRenderer.invoke("lan:isFileOnLAN", firmware),
+    getStatus: () => electron_1.ipcRenderer.invoke("lan:getStatus"),
+    listPeers: () => electron_1.ipcRenderer.invoke("lan:listPeers"),
+    getPeerFiles: (nodeId) => electron_1.ipcRenderer.invoke("lan:getPeerFiles", nodeId),
+    getPeerDetail: (nodeId) => electron_1.ipcRenderer.invoke("lan:getPeerDetail", nodeId),
+    rescan: () => electron_1.ipcRenderer.invoke("lan:rescan"),
+    onProgress: (cb) => listen("lan-download:progress", cb),
+    onFallback: (cb) => listen("lan-download:fallback", cb),
+};
+electron_1.contextBridge.exposeInMainWorld('lanShare', lanShareAPI);
 electron_1.contextBridge.exposeInMainWorld('api', api);
 electron_1.contextBridge.exposeInMainWorld('downloader', downloaderAPI);
 electron_1.contextBridge.exposeInMainWorld('store', storeApi);

@@ -141,6 +141,20 @@ const downloaderAPI: DownloaderAPI = {
   onError: (cb) => listen("dm:error", cb),
 }
 
+const lanShareAPI = {
+  download: (firmware: Firmware, savePath: string) => ipcRenderer.invoke("lan:download", firmware, savePath),
+  cancelDownload: (downloadId: string) => ipcRenderer.invoke("lan:cancelDownload", downloadId),
+  isFileOnLAN: (firmware: Firmware) => ipcRenderer.invoke("lan:isFileOnLAN", firmware),
+  getStatus: () => ipcRenderer.invoke("lan:getStatus"),
+  listPeers: () => ipcRenderer.invoke("lan:listPeers"),
+  getPeerFiles: (nodeId: string) => ipcRenderer.invoke("lan:getPeerFiles", nodeId),
+  getPeerDetail: (nodeId: string) => ipcRenderer.invoke("lan:getPeerDetail", nodeId),
+  rescan: () => ipcRenderer.invoke("lan:rescan"),
+  onProgress: (cb: (info: any) => void) => listen("lan-download:progress", cb),
+  onFallback: (cb: (downloadId: string) => void) => listen("lan-download:fallback", cb),
+};
+
+contextBridge.exposeInMainWorld('lanShare', lanShareAPI);
 contextBridge.exposeInMainWorld('api', api);
 contextBridge.exposeInMainWorld('downloader', downloaderAPI);
 contextBridge.exposeInMainWorld('store', storeApi);

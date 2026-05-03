@@ -18,6 +18,8 @@ import { URL } from "url";
 import type { FileLocation, ChunkPlan, CanServeResponse } from "../shared/types";
 import { buildChunkPlan, rankCandidates, formatBytes, formatSpeed } from "../shared/utils";
 import type { PeerNode } from "./node";
+import type { DownloadState, ChunkState } from "../../downloader/types";
+import type { StateManager } from "../../downloader/state-manager";
 
 export interface DownloadOptions {
   coordinatorUrl: string;
@@ -28,6 +30,8 @@ export interface DownloadOptions {
   maxConcurrentChunks?: number;
   chunkSize?: number;
   onProgress?: (info: ProgressInfo) => void;
+  stateManager?: StateManager;
+  downloadId?: string;
 }
 
 export interface ProgressInfo {
@@ -37,7 +41,8 @@ export interface ProgressInfo {
   speed: number;    // bytes/s
   eta?: number;     // seconds
   activeChunks: number;
-  source?: "lan" | "apple";
+  source?: "lan" | "cdn";
+  chunkIndex?: number;
 }
 
 const DEFAULT_CHUNK_SIZE = 32 * 1024 * 1024;   // 32 MB
@@ -48,6 +53,7 @@ const WRITE_BUFFER_SIZE = 512 * 1024;          // 512 KB write buffer per chunk
 
 export class PeerDownloader {
   private node?: PeerNode;
+  private downloadState?: DownloadState;
 
   constructor(node?: PeerNode) {
     this.node = node;
@@ -80,6 +86,34 @@ export class PeerDownloader {
 
       // Step 4: Allocate output file
       await this.allocateFile(opts.outputPath, opts.fileSize);
+
+      // Step 4b: Initialize DownloadState for resume compatibility
+      if (opts.stateManager && opts.downloadId) {
+        let state = opts.stateManager.load(opts.downloadId);
+        if (!state) {
+          // No pre-existing state — build one (firmware is placeholder; caller should pre-save)
+          const chunkStates: ChunkState[] = chunks.map(c => ({
+            index: c.index,
+            start: c.rangeStart,
+            end: c.rangeEnd,
+            downloaded: 0,
+            completed: false,
+          }));
+          state = {
+            id: opts.downloadId,
+            firmware: {} as any,
+            savePath: path.dirname(opts.outputPath),
+            tmpPath: opts.outputPath,
+            totalSize: opts.fileSize,
+            chunks: chunkStates,
+            supportsRanges: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+          opts.stateManager.save(state);
+        }
+        this.downloadState = state;
+      }
 
       // Step 5: Download
       await this.downloadChunks(chunks, opts, probed);
@@ -159,9 +193,25 @@ export class PeerDownloader {
     let downloadedBytes = 0;
     let activeChunks = 0;
     const startedAt = Date.now();
+    let lastStateFlushAt = Date.now();
+    const STATE_FLUSH_INTERVAL_MS = 2000;
 
     // Open file for random-access write
     const fd = fs.openSync(opts.outputPath, "r+");
+
+    const flushState = () => {
+      if (!opts.stateManager || !opts.downloadId || !this.downloadState) return;
+      const now = Date.now();
+      if (now - lastStateFlushAt < STATE_FLUSH_INTERVAL_MS) return;
+      lastStateFlushAt = now;
+
+      const updates = this.downloadState.chunks
+        .filter(c => !c.completed)
+        .map(c => ({ index: c.index, downloaded: c.downloaded, completed: c.completed }));
+      if (updates.length > 0) {
+        opts.stateManager.batchUpdateChunks(opts.downloadId, updates);
+      }
+    };
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -175,11 +225,13 @@ export class PeerDownloader {
             inFlight++;
             activeChunks++;
 
-            this.downloadChunk(chunk, opts.fileId, fd, allPeers)
+            this.downloadChunk(chunk, opts.fileId, fd, allPeers, opts)
               .then(bytes => {
                 downloadedBytes += bytes;
                 inFlight--;
                 activeChunks--;
+
+                flushState();
 
                 // Progress callback
                 if (opts.onProgress) {
@@ -193,6 +245,7 @@ export class PeerDownloader {
                     speed,
                     eta: speed > 0 ? Math.round(remaining / speed) : undefined,
                     activeChunks,
+                    chunkIndex: chunk.index,
                   });
                 }
 
@@ -213,6 +266,13 @@ export class PeerDownloader {
         if (chunks.length === 0) resolve();
       });
     } finally {
+      // Final state flush
+      if (opts.stateManager && opts.downloadId && this.downloadState) {
+        const updates = this.downloadState.chunks.map(c => ({
+          index: c.index, downloaded: c.downloaded, completed: c.completed
+        }));
+        opts.stateManager.batchUpdateChunks(opts.downloadId, updates);
+      }
       fs.closeSync(fd);
     }
   }
@@ -224,6 +284,7 @@ export class PeerDownloader {
     fileId: string,
     fd: number,
     fallbacks: FileLocation[],
+    opts: DownloadOptions,
     attempt = 0
   ): Promise<number> {
     const url = `http://${chunk.ip}:${chunk.port}/file/${fileId}`;
@@ -231,10 +292,28 @@ export class PeerDownloader {
     const expectedBytes = chunk.rangeEnd - chunk.rangeStart + 1;
 
     try {
-      const bytesWritten = await this.streamChunkToFile(url, rangeHeader, fd, chunk.rangeStart);
+      const bytesWritten = await this.streamChunkToFile(
+        url, rangeHeader, fd, chunk.rangeStart,
+        (bytesSoFar) => {
+          if (opts.stateManager && opts.downloadId && this.downloadState) {
+            const cs = this.downloadState.chunks[chunk.index];
+            if (cs) cs.downloaded = bytesSoFar;
+          }
+        }
+      );
 
       if (bytesWritten !== expectedBytes) {
         throw new Error(`Expected ${expectedBytes} bytes, got ${bytesWritten}`);
+      }
+
+      // Mark chunk completed in state
+      if (opts.stateManager && opts.downloadId && this.downloadState) {
+        const cs = this.downloadState.chunks[chunk.index];
+        if (cs) {
+          cs.downloaded = expectedBytes;
+          cs.completed = true;
+        }
+        opts.stateManager.updateChunk(opts.downloadId, chunk.index, expectedBytes, true);
       }
 
       return bytesWritten;
@@ -248,7 +327,7 @@ export class PeerDownloader {
           console.warn(`[Downloader] Retrying chunk on ${alt.ip}:${alt.port}`);
           return this.downloadChunk(
             { ...chunk, ip: alt.ip, port: alt.port, nodeId: alt.nodeId },
-            fileId, fd, fallbacks, attempt + 1
+            fileId, fd, fallbacks, opts, attempt + 1
           );
         }
       }
@@ -260,7 +339,8 @@ export class PeerDownloader {
     url: string,
     rangeHeader: string,
     fd: number,
-    writeOffset: number
+    writeOffset: number,
+    onProgress?: (bytesSoFar: number) => void
   ): Promise<number> {
     return new Promise((resolve, reject) => {
       const parsed = new URL(url);
@@ -305,6 +385,7 @@ export class PeerDownloader {
               if (err) { rej2(err); return; }
               position += written;
               totalWritten += written;
+              if (onProgress) onProgress(totalWritten);
               res2();
             });
           });

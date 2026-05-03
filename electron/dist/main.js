@@ -54,6 +54,8 @@ const ipswWatcher_1 = require("./modules/ipswWatcher");
 const ipswHardLinkManager_1 = require("./modules/ipswHardLinkManager");
 const downloader_1 = require("./modules/downloader");
 const main_1 = require("./modules/lan-share/main");
+const state_manager_1 = require("./modules/downloader/state-manager");
+const crypto_1 = require("crypto");
 // Config
 const config_1 = __importDefault(require("./config"));
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -107,8 +109,10 @@ async function init() {
     const { width, height } = electron_1.screen.getPrimaryDisplay().workAreaSize;
     splash = createSplashWindow(width, height);
     mainWindow = createMainWindow(width, height);
+    const stateDir = path_1.default.join(electron_1.app.getPath("userData"), "ipsw-state");
+    const sharedStateManager = new state_manager_1.StateManager(stateDir);
     dl = new downloader_1.DownloaderMain(mainWindow, {
-        stateDir: path_1.default.join(electron_1.app.getPath("userData"), "ipsw-state"),
+        stateDir,
         config: {
             maxConcurrentTasks: 3,
             maxConnectionsPerTask: 16,
@@ -119,6 +123,7 @@ async function init() {
     lanShare = new main_1.LANShare({
         shareDir: exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder,
         storageType: "SSD",
+        stateManager: sharedStateManager,
     });
     dh = new dataHandle_1.DataHandle(mainWindow);
     const ipswFolder = exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder;
@@ -200,6 +205,12 @@ electron_1.ipcMain.handle("ipsw:sync-link-config", async (_event, savePath, enab
 function wireDownloaderToLanShare() {
     if (!dl || !lanShare)
         return;
+    // Give LANShare access to main downloader for CDN fallback
+    lanShare.setDownloader(dl);
+    // When LAN download has partial progress and falls back to CDN, notify renderer
+    lanShare.on("fallback-to-cdn", (downloadId) => {
+        mainWindow?.webContents.send("lan-download:fallback", downloadId);
+    });
     const sync = () => void lanShare?.notifyDownloadState();
     dl.onTaskEvent(({ event }) => {
         if (event === "started") {
@@ -284,6 +295,40 @@ const handlers = [
     ["lan:listPeers", () => lanShare?.listPeers() ?? null],
     ["lan:getPeerFiles", (_, nodeId) => lanShare?.getPeerFiles(nodeId) ?? null],
     ["lan:getPeerDetail", (_, nodeId) => lanShare?.getPeerDetail(nodeId) ?? null],
-    ["lan:rescan", () => lanShare?.rescan()]
+    ["lan:rescan", () => lanShare?.rescan()],
+    // LAN download with CDN fallback
+    ["lan:download", async (_event, firmware, savePath) => {
+            if (!lanShare)
+                return { success: false, error: "LANShare not initialized" };
+            const fileId = (0, crypto_1.createHash)("sha256")
+                .update(firmware.url).digest("hex").slice(0, 16);
+            const fileName = firmware.url.split("/").pop() || `${firmware.identifier}_${firmware.buildid}.ipsw`;
+            const stateDir = path_1.default.join(electron_1.app.getPath("userData"), "ipsw-state");
+            const result = await lanShare.download({
+                fileId,
+                fileName,
+                fileSize: firmware.filesize,
+                firmware,
+                firmwareUrl: firmware.url,
+                savePath,
+                tmpDir: stateDir,
+                onProgress: (info) => {
+                    mainWindow?.webContents.send("lan-download:progress", info);
+                },
+            });
+            return result;
+        }],
+    ["lan:cancelDownload", (_event, downloadId) => {
+            return lanShare?.cancelDownload(downloadId) ?? { success: false, error: "LANShare not initialized" };
+        }],
+    ["lan:isFileOnLAN", async (_event, firmware) => {
+            if (!lanShare)
+                return { available: false, peerCount: 0 };
+            const fileId = (0, crypto_1.createHash)("sha256")
+                .update(firmware.url).digest("hex").slice(0, 16);
+            const result = await lanShare.findFile(fileId);
+            const locations = result?.locations ?? [];
+            return { available: locations.length > 0, peerCount: locations.length };
+        }],
 ];
 handlers.forEach(([channel, handler]) => electron_1.ipcMain.handle(channel, handler));

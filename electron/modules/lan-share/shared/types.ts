@@ -52,6 +52,7 @@ export interface CanServeResponse {
 }
 
 export interface ChunkPlan {
+  index: number;   // maps to ChunkState.index for download state persistence
   nodeId: string;
   ip: string;
   port: number;

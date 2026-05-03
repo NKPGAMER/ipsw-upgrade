@@ -103,6 +103,7 @@ export function buildChunkPlan(
     const rangeEnd = Math.min(offset + maxChunkSize - 1, fileSize - 1);
     const peer = ranked[peerIndex % ranked.length];
     chunks.push({
+      index: chunks.length,
       nodeId: peer.nodeId,
       ip: peer.ip,
       port: peer.port,
