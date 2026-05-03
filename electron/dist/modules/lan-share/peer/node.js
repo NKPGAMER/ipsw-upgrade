@@ -200,6 +200,13 @@ class PeerNode {
     getFile(fileId) {
         return this.files.get(fileId);
     }
+    findFileByName(name) {
+        for (const entry of this.files.values()) {
+            if (entry.name === name)
+                return entry;
+        }
+        return undefined;
+    }
     getFileCount() {
         return this.files.size;
     }

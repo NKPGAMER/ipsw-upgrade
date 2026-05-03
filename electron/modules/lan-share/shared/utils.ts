@@ -3,7 +3,7 @@ import * as net from "net";
 
 // ─── Capacity helpers ─────────────────────────────────────────────────────────
 
-const BASE_CAPACITY: Record<StorageType, number> = { SSD: 4, HDD: 2 };
+const BASE_CAPACITY: Record<StorageType, number> = { SSD: 4, HDD: 2, unknown: 0 };
 
 /**
  * Returns remaining capacity slots for this peer.

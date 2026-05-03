@@ -65,7 +65,6 @@ const os = __importStar(require("os"));
 const events_1 = require("events");
 const crypto_1 = require("crypto");
 const node_1 = require("./peer/node");
-const downloader_1 = require("./peer/downloader");
 const server_1 = require("./coordinator/server");
 // Lazy import to avoid circular dependency at module load
 let DownloaderMain;
@@ -175,7 +174,6 @@ class LANShare extends events_1.EventEmitter {
     role = "peer";
     started = false;
     downloaderRef = null;
-    activeLanDownloads = new Map();
     constructor(opts) {
         super();
         this.opts = {
@@ -282,12 +280,61 @@ class LANShare extends events_1.EventEmitter {
     setDownloader(dl) {
         this.downloaderRef = dl;
     }
+    // ─── File discovery ──────────────────────────────────────────────────────────
+    /**
+     * Tìm file theo tên trên tất cả peer trong LAN.
+     * Trả về { fileId, ip, port, name, size } nếu có peer đang rảnh giữ file,
+     * hoặc "none" nếu không tìm thấy.
+     */
+    async findFile(fileName) {
+        this.assertStarted();
+        // Get all peers from coordinator
+        let peersList;
+        try {
+            const res = await fetch(`${this.coordinatorUrl}/peers`);
+            if (!res.ok)
+                return "none";
+            peersList = await res.json();
+        }
+        catch {
+            return "none";
+        }
+        if (!peersList?.peers?.length)
+            return "none";
+        // Ask each peer if they have the file
+        const results = await Promise.allSettled(peersList.peers.map(async (peer) => {
+            try {
+                const res = await fetch(`http://${peer.ip}:${peer.port}/find-by-name?name=${encodeURIComponent(fileName)}`, {
+                    signal: AbortSignal.timeout(3000),
+                });
+                if (!res.ok)
+                    return null;
+                const data = await res.json();
+                return { ...data, ip: peer.ip, port: peer.port };
+            }
+            catch {
+                return null;
+            }
+        }));
+        for (const r of results) {
+            if (r.status === "fulfilled" && r.value) {
+                return r.value;
+            }
+        }
+        return "none";
+    }
     // ─── Download API ────────────────────────────────────────────────────────────
+    /**
+     * Tải file trực tiếp từ peer (không qua coordinator).
+     * Nhận fileId và thông tin peer từ findFile().
+     * Nếu thất bại → fallback sang Apple CDN.
+     */
     async download(opts) {
         this.assertStarted();
         const downloadId = (0, crypto_1.randomUUID)();
         const tmpPath = path.join(opts.tmpDir, `${downloadId}.ipsw.tmp`);
         const sm = this.opts.stateManager;
+        const fileUrl = `http://${opts.peerIp}:${opts.peerPort}/file/${opts.fileId}`;
         // Build initial DownloadState (compatible with main downloader)
         if (sm) {
             const state = {
@@ -296,36 +343,41 @@ class LANShare extends events_1.EventEmitter {
                 savePath: opts.savePath,
                 tmpPath,
                 totalSize: opts.fileSize,
-                chunks: [], // populated after chunk plan is built
+                chunks: [{ index: 0, start: 0, end: opts.fileSize - 1, downloaded: 0, completed: false }],
                 supportsRanges: true,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             };
             sm.save(state);
         }
-        const progressWithSource = (info) => {
-            opts.onProgress?.({ ...info, source: "lan" });
-        };
-        // Attempt LAN download
-        const downloader = new downloader_1.PeerDownloader(this.node);
-        this.activeLanDownloads.set(downloadId, downloader);
+        this.node?.incrementDownloads();
+        const startedAt = Date.now();
         try {
-            await downloader.download({
-                coordinatorUrl: this.coordinatorUrl,
-                fileId: opts.fileId,
-                fileName: opts.fileName,
-                fileSize: opts.fileSize,
-                outputPath: tmpPath,
-                maxConcurrentChunks: opts.maxConcurrentChunks,
-                stateManager: sm,
-                downloadId,
-                onProgress: progressWithSource,
+            // Direct HTTP download from peer
+            await this.streamFromPeer(fileUrl, tmpPath, opts.fileSize, (downloaded) => {
+                const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+                const speed = downloaded / elapsedSec;
+                const remaining = opts.fileSize - downloaded;
+                opts.onProgress?.({
+                    downloaded,
+                    total: opts.fileSize,
+                    pct: Math.round((downloaded / opts.fileSize) * 100),
+                    speed,
+                    eta: speed > 0 ? Math.round(remaining / speed) : undefined,
+                    activeChunks: 1,
+                    source: "lan",
+                });
+                // Update DownloadState chunk progress periodically
+                if (sm) {
+                    sm.updateChunk(downloadId, 0, downloaded, false);
+                }
             });
-            // LAN download succeeded
-            this.activeLanDownloads.delete(downloadId);
-            // Move tmp file to final destination
+            // Success — mark chunk complete & clean up
+            if (sm)
+                sm.updateChunk(downloadId, 0, opts.fileSize, true);
             const fs = await Promise.resolve().then(() => __importStar(require("fs")));
-            const finalPath = path.join(opts.savePath, opts.fileName || opts.firmware.url.split("/").pop() || `${opts.firmware.identifier}_${opts.firmware.buildid}.ipsw`);
+            const finalName = opts.fileName || opts.firmware.url.split("/").pop() || `${opts.firmware.identifier}_${opts.firmware.buildid}.ipsw`;
+            const finalPath = path.join(opts.savePath, finalName);
             const destDir = path.dirname(finalPath);
             if (!fs.existsSync(destDir))
                 fs.mkdirSync(destDir, { recursive: true });
@@ -339,7 +391,6 @@ class LANShare extends events_1.EventEmitter {
                 }
                 catch { }
             }
-            // Clean up state
             sm?.delete(downloadId);
             opts.onProgress?.({
                 downloaded: opts.fileSize,
@@ -352,13 +403,10 @@ class LANShare extends events_1.EventEmitter {
             return { success: true, via: "lan", downloadId };
         }
         catch (err) {
-            this.activeLanDownloads.delete(downloadId);
             console.warn(`[LANShare] LAN download failed: ${err.message}`);
-            // Check if we have any partial progress
             const state = sm?.load(downloadId);
-            const hasProgress = state && state.chunks.some(c => c.completed || c.downloaded > 0);
+            const hasProgress = state && state.chunks.some(c => c.downloaded > 0);
             if (!hasProgress) {
-                // No progress — clean up and fall back to CDN fresh download
                 sm?.delete(downloadId);
                 try {
                     (await Promise.resolve().then(() => __importStar(require("fs")))).unlinkSync(tmpPath);
@@ -374,7 +422,6 @@ class LANShare extends events_1.EventEmitter {
                 }
                 return { success: false, via: "lan", downloadId: "", error: `No LAN peers and no CDN fallback: ${err.message}` };
             }
-            // Partial progress — resume via CDN using saved state
             if (this.downloaderRef?.resumeIncomplete) {
                 const result = await this.downloaderRef.resumeIncomplete(downloadId);
                 if (result?.success) {
@@ -386,25 +433,97 @@ class LANShare extends events_1.EventEmitter {
             }
             return { success: false, via: "lan", downloadId, error: `Partial download but no CDN fallback: ${err.message}` };
         }
+        finally {
+            this.node?.decrementDownloads();
+        }
+    }
+    /**
+     * Stream file trực tiếp từ peer HTTP server vào file đĩa.
+     */
+    streamFromPeer(url, outputPath, totalSize, onProgress) {
+        return new Promise((resolve, reject) => {
+            const http = require("http");
+            const fs = require("fs");
+            const { URL } = require("url");
+            const parsed = new URL(url);
+            const options = {
+                hostname: parsed.hostname,
+                port: parseInt(parsed.port),
+                path: parsed.pathname,
+                method: "GET",
+                headers: {
+                    "user-agent": "lan-share/1.0",
+                    "accept-encoding": "identity",
+                },
+            };
+            const req = http.request(options, (res) => {
+                if (res.statusCode === 503) {
+                    res.resume();
+                    reject(new Error("Peer is BUSY"));
+                    return;
+                }
+                if (res.statusCode !== 200 && res.statusCode !== 206) {
+                    res.resume();
+                    reject(new Error(`HTTP ${res.statusCode}`));
+                    return;
+                }
+                const dir = path.dirname(outputPath);
+                if (!fs.existsSync(dir))
+                    fs.mkdirSync(dir, { recursive: true });
+                const fd = fs.openSync(outputPath, "w");
+                let written = 0;
+                let lastReportAt = 0;
+                const REPORT_INTERVAL_MS = 250;
+                const writeBuf = (buf) => {
+                    fs.write(fd, buf, 0, buf.length, written, (err) => {
+                        if (err) {
+                            try {
+                                fs.closeSync(fd);
+                            }
+                            catch { }
+                            reject(err);
+                            return;
+                        }
+                        written += buf.length;
+                        const now = Date.now();
+                        if (now - lastReportAt >= REPORT_INTERVAL_MS || written === totalSize) {
+                            lastReportAt = now;
+                            onProgress(written);
+                        }
+                    });
+                };
+                res.on("data", (chunk) => {
+                    res.pause();
+                    writeBuf(chunk);
+                    res.resume();
+                });
+                res.on("end", () => {
+                    fs.close(fd, (err) => {
+                        if (err)
+                            reject(err);
+                        else
+                            resolve();
+                    });
+                });
+                res.on("error", (err) => {
+                    try {
+                        fs.closeSync(fd);
+                    }
+                    catch { }
+                    reject(err);
+                });
+            });
+            req.on("error", reject);
+            req.setTimeout(120_000, () => {
+                req.destroy(new Error("Request timeout"));
+            });
+            req.end();
+        });
     }
     cancelDownload(downloadId) {
-        const downloader = this.activeLanDownloads.get(downloadId);
-        if (downloader) {
-            // PeerDownloader doesn't have explicit cancel — the promise will reject
-            this.activeLanDownloads.delete(downloadId);
-            const sm = this.opts.stateManager;
-            sm?.delete(downloadId);
-            return { success: true };
-        }
-        return { success: false, error: "Download not found" };
-    }
-    // ─── File discovery ──────────────────────────────────────────────────────────
-    async findFile(fileId) {
-        this.assertStarted();
-        const res = await fetch(`${this.coordinatorUrl}/files/${fileId}`);
-        if (!res.ok)
-            return null;
-        return res.json();
+        const sm = this.opts.stateManager;
+        sm?.delete(downloadId);
+        return { success: true };
     }
     async listPeers() {
         this.assertStarted();

@@ -49,6 +49,35 @@ export function createFileServer(node: PeerNode) {
     res.json(result);
   });
 
+  // ── GET /find-by-name?name=xxx ─────────────────────────────────────────────
+  // Tìm file theo tên. Trả về fileId nếu tìm thấy và peer đang rảnh.
+  app.get("/find-by-name", (req: Request, res: Response) => {
+    const name = String(req.query.name ?? "");
+    if (!name) {
+      res.status(400).json({ error: "Missing ?name= query param" });
+      return;
+    }
+
+    const entry = node.findFileByName(name);
+    if (!entry) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+
+    const info = node.getPeerInfo();
+    const check = canAcceptUpload(info);
+    if (check.status === "BUSY") {
+      res.status(503).json({ error: "BUSY", reason: check.reason });
+      return;
+    }
+
+    res.json({
+      fileId: entry.fileId,
+      name: entry.name,
+      size: entry.size,
+    });
+  });
+
   // ── GET /file/:fileId ──────────────────────────────────────────────────────
   app.get("/file/:fileId", (req: Request, res: Response) => {
     const fileId = String(req.params.fileId);

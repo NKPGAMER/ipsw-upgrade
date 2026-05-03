@@ -1,6 +1,6 @@
 // ─── Shared types for LAN file sharing system ────────────────────────────────
 
-export type StorageType = "SSD" | "HDD";
+export type StorageType = "SSD" | "HDD" | "unknown";
 
 export interface PeerInfo {
   nodeId: string;

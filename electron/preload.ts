@@ -142,9 +142,10 @@ const downloaderAPI: DownloaderAPI = {
 }
 
 const lanShareAPI = {
-  download: (firmware: Firmware, savePath: string) => ipcRenderer.invoke("lan:download", firmware, savePath),
+  findFile: (fileName: string) => ipcRenderer.invoke("lan:findFile", fileName),
+  download: (opts: { fileId: string; peerIp: string; peerPort: number; fileName: string; fileSize: number; firmware: Firmware; savePath: string }) => ipcRenderer.invoke("lan:download", opts),
   cancelDownload: (downloadId: string) => ipcRenderer.invoke("lan:cancelDownload", downloadId),
-  isFileOnLAN: (firmware: Firmware) => ipcRenderer.invoke("lan:isFileOnLAN", firmware),
+  isFileOnLAN: (fileName: string) => ipcRenderer.invoke("lan:isFileOnLAN", fileName),
   getStatus: () => ipcRenderer.invoke("lan:getStatus"),
   listPeers: () => ipcRenderer.invoke("lan:listPeers"),
   getPeerFiles: (nodeId: string) => ipcRenderer.invoke("lan:getPeerFiles", nodeId),

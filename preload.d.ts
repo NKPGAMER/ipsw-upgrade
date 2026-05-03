@@ -129,10 +129,29 @@ interface LANShareStatus {
   storageType: string;
 }
 
+interface FileFindResult {
+  fileId: string;
+  ip: string;
+  port: number;
+  name: string;
+  size: number;
+}
+
+interface LANDownloadOpts {
+  fileId: string;
+  peerIp: string;
+  peerPort: number;
+  fileName: string;
+  fileSize: number;
+  firmware: Firmware;
+  savePath: string;
+}
+
 interface LANShareAPI {
-  download: (firmware: Firmware, savePath: string) => Promise<{ success: boolean; via: "lan" | "cdn"; downloadId: string; error?: string }>;
+  findFile: (fileName: string) => Promise<FileFindResult | "none">;
+  download: (opts: LANDownloadOpts) => Promise<{ success: boolean; via: "lan" | "cdn"; downloadId: string; error?: string }>;
   cancelDownload: (downloadId: string) => Promise<{ success: boolean; error?: string }>;
-  isFileOnLAN: (firmware: Firmware) => Promise<{ available: boolean; peerCount: number }>;
+  isFileOnLAN: (fileName: string) => Promise<{ available: boolean; peerCount: number }>;
   getStatus: () => Promise<LANShareStatus | null>;
   listPeers: () => Promise<{ peers: any[] }>;
   getPeerFiles: (nodeId: string) => Promise<any>;
@@ -241,6 +260,8 @@ export type {
   ElectronUpdaterApi,
   DownloaderAPI,
   LANShareAPI,
+  FileFindResult,
+  LANDownloadOpts,
   DownloadProgressInfo,
   LANShareStatus
 };

@@ -12,14 +12,13 @@ import path, { join } from "path";
 import { AppleDevice } from "./modules/appleDevice";
 import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
 import { scanFolder, deleteFile } from "./modules/localFile";
-import { getDiskSpace, formatBytes } from "./modules/disk";
+import { getDiskSpace, formatBytes, getDriveType } from "./modules/disk";
 import { DataHandle } from "./modules/dataHandle";
 import { IPSWWatcher } from "./modules/ipswWatcher";
 import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
 import { DownloaderMain } from "./modules/downloader";
 import { LANShare } from "./modules/lan-share/main";
 import { StateManager } from "./modules/downloader/state-manager";
-import { createHash } from "crypto";
 // Config
 import config from "./config";
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -90,6 +89,7 @@ async function init(): Promise<void> {
   mainWindow = createMainWindow(width, height);
 
   const stateDir = path.join(app.getPath("userData"), "ipsw-state");
+  const saveDir = (store as any).get("ipswFolder") ?? app.getPath("downloads");
   const sharedStateManager = new StateManager(stateDir);
 
   dl = new DownloaderMain(mainWindow, {
@@ -103,18 +103,16 @@ async function init(): Promise<void> {
   });
 
   lanShare = new LANShare({
-    shareDir: (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder,
-    storageType: "SSD",
+    shareDir: saveDir,
+    storageType: getDriveType(saveDir),
     stateManager: sharedStateManager,
   });
 
   dh = new DataHandle(mainWindow);
-  const ipswFolder = (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder;
-  const isEnabled = (store as any).get("enable") ?? true;
-  watcher = new IPSWWatcher(mainWindow, ipswFolder);
+  watcher = new IPSWWatcher(mainWindow, saveDir);
   linkManager = new IPSWHardLinkManager(mainWindow, watcher, dh, {
-    savePath: ipswFolder,
-    enabled: isEnabled,
+    savePath: saveDir,
+    enabled: true,
   });
 
   loadRenderer(mainWindow);
@@ -308,22 +306,33 @@ const handlers: IpcHandler[] = [
   ["lan:getPeerDetail", (_: IpcMainInvokeEvent, nodeId: string) => lanShare?.getPeerDetail(nodeId) ?? null],
   ["lan:rescan", () => lanShare?.rescan()],
 
-  // LAN download with CDN fallback
-  ["lan:download", async (_event: IpcMainInvokeEvent, firmware: Firmware, savePath: string) => {
-    if (!lanShare) return { success: false, error: "LANShare not initialized" };
+  // LAN file search by filename
+  ["lan:findFile", async (_event: IpcMainInvokeEvent, fileName: string) => {
+    if (!lanShare) return "none";
+    return lanShare.findFile(fileName);
+  }],
 
-    const fileId = createHash("sha256")
-      .update(firmware.url).digest("hex").slice(0, 16);
-    const fileName = firmware.url.split("/").pop() || `${firmware.identifier}_${firmware.buildid}.ipsw`;
+  // LAN direct P2P download (fileId from findFile)
+  ["lan:download", async (_event: IpcMainInvokeEvent, opts: {
+    fileId: string;
+    peerIp: string;
+    peerPort: number;
+    fileName: string;
+    fileSize: number;
+    firmware: Firmware;
+    savePath: string;
+  }) => {
+    if (!lanShare) return { success: false, error: "LANShare not initialized" };
     const stateDir = path.join(app.getPath("userData"), "ipsw-state");
 
     const result = await lanShare.download({
-      fileId,
-      fileName,
-      fileSize: firmware.filesize,
-      firmware,
-      firmwareUrl: firmware.url,
-      savePath,
+      fileId: opts.fileId,
+      fileName: opts.fileName,
+      fileSize: opts.fileSize,
+      peerIp: opts.peerIp,
+      peerPort: opts.peerPort,
+      firmware: opts.firmware,
+      savePath: opts.savePath,
       tmpDir: stateDir,
       onProgress: (info) => {
         mainWindow?.webContents.send("lan-download:progress", info);
@@ -337,13 +346,10 @@ const handlers: IpcHandler[] = [
     return lanShare?.cancelDownload(downloadId) ?? { success: false, error: "LANShare not initialized" };
   }],
 
-  ["lan:isFileOnLAN", async (_event: IpcMainInvokeEvent, firmware: Firmware) => {
+  ["lan:isFileOnLAN", async (_event: IpcMainInvokeEvent, fileName: string) => {
     if (!lanShare) return { available: false, peerCount: 0 };
-    const fileId = createHash("sha256")
-      .update(firmware.url).digest("hex").slice(0, 16);
-    const result = await lanShare.findFile(fileId);
-    const locations = (result as any)?.locations ?? [];
-    return { available: locations.length > 0, peerCount: locations.length };
+    const result = await lanShare.findFile(fileName);
+    return { available: result !== "none", peerCount: result !== "none" ? 1 : 0 };
   }],
 ];
 

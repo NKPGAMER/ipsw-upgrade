@@ -43,7 +43,7 @@ exports.formatBytes = formatBytes;
 exports.formatSpeed = formatSpeed;
 const net = __importStar(require("net"));
 // ─── Capacity helpers ─────────────────────────────────────────────────────────
-const BASE_CAPACITY = { SSD: 4, HDD: 2 };
+const BASE_CAPACITY = { SSD: 4, HDD: 2, unknown: 0 };
 /**
  * Returns remaining capacity slots for this peer.
  * Downloads have higher priority — if any downloads are active, uploads are rejected.

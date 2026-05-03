@@ -117,9 +117,10 @@ const downloaderAPI = {
     onError: (cb) => listen("dm:error", cb),
 };
 const lanShareAPI = {
-    download: (firmware, savePath) => electron_1.ipcRenderer.invoke("lan:download", firmware, savePath),
+    findFile: (fileName) => electron_1.ipcRenderer.invoke("lan:findFile", fileName),
+    download: (opts) => electron_1.ipcRenderer.invoke("lan:download", opts),
     cancelDownload: (downloadId) => electron_1.ipcRenderer.invoke("lan:cancelDownload", downloadId),
-    isFileOnLAN: (firmware) => electron_1.ipcRenderer.invoke("lan:isFileOnLAN", firmware),
+    isFileOnLAN: (fileName) => electron_1.ipcRenderer.invoke("lan:isFileOnLAN", fileName),
     getStatus: () => electron_1.ipcRenderer.invoke("lan:getStatus"),
     listPeers: () => electron_1.ipcRenderer.invoke("lan:listPeers"),
     getPeerFiles: (nodeId) => electron_1.ipcRenderer.invoke("lan:getPeerFiles", nodeId),

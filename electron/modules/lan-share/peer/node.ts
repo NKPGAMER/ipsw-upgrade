@@ -196,6 +196,13 @@ export class PeerNode {
     return this.files.get(fileId);
   }
 
+  findFileByName(name: string): FileEntry | undefined {
+    for (const entry of this.files.values()) {
+      if (entry.name === name) return entry;
+    }
+    return undefined;
+  }
+
   getFileCount(): number {
     return this.files.size;
   }
