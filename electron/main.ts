@@ -5,9 +5,9 @@ import {
   OpenDialogOptions, FileFilter, IpcMainInvokeEvent, screen
 } from "electron";
 import Store from "electron-store";
-import { autoUpdater, UpdateInfo } from "electron-updater";
+import { autoUpdater } from "electron-updater";
 // System
-import { join } from "path";
+import path, { join } from "path";
 // Modules
 import { AppleDevice } from "./modules/appleDevice";
 import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
@@ -17,15 +17,10 @@ import { DataHandle } from "./modules/dataHandle";
 import { IPSWWatcher } from "./modules/ipswWatcher";
 import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
 import { DownloaderMain } from "./modules/downloader";
+import { LANShare } from "./modules/lan-share/main";
 // Config
 import config from "./config";
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface UpdateResult {
-  status: "no-update" | "update-available" | "error";
-  info?: UpdateInfo;
-  error?: string;
-}
 
 type IpcHandler = [string, (event: IpcMainInvokeEvent, ...args: any[]) => any];
 
@@ -43,6 +38,7 @@ const UPDATER_CHECK_DELAY = 6_000;
 export const store = new Store({ defaults: config.defaultAppSettings });
 
 let dl: DownloaderMain | undefined;
+let lanShare: LANShare | undefined;
 let dh: DataHandle | undefined;
 let watcher: IPSWWatcher | null = null;
 let linkManager: IPSWHardLinkManager | null = null;
@@ -92,13 +88,18 @@ async function init(): Promise<void> {
   mainWindow = createMainWindow(width, height);
 
   dl = new DownloaderMain(mainWindow, {
-    stateDir: ".ipsw-state",
+    stateDir: path.join(app.getPath("userData"), "ipsw-state"),
     config: {
       maxConcurrentTasks: 3,
       maxConnectionsPerTask: 16,
       initialConnectionsPerTask: 4,
       chunkSize: 32 * 1024 * 1024,
     }
+  });
+
+  lanShare = new LANShare({
+    shareDir: (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder,
+    storageType: "SSD",
   });
 
   dh = new DataHandle(mainWindow);
@@ -115,9 +116,11 @@ async function init(): Promise<void> {
 
   void (async () => {
     try {
+      await lanShare.start();
       await dh.loadDevices();
       await watcher.start();
       await linkManager.start();
+      wireDownloaderToLanShare();
     } catch (error) {
       console.error("[main] Failed to initialize IPSW background services:", error);
     }
@@ -162,6 +165,7 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     void dl?.destroy();
+    void lanShare?.stop();
     app.quit();
   }
 });
@@ -170,10 +174,42 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) void init();
 });
 
+app.on("before-quit", () => {
+  void dl?.destroy();
+  void lanShare?.stop();
+});
+
 ipcMain.handle("ipsw:sync-link-config", async (_event, savePath: string, enabled: boolean) => {
   await linkManager?.updateConfig({ savePath, enabled });
   return { success: true };
 });
+
+function wireDownloaderToLanShare(): void {
+  if (!dl || !lanShare) return;
+
+  const sync = () => void lanShare?.notifyDownloadState();
+
+  dl.onTaskEvent(({ event }) => {
+    if (event === "started") {
+      void lanShare?.beginLocalDownload();
+      return;
+    }
+
+    if (event === "completed" || event === "cancelled" || event === "error") {
+      void lanShare?.endLocalDownload();
+      return;
+    }
+
+    if (event === "paused") {
+      void lanShare?.notifyDownloadState();
+      return;
+    }
+
+    if (event === "resumed" || event === "progress" || event === "added" || event === "incomplete_deleted") {
+      sync();
+    }
+  });
+}
 
 // ─── Auto Updater ─────────────────────────────────────────────────────────────
 
@@ -251,7 +287,13 @@ const handlers: IpcHandler[] = [
 
   ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
   ["dh:getDevices", (_, product) => dh?.getDevices(product)],
-  ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]
+  ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)],
+  ["lan:getStatus", () => lanShare?.getStatus() ?? null],
+  ["lan:listPeers", () => lanShare?.listPeers() ?? null],
+  ["lan:getPeerFiles", (_: IpcMainInvokeEvent, nodeId: string) => lanShare?.getPeerFiles(nodeId) ?? null],
+  ["lan:getPeerDetail", (_: IpcMainInvokeEvent, nodeId: string) => lanShare?.getPeerDetail(nodeId) ?? null],
+  ["lan:rescan", () => lanShare?.rescan()]
 ];
 
-handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler))
+handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler));
+

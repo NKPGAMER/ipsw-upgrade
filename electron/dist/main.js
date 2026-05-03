@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -10,7 +43,7 @@ const electron_1 = require("electron");
 const electron_store_1 = __importDefault(require("electron-store"));
 const electron_updater_1 = require("electron-updater");
 // System
-const path_1 = require("path");
+const path_1 = __importStar(require("path"));
 // Modules
 const appleDevice_1 = require("./modules/appleDevice");
 const userData_1 = require("./modules/userData");
@@ -20,6 +53,7 @@ const dataHandle_1 = require("./modules/dataHandle");
 const ipswWatcher_1 = require("./modules/ipswWatcher");
 const ipswHardLinkManager_1 = require("./modules/ipswHardLinkManager");
 const downloader_1 = require("./modules/downloader");
+const main_1 = require("./modules/lan-share/main");
 // Config
 const config_1 = __importDefault(require("./config"));
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -30,6 +64,7 @@ const UPDATER_CHECK_DELAY = 6_000;
 // ─── App State ────────────────────────────────────────────────────────────────
 exports.store = new electron_store_1.default({ defaults: config_1.default.defaultAppSettings });
 let dl;
+let lanShare;
 let dh;
 let watcher = null;
 let linkManager = null;
@@ -73,13 +108,17 @@ async function init() {
     splash = createSplashWindow(width, height);
     mainWindow = createMainWindow(width, height);
     dl = new downloader_1.DownloaderMain(mainWindow, {
-        stateDir: ".ipsw-state",
+        stateDir: path_1.default.join(electron_1.app.getPath("userData"), "ipsw-state"),
         config: {
             maxConcurrentTasks: 3,
             maxConnectionsPerTask: 16,
             initialConnectionsPerTask: 4,
             chunkSize: 32 * 1024 * 1024,
         }
+    });
+    lanShare = new main_1.LANShare({
+        shareDir: exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder,
+        storageType: "SSD",
     });
     dh = new dataHandle_1.DataHandle(mainWindow);
     const ipswFolder = exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder;
@@ -93,9 +132,11 @@ async function init() {
     registerMainWindowEvents(mainWindow);
     void (async () => {
         try {
+            await lanShare.start();
             await dh.loadDevices();
             await watcher.start();
             await linkManager.start();
+            wireDownloaderToLanShare();
         }
         catch (error) {
             console.error("[main] Failed to initialize IPSW background services:", error);
@@ -140,6 +181,7 @@ electron_1.app.whenReady().then(async () => {
 electron_1.app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
         void dl?.destroy();
+        void lanShare?.stop();
         electron_1.app.quit();
     }
 });
@@ -147,10 +189,36 @@ electron_1.app.on("activate", () => {
     if (electron_1.BrowserWindow.getAllWindows().length === 0)
         void init();
 });
+electron_1.app.on("before-quit", () => {
+    void dl?.destroy();
+    void lanShare?.stop();
+});
 electron_1.ipcMain.handle("ipsw:sync-link-config", async (_event, savePath, enabled) => {
     await linkManager?.updateConfig({ savePath, enabled });
     return { success: true };
 });
+function wireDownloaderToLanShare() {
+    if (!dl || !lanShare)
+        return;
+    const sync = () => void lanShare?.notifyDownloadState();
+    dl.onTaskEvent(({ event }) => {
+        if (event === "started") {
+            void lanShare?.beginLocalDownload();
+            return;
+        }
+        if (event === "completed" || event === "cancelled" || event === "error") {
+            void lanShare?.endLocalDownload();
+            return;
+        }
+        if (event === "paused") {
+            void lanShare?.notifyDownloadState();
+            return;
+        }
+        if (event === "resumed" || event === "progress" || event === "added" || event === "incomplete_deleted") {
+            sync();
+        }
+    });
+}
 // ─── Auto Updater ─────────────────────────────────────────────────────────────
 function initAutoUpdater() {
     electron_updater_1.autoUpdater.autoDownload = true;
@@ -211,6 +279,11 @@ const handlers = [
     ["formatBytes", (_, bytes, decimals) => (0, disk_1.formatBytes)(bytes, decimals)],
     ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
     ["dh:getDevices", (_, product) => dh?.getDevices(product)],
-    ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]
+    ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)],
+    ["lan:getStatus", () => lanShare?.getStatus() ?? null],
+    ["lan:listPeers", () => lanShare?.listPeers() ?? null],
+    ["lan:getPeerFiles", (_, nodeId) => lanShare?.getPeerFiles(nodeId) ?? null],
+    ["lan:getPeerDetail", (_, nodeId) => lanShare?.getPeerDetail(nodeId) ?? null],
+    ["lan:rescan", () => lanShare?.rescan()]
 ];
 handlers.forEach(([channel, handler]) => electron_1.ipcMain.handle(channel, handler));

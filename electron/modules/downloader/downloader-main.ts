@@ -25,6 +25,7 @@
 import * as path from "path";
 import { Worker } from "worker_threads";
 import { randomUUID } from "crypto";
+import { EventEmitter } from "events";
 
 import type { MainToWorker, WorkerToMain } from "./worker-messages";
 import type { DownloaderConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
@@ -37,13 +38,18 @@ interface BrowserWindow {
   webContents: { send(channel: string, ...args: any[]): void };
 }
 
+export interface DownloaderTaskSnapshot {
+  taskId: string;
+  task: Task;
+}
+
 export interface DownloaderMainOptions {
   /** Absolute path to the state directory — passed to the worker. */
   stateDir: string;
   config?: DownloaderConfig;
 }
 
-export class DownloaderMain {
+export class DownloaderMain extends EventEmitter {
   private worker: Worker | null = null;
   private win?: BrowserWindow;
   private readonly stateDir: string;
@@ -51,6 +57,7 @@ export class DownloaderMain {
   private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
 
   constructor(win?: BrowserWindow, opts: DownloaderMainOptions = { stateDir: ".ipsw-state" }) {
+    super();
     this.win = win;
     this.stateDir = opts.stateDir;
     this.config = opts.config ?? {};
@@ -93,6 +100,7 @@ export class DownloaderMain {
 
     if (msg.type === "event") {
       const { channel, ...rest } = msg;
+      this.emit(channel, rest);
       this.sendToRenderer(channel, rest as any);
     }
   }
@@ -111,6 +119,17 @@ export class DownloaderMain {
 
   add(firmware: Firmware, savePath: string, config: { deleteFiles?: IPSWFile[] } = {}): Promise<AddResult> {
     return this.call<AddResult>({ type: "add", reqId: randomUUID(), firmware, savePath, config });
+  }
+
+  onTaskEvent(listener: (event: DownloaderTaskSnapshot & { event: EventChannel; error?: string }) => void): this {
+    for (const channel of ["started", "progress", "completed", "paused", "resumed", "added", "cancelled", "incomplete_deleted", "error"] as EventChannel[]) {
+      this.on(channel, (payload: any) => listener({ event: channel, ...payload }));
+    }
+    return this;
+  }
+
+  getActiveTaskSnapshots(): Promise<Task[]> {
+    return this.getAllTask();
   }
 
   pause(id: string): void  { this.ensureWorker().postMessage({ type: "pause",  id } satisfies MainToWorker); }
