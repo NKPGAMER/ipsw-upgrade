@@ -73,6 +73,14 @@ const api = {
         onReload: (cb) => listen("ipsw:reload", cb)
     },
     requestModelData: (identifier) => electron_1.ipcRenderer.invoke("dh:requestModelData", identifier),
+    getDeviceModelData: (identifier) => electron_1.ipcRenderer.invoke("dh:getDeviceModelData", identifier),
+    onDeviceDataUpdated: (cb) => {
+        const handler = (_event, payload) => cb(payload);
+        electron_1.ipcRenderer.on("dh:deviceDataUpdated", handler);
+        return () => {
+            electron_1.ipcRenderer.off("dh:deviceDataUpdated", handler);
+        };
+    },
     onModelData: (cb) => {
         const handler = (_event, id, device) => cb(id, device);
         electron_1.ipcRenderer.on("dh:modelData", handler);

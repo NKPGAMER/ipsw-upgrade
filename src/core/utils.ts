@@ -450,24 +450,6 @@ export default {
     }, timeout);
   },
 
-  async checkMd5(filePath: string, firmware: Firmware, options: Md5Options = {}): Promise<boolean> {
-    const e = (e: PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.showSuccessMessage('Đang xác minh. Hãy chờ đến khi quá trình này kết thúc')
-    }
-    try {
-      document.addEventListener('click', e, true);
-      const actualMd5 = await window.api.createMd5(filePath, { ...options, highWaterMark: 2 * 1024 * 1024 });
-      return actualMd5 === firmware.md5sum;
-    } catch (error) {
-      console.error("Create Md5sum failed", error);
-      return false;
-    } finally {
-      document.removeEventListener('click', e, true);
-    }
-  },
-
   formatBytes(bytes: number, decimals: number = 2): { value: string, unit: string } {
     if (bytes === 0) return {
       value: "0",

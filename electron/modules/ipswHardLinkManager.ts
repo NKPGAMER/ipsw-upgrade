@@ -271,14 +271,17 @@ export class IPSWHardLinkManager {
   }
 
   private async getMatchedDevicesForFile(fileId: string, fileBuild: string): Promise<MatchedDeviceInfo[]> {
-    const devices = this.dataHandle.getDevices();
+    const devices = this.dataHandle.getDevices('iphone');
     const matched = new Map<string, MatchedDeviceInfo>();
 
     for (const device of devices) {
-      const modelData = await this.dataHandle.getModelData(device.identifier);
-      if (!modelData) continue;
+      const hasLocalData = await this.dataHandle.hasLocalData({ type: "modelData", identifier: device.identifier });
 
-      for (const firmware of modelData.firmwares ?? []) {
+      if (!hasLocalData) continue;
+      const modelData = await this.dataHandle.getLocalData(device.identifier);
+      if (!modelData || !modelData.firmwares) continue;
+
+      for (const firmware of modelData.firmwares) {
         const parsed = this.parseIPSW(firmware.url.split("/").pop() ?? "");
         if (!parsed) continue;
 

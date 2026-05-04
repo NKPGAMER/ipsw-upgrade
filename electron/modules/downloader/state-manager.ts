@@ -1,13 +1,14 @@
 import * as fs from "fs";
 import * as path from "path";
 import { DownloadState, ChunkState } from "./types";
+import { ensureDir } from "../../utils/fs-utils";
 
 export class StateManager {
   private stateDir: string;
 
   constructor(stateDir: string) {
     this.stateDir = stateDir;
-    if (!fs.existsSync(stateDir)) fs.mkdirSync(stateDir, { recursive: true });
+    ensureDir(this.stateDir);
   }
 
   private statePath(id: string): string {

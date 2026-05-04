@@ -62,6 +62,9 @@ interface ElectronApi {
 
   onModelData: (callback: (identifier: Device['identifier'], device: DeviceResponse | null) => void) => () => void;
 
+  getDeviceModelData: (identifier: string) => Promise<ModelDataResult>;
+  onDeviceDataUpdated: (callback: (payload: DeviceDataUpdatedPayload) => void) => () => void;
+
   getDevices: (product?: Product) => Promise<Device[]>;
   getModelData: (identifier: Device['identifier']) => Promise<DeviceResponse>;
 }
@@ -111,6 +114,13 @@ interface DownloaderAPI {
 
 declare global {
   type Product = 'iphone' | 'ipad' | 'watch' | 'mac' | 'realitydevice' | 'tv' | 'homepod' | 'ipod';
+
+  type ModelDataResult = { status: "ready"; data: DeviceResponse } | { status: "wait" };
+
+  interface DeviceDataUpdatedPayload {
+    identifier: string;
+    data: DeviceResponse;
+  }
   type ConfirmVariant = "default" | "danger" | "warning" | "info";
 
   interface DeviceResponse {

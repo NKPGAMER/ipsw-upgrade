@@ -226,13 +226,16 @@ class IPSWHardLinkManager {
         };
     }
     async getMatchedDevicesForFile(fileId, fileBuild) {
-        const devices = this.dataHandle.getDevices();
+        const devices = this.dataHandle.getDevices('iphone');
         const matched = new Map();
         for (const device of devices) {
-            const modelData = await this.dataHandle.getModelData(device.identifier);
-            if (!modelData)
+            const hasLocalData = await this.dataHandle.hasLocalData({ type: "modelData", identifier: device.identifier });
+            if (!hasLocalData)
                 continue;
-            for (const firmware of modelData.firmwares ?? []) {
+            const modelData = await this.dataHandle.getLocalData(device.identifier);
+            if (!modelData || !modelData.firmwares)
+                continue;
+            for (const firmware of modelData.firmwares) {
                 const parsed = this.parseIPSW(firmware.url.split("/").pop() ?? "");
                 if (!parsed)
                     continue;

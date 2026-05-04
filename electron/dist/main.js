@@ -12,7 +12,7 @@ const electron_updater_1 = require("electron-updater");
 // System
 const path_1 = require("path");
 // Modules
-const appleDevice_1 = require("./modules/appleDevice");
+// import { AppleDevice } from "./modules/appleDevice";
 const userData_1 = require("./modules/userData");
 const localFile_1 = require("./modules/localFile");
 const disk_1 = require("./modules/disk");
@@ -126,7 +126,7 @@ function registerMainWindowEvents(win) {
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 electron_1.app.whenReady().then(async () => {
     await init();
-    new appleDevice_1.AppleDevice(mainWindow);
+    // new AppleDevice(mainWindow);
     // Fallback: show main window if `ready-to-show` never fires
     setTimeout(() => {
         if (isReady)
@@ -210,6 +210,7 @@ const handlers = [
     ["getDiskSpace", (_, targetPath) => (0, disk_1.getDiskSpace)(targetPath)],
     ["formatBytes", (_, bytes, decimals) => (0, disk_1.formatBytes)(bytes, decimals)],
     ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
+    ["dh:getDeviceModelData", async (_, identifier) => dh?.get(identifier)],
     ["dh:getDevices", (_, product) => dh?.getDevices(product)],
     ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]
 ];

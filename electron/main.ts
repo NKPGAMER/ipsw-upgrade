@@ -9,7 +9,7 @@ import { autoUpdater, UpdateInfo } from "electron-updater";
 // System
 import { join } from "path";
 // Modules
-import { AppleDevice } from "./modules/appleDevice";
+// import { AppleDevice } from "./modules/appleDevice";
 import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
 import { scanFolder, deleteFile } from "./modules/localFile";
 import { getDiskSpace, formatBytes } from "./modules/disk";
@@ -146,7 +146,7 @@ function registerMainWindowEvents(win: BrowserWindow): void {
 
 app.whenReady().then(async () => {
   await init();
-  new AppleDevice(mainWindow);
+  // new AppleDevice(mainWindow);
 
   // Fallback: show main window if `ready-to-show` never fires
   setTimeout(() => {
@@ -250,6 +250,7 @@ const handlers: IpcHandler[] = [
   ["formatBytes", (_: IpcMainInvokeEvent, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
 
   ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
+  ["dh:getDeviceModelData", async (_, identifier) => dh?.get(identifier)],
   ["dh:getDevices", (_, product) => dh?.getDevices(product)],
   ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]
 ];

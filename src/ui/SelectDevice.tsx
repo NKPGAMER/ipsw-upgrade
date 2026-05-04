@@ -144,7 +144,7 @@ const PRODUCT_ICON: Record<Product, JSX.Element> = {
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface DeviceEntry {
   device: Device;
-  firmwares: Firmware[] | null;
+  firmwares: Firmware[] | null | undefined;
   task?: Task;
 }
 
@@ -302,7 +302,7 @@ function computeCardStatus(
   incompleteTasks: IncompleteTaskClient[],
 ): CardTask {
   // If a live download task is active, it takes priority
-  if (entry.firmwares !== null || entry.task) {
+  if (entry.firmwares != null || entry.task) {
     const inProgress = !!entry.task &&
       ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
     if (inProgress) return entry.task!.status as CardTask;
@@ -393,7 +393,7 @@ const DeviceCard = memo(function DeviceCard({
 
   const signalledRef = useRef(false);
   useEffect(() => {
-    if (!visible || signalledRef.current || entry.firmwares !== null) return;
+    if (!visible || signalledRef.current || entry.firmwares != null) return;
     signalledRef.current = true;
     onVisible(entry.device.identifier);
   }, [visible, entry.firmwares, entry.device.identifier, onVisible]);
@@ -419,7 +419,8 @@ const DeviceCard = memo(function DeviceCard({
                 : "iphone";
 
   const osLabel = OS_LABEL[product as Product] ?? "Version";
-  const firmwaresLoaded = entry.firmwares !== null;
+  const firmwaresLoaded = entry.firmwares != null;
+  const isWaiting = entry.firmwares === undefined;
 
   return (
     <div
@@ -450,7 +451,14 @@ const DeviceCard = memo(function DeviceCard({
       )}
 
       {!firmwaresLoaded ? (
-        <CardSkeleton />
+        <>
+          <CardSkeleton />
+          {isWaiting && (
+            <div className="absolute bottom-3 right-3">
+              <span className="text-[10px] text-gray-600 animate-pulse">đang chờ…</span>
+            </div>
+          )}
+        </>
       ) : (
         <div className="px-4! py-4.5! flex flex-col gap-0" style={{ minHeight: 168 }}>
           <div className="flex items-start gap-2.5">
@@ -1008,7 +1016,7 @@ function DetailPanel({
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Phiên bản mới nhất</p>
           </div>
 
-          {entry.firmwares === null ? (
+          {entry.firmwares == null ? (
             <div className="space-y-3!">
               <div className="bg-white/4 rounded-xl p-4! border border-white/6 animate-pulse">
                 <div className="h-8 w-24 rounded bg-white/8 mb-3!" />
@@ -1072,10 +1080,10 @@ function DetailPanel({
             <div className="w-0.75 h-3 rounded-full bg-gray-700" />
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Tất cả phiên bản</p>
             <span className="text-[10px] text-gray-600 ml-auto">
-              {entry.firmwares === null ? "…" : `${entry.firmwares.length} phiên bản`}
+              {entry.firmwares == null ? "…" : `${entry.firmwares.length} phiên bản`}
             </span>
           </div>
-          {entry.firmwares === null ? (
+          {entry.firmwares == null ? (
             <div className="space-y-1.5!">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="h-9 rounded-lg bg-white/4 animate-pulse" />
@@ -1217,20 +1225,35 @@ export default function IPSWManager() {
 
   // ── IPC: listen for firmware data ─────────────────────────────────────────
   useEffect(() => {
-    const unsub = window.api.onModelData((identifier: string, device: DeviceResponse | null) => {
+    const unsub = window.api.onDeviceDataUpdated(({ identifier, data }) => {
       setEntries(prev => prev.map(e =>
         e.device.identifier === identifier
-          ? { ...e, firmwares: device?.firmwares ?? [] }
+          ? { ...e, firmwares: data.firmwares ?? [] }
           : e
       ));
     });
     return () => unsub();
   }, []);
 
-  const handleCardVisible = useCallback((identifier: string) => {
+  const handleCardVisible = useCallback(async (identifier: string) => {
     if (requestedFwRef.current.has(identifier)) return;
     requestedFwRef.current.add(identifier);
-    window.api.requestModelData(identifier);
+
+    // Mark as waiting (undefined) — distinct from loading (null)
+    setEntries(prev => prev.map(e =>
+      e.device.identifier === identifier
+        ? { ...e, firmwares: undefined }
+        : e
+    ));
+
+    const result = await window.api.getDeviceModelData(identifier);
+    if (result.status === "ready") {
+      setEntries(prev => prev.map(e =>
+        e.device.identifier === identifier
+          ? { ...e, firmwares: result.data.firmwares ?? [] }
+          : e
+      ));
+    }
   }, []);
 
   // ── Register downloader events ────────────────────────────────────────────
@@ -1630,7 +1653,7 @@ export default function IPSWManager() {
                           incompleteTasks={incompleteTasks}
                           pending={pendingActions.has(entry.device.identifier)}
                           onClick={() => {
-                            if (entry.firmwares === null) return;
+                            if (entry.firmwares == null) return;
                             setSelectedId(prev =>
                               prev === entry.device.identifier ? null : entry.device.identifier
                             );
@@ -1659,7 +1682,7 @@ export default function IPSWManager() {
                           incompleteTasks={incompleteTasks}
                           pending={pendingActions.has(entry.device.identifier)}
                           onClick={() => {
-                            if (entry.firmwares === null) return;
+                            if (entry.firmwares == null) return;
                             setSelectedId(prev =>
                               prev === entry.device.identifier ? null : entry.device.identifier
                             );

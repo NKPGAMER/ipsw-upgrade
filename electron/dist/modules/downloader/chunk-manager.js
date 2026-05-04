@@ -1,13 +1,4 @@
 "use strict";
-/**
- * chunk-manager.ts
- *
- * Rewrites the HTTP layer to use undici for maximum throughput:
- *  - Per-task undici.Pool with pipelining + keep-alive
- *  - Zero-copy Buffer → file writes via fs.write (async, non-blocking)
- *  - Streams consumed with async-iterator (back-pressure aware)
- *  - Adaptive connection ramp-up unchanged
- */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

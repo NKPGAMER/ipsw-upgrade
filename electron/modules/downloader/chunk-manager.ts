@@ -1,13 +1,3 @@
-/**
- * chunk-manager.ts
- *
- * Rewrites the HTTP layer to use undici for maximum throughput:
- *  - Per-task undici.Pool with pipelining + keep-alive
- *  - Zero-copy Buffer → file writes via fs.write (async, non-blocking)
- *  - Streams consumed with async-iterator (back-pressure aware)
- *  - Adaptive connection ramp-up unchanged
- */
-
 import * as fs from "fs";
 import { URL } from "url";
 import { Pool, type Dispatcher } from "undici";

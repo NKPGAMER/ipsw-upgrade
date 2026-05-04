@@ -36,12 +36,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StateManager = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const fs_utils_1 = require("../../utils/fs-utils");
 class StateManager {
     stateDir;
     constructor(stateDir) {
         this.stateDir = stateDir;
-        if (!fs.existsSync(stateDir))
-            fs.mkdirSync(stateDir, { recursive: true });
+        (0, fs_utils_1.ensureDir)(this.stateDir);
     }
     statePath(id) {
         return path.join(this.stateDir, `${id}.json`);

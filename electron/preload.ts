@@ -91,6 +91,17 @@ const api: ElectronApi = {
 
   requestModelData: (identifier: string) => ipcRenderer.invoke("dh:requestModelData", identifier),
 
+  getDeviceModelData: (identifier: string) =>
+    ipcRenderer.invoke("dh:getDeviceModelData", identifier),
+
+  onDeviceDataUpdated: (cb) => {
+    const handler = (_event: any, payload: DeviceDataUpdatedPayload) => cb(payload);
+    ipcRenderer.on("dh:deviceDataUpdated", handler);
+    return () => {
+      ipcRenderer.off("dh:deviceDataUpdated", handler);
+    };
+  },
+
   onModelData: (cb) => {
     const handler = (_event: any, id: Device['identifier'], device: DeviceResponse) => cb(id, device)
     ipcRenderer.on("dh:modelData", handler);
