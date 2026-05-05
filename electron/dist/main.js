@@ -73,12 +73,9 @@ async function init() {
     splash = createSplashWindow(width, height);
     mainWindow = createMainWindow(width, height);
     dl = new downloader_1.DownloaderMain(mainWindow, {
-        stateDir: ".ipsw-state",
+        stateDir: (0, path_1.join)(electron_1.app.getPath("userData"), "ipsw-state"),
         config: {
-            maxConcurrentTasks: 3,
-            maxConnectionsPerTask: 16,
-            initialConnectionsPerTask: 4,
-            chunkSize: 32 * 1024 * 1024,
+            turboMode: true
         }
     });
     dh = new dataHandle_1.DataHandle(mainWindow);

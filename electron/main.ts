@@ -92,12 +92,9 @@ async function init(): Promise<void> {
   mainWindow = createMainWindow(width, height);
 
   dl = new DownloaderMain(mainWindow, {
-    stateDir: ".ipsw-state",
+    stateDir: join(app.getPath("userData"), "ipsw-state"),
     config: {
-      maxConcurrentTasks: 3,
-      maxConnectionsPerTask: 16,
-      initialConnectionsPerTask: 4,
-      chunkSize: 32 * 1024 * 1024,
+      turboMode: true
     }
   });
 

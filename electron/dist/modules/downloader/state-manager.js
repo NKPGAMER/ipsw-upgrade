@@ -118,5 +118,23 @@ class StateManager {
             return [];
         return state.chunks.filter(c => !c.completed);
     }
+    addMovedChunk(id, chunkIndex) {
+        const state = this.load(id);
+        if (!state)
+            return;
+        if (!state.movedChunks)
+            state.movedChunks = [];
+        if (!state.movedChunks.includes(chunkIndex)) {
+            state.movedChunks.push(chunkIndex);
+            this.save(state);
+        }
+    }
+    setMovedChunks(id, indices) {
+        const state = this.load(id);
+        if (!state)
+            return;
+        state.movedChunks = indices;
+        this.save(state);
+    }
 }
 exports.StateManager = StateManager;

@@ -12,6 +12,23 @@ export interface ChunkManagerOptions {
   retryDelay?: number;
   bandwidthLimitBps?: number;
   isHDD?: boolean;
+  turboConnectionsMultiplier?: number;
+  /** HDD+SSD turbo config — when set, completed chunks are streamed from tmp to .turbo on HDD */
+  turboHddSsd?: {
+    turboPath: string;
+    onTurboMove?: (info: TurboMoveInfo) => void;
+    onTurboHddError?: (err: Error) => void;
+  };
+  /** DiskManager for dual-disk space check */
+  tmpDiskAvailable?: number;
+  hddDiskAvailable?: number;
+}
+
+export interface TurboMoveInfo {
+  chunkIndex: number;
+  movedBytes: number;
+  totalMovedBytes: number;
+  totalSize: number;
 }
 
 export interface ChunkProgress {
@@ -26,20 +43,23 @@ export type ChunkManagerEvents = {
   chunkError: (index: number, err: Error, attempt: number) => void;
   complete: () => void;
   error: (err: Error) => void;
+  turboHddError: (err: Error) => void;
+  turboMove: (info: TurboMoveInfo) => void;
+  degraded: () => void;
 };
 
 const DEFAULT_CHUNK_SIZE = 32 * 1024 * 1024;   // 32 MB per chunk
-const WRITE_HIGH_WATER   = 8 * 1024 * 1024;    // 8 MB — flush threshold (larger = fewer syscalls)
+const WRITE_HIGH_WATER   = 8 * 1024 * 1024;    // 8 MB — flush threshold
 
 /** undici Pool options tuned for bulk file transfer */
 function makePool(origin: string, maxConnections: number): Pool {
   return new Pool(origin, {
     connections: maxConnections,
-    pipelining: 1,                // HTTP/1.1 keep-alive; 1 avoids HOL blocking on range requests
+    pipelining: 1,
     keepAliveTimeout: 30_000,
     keepAliveMaxTimeout: 60_000,
     connect: {
-      rejectUnauthorized: false,  // Apple CDN uses valid certs — set true in prod if preferred
+      rejectUnauthorized: false,
       timeout: 15_000,
     },
     bodyTimeout: 60_000,
@@ -47,8 +67,140 @@ function makePool(origin: string, maxConnections: number): Pool {
   });
 }
 
+// ─── IOWriteQueue ──────────────────────────────────────────────────────────────
+
+interface QueuedChunk {
+  chunkIndex: number;
+  start: number;
+  end: number;
+  size: number;    // end - start + 1
+}
+
+class IOWriteQueue {
+  private queue: QueuedChunk[] = [];
+  private active = false;
+  private totalMovedBytes = 0;
+  private stateManager: StateManager;
+  private stateId: string;
+  private onMove?: (info: TurboMoveInfo) => void;
+  private onError?: (err: Error) => void;
+  private totalSize: number;
+  private stopped = false;
+
+  constructor(
+    private tmpPath: string,
+    private turboPath: string,
+    stateManager: StateManager,
+    stateId: string,
+    totalSize: number,
+    onMove?: (info: TurboMoveInfo) => void,
+    onError?: (err: Error) => void,
+  ) {
+    this.stateManager = stateManager;
+    this.stateId = stateId;
+    this.totalSize = totalSize;
+    this.onMove = onMove;
+    this.onError = onError;
+  }
+
+  enqueue(chunk: QueuedChunk): void {
+    this.queue.push(chunk);
+    if (!this.active && !this.stopped) {
+      this.active = true;
+      this.processQueue();
+    }
+  }
+
+  private async processQueue(): Promise<void> {
+    while (this.queue.length > 0 && !this.stopped) {
+      const chunk = this.queue.shift()!;
+      try {
+        await this.moveChunk(chunk);
+      } catch (err: any) {
+        this.stopped = true;
+        if (this.onError) this.onError(err);
+        this.active = false;
+        return;
+      }
+    }
+    this.active = false;
+  }
+
+  private moveChunk(chunk: QueuedChunk): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const readStream = fs.createReadStream(this.tmpPath, {
+        start: chunk.start,
+        end: chunk.end,
+        highWaterMark: 4 * 1024 * 1024, // 4MB read buffer
+      });
+
+      const writeStream = fs.createWriteStream(this.turboPath, {
+        start: chunk.start,
+        flags: "r+",
+      });
+
+      let moved = 0;
+
+      readStream.on("data", (data: string | Buffer) => {
+        const len = typeof data === "string" ? Buffer.byteLength(data) : data.length;
+        moved += len;
+        this.totalMovedBytes += len;
+        if (this.onMove) {
+          this.onMove({
+            chunkIndex: chunk.chunkIndex,
+            movedBytes: moved,
+            totalMovedBytes: this.totalMovedBytes,
+            totalSize: this.totalSize,
+          });
+        }
+      });
+
+      readStream.on("error", reject);
+      writeStream.on("error", reject);
+
+      writeStream.on("finish", () => {
+        // Persist movedChunks after each complete chunk (not per fragment)
+        this.stateManager.addMovedChunk(this.stateId, chunk.chunkIndex);
+        resolve();
+      });
+
+      readStream.pipe(writeStream);
+    });
+  }
+
+  /** Abort immediately — finish the in-flight chunk then discard the rest of the queue. */
+  async stop(): Promise<void> {
+    this.stopped = true;
+    while (this.active) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+
+  /** Drain every queued chunk, then return.  If the HDD errors mid-drain the
+   *  stopped flag is raised and we return early — the caller checks movedChunks. */
+  async drain(): Promise<void> {
+    while ((this.queue.length > 0 || this.active) && !this.stopped) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+
+  get hasPending(): boolean {
+    return this.queue.length > 0 || this.active;
+  }
+
+  getTotalMovedBytes(): number {
+    return this.totalMovedBytes;
+  }
+
+  setTotalMovedBytes(bytes: number): void {
+    this.totalMovedBytes = bytes;
+  }
+}
+
+// ─── ChunkManager ──────────────────────────────────────────────────────────────
+
 export class ChunkManager {
-  private opts: Required<ChunkManagerOptions>;
+  private opts: Required<Omit<ChunkManagerOptions, "turboHddSsd" | "tmpDiskAvailable" | "hddDiskAvailable">>;
   private stateManager: StateManager;
   private state: DownloadState;
   private fd: number = -1;
@@ -63,6 +215,13 @@ export class ChunkManager {
   private pendingStateUpdates: { index: number; downloaded: number; completed: boolean }[] = [];
   private pool!: Pool;
   private totalDownloaded = 0;
+
+  // ── Turbo / promotion state ─────────────────────────────────────────────
+  private ioWriteQueue: IOWriteQueue | null = null;
+  private turboHddSsd: ChunkManagerOptions["turboHddSsd"];
+  private promoting = false;
+  private turboPath: string | null = null;
+  private triggerTick: (() => void) | null = null; // re-trigger after promotion
 
   private isWholeFileRequest(rangeStart: number, rangeEnd: number): boolean {
     if (this.state.chunks.length !== 1) return false;
@@ -88,7 +247,10 @@ export class ChunkManager {
       retryDelay:            opts.retryDelay            ?? 2000,
       bandwidthLimitBps:     opts.bandwidthLimitBps     ?? 0,
       isHDD,
+      turboConnectionsMultiplier: opts.turboConnectionsMultiplier ?? 1.0,
     };
+
+    this.turboHddSsd = opts.turboHddSsd;
   }
 
   on<K extends keyof ChunkManagerEvents>(event: K, handler: ChunkManagerEvents[K]): this {
@@ -117,23 +279,108 @@ export class ChunkManager {
     const url = new URL(this.state.firmware.url);
     this.pool = makePool(url.origin, this.opts.maxConnections);
 
+    // ── Dual-disk space check ──────────────────────────────────────────────
+    // If turboHddSsd was set, verify both disks have space before allocating
+    if (this.turboHddSsd) {
+      const tmpDir = require("path").dirname(tmpFilePath);
+      const hddDir = require("path").dirname(this.turboHddSsd.turboPath);
+
+      try {
+        // Check tmp disk (SSD)
+        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+        const tmpStats = await fs.promises.statfs(tmpDir).catch(() => null);
+        const tmpFree = tmpStats ? tmpStats.bavail * tmpStats.bsize : 0;
+        const tmpNeeded = this.state.totalSize;
+
+        // Check HDD disk
+        if (!fs.existsSync(hddDir)) fs.mkdirSync(hddDir, { recursive: true });
+        const hddStats = await fs.promises.statfs(hddDir).catch(() => null);
+        const hddFree = hddStats ? hddStats.bavail * hddStats.bsize : 0;
+        const hddNeeded = this.state.totalSize;
+
+        if (tmpFree > 0 && tmpFree < tmpNeeded && hddFree >= hddNeeded) {
+          // SSD full, HDD OK → degrade to hdd_only
+          this.turboHddSsd = undefined;
+          this.turboPath = null;
+          this.emit("degraded");
+        }
+      } catch {
+        // statfs not available on older Node — skip check, proceed optimistically
+      }
+    }
+
     // Open file for random-access write
     const flags = fs.existsSync(tmpFilePath) ? "r+" : "w";
     this.fd = fs.openSync(tmpFilePath, flags);
 
-    // Pre-allocate to avoid fragmentation (especially on HDD)
+    // Pre-allocate to avoid fragmentation
     if (flags === "w" && this.state.totalSize > 0) {
       await this.fallocate(this.fd, this.state.totalSize);
+    }
+
+    // ── Set up turbo HDD+SSD progressive write ─────────────────────────────
+    if (this.turboHddSsd) {
+      this.turboPath = this.turboHddSsd.turboPath;
+
+      // Create and pre-allocate .turbo file
+      if (!fs.existsSync(this.turboPath)) {
+        const turboFd = fs.openSync(this.turboPath, "w");
+        if (this.state.totalSize > 0) {
+          await this.fallocate(turboFd, this.state.totalSize);
+        }
+        fs.closeSync(turboFd);
+      }
+
+      // Start IOWriteQueue
+      this.ioWriteQueue = new IOWriteQueue(
+        tmpFilePath,
+        this.turboPath,
+        this.stateManager,
+        this.state.id,
+        this.state.totalSize,
+        (info) => {
+          this.emit("turboMove", info);
+          if (this.turboHddSsd?.onTurboMove) this.turboHddSsd.onTurboMove(info);
+        },
+        (err) => {
+          this.emit("turboHddError", err);
+          if (this.turboHddSsd?.onTurboHddError) this.turboHddSsd.onTurboHddError(err);
+        },
+      );
+
+      // If recovering, pre-load movedChunks and set totalMovedBytes
+      const preMoved = this.state.movedChunks.reduce((sum, idx) => {
+        const c = this.state.chunks[idx];
+        return sum + (c ? (c.downloaded > 0 ? (c.end - c.start + 1) : 0) : 0);
+      }, 0);
+      if (preMoved > 0) {
+        this.ioWriteQueue.setTotalMovedBytes(preMoved);
+      }
     }
 
     try {
       await new Promise<void>((resolve, reject) => {
         const tick = () => {
-          if (this.aborted) return;
+          if (this.aborted) {
+            if (this.activeCount === 0) {
+              // All in-flight chunks finished — cleanly reject
+              reject(new Error("Aborted"));
+            }
+            return;
+          }
+
+          // Don't start new downloads while promoting
+          if (this.promoting) {
+            if (this.activeCount === 0 && this.pendingQueue.length === 0) {
+              // Wait — promotion will call tick() again
+              return;
+            }
+          }
 
           while (
             this.activeCount < this.currentMaxConnections() &&
-            this.pendingQueue.length > 0
+            this.pendingQueue.length > 0 &&
+            !this.promoting
           ) {
             const chunk = this.pendingQueue.shift()!;
             this.activeCount++;
@@ -146,20 +393,21 @@ export class ChunkManager {
             this.flushStateNow();
             fs.closeSync(this.fd);
             this.fd = -1;
+            this.triggerTick = null;
             this.emit("complete");
             resolve();
           }
         };
 
+        this.triggerTick = tick;
         tick();
       });
     } finally {
-      // Always destroy the pool when done or aborted
       await this.pool.destroy().catch(() => {});
     }
   }
 
-  // ─── Adaptive concurrency ────────────────────────────────────────────────────
+  // ─── Adaptive concurrency ───────────────────────────────────────────────────
 
   private currentMaxConnections(): number {
     const elapsed = (Date.now() - this.lastSpeedCheck) / 1000;
@@ -171,7 +419,7 @@ export class ChunkManager {
     return Math.max(this.opts.initialConnections, target);
   }
 
-  // ─── Chunk download with retry ───────────────────────────────────────────────
+  // ─── Chunk download with retry ──────────────────────────────────────────────
 
   private async downloadChunk(chunk: ChunkState, attempt: number): Promise<void> {
     if (this.aborted) return;
@@ -183,6 +431,15 @@ export class ChunkManager {
       chunk.completed = true;
       this.queueStateUpdate(chunk.index, chunk.downloaded, true);
       this.emit("chunkComplete", chunk.index);
+      // Enqueue for HDD write if turboHddSsd is active
+      if (this.ioWriteQueue && !this.ioWriteQueue["stopped"]) {
+        this.ioWriteQueue.enqueue({
+          chunkIndex: chunk.index,
+          start: chunk.start,
+          end: chunk.end,
+          size: chunk.end - chunk.start + 1,
+        });
+      }
       return;
     }
 
@@ -198,10 +455,6 @@ export class ChunkManager {
     }
   }
 
-  /**
-   * Fetch byte range via undici Pool, write with async fs.write (non-blocking I/O).
-   * Uses async-iterator on the response body for built-in back-pressure.
-   */
   private async fetchRange(chunk: ChunkState, rangeStart: number, rangeEnd: number): Promise<void> {
     if (this.aborted) throw new Error("Aborted");
 
@@ -218,7 +471,7 @@ export class ChunkManager {
           "range":       `bytes=${rangeStart}-${rangeEnd}`,
           "user-agent":  "iTunes/12.12.10",
           "connection":  "keep-alive",
-          "accept-encoding": "identity",  // Disable compression — we need exact byte ranges
+          "accept-encoding": "identity",
         },
         headersTimeout: 15_000,
         bodyTimeout:    120_000
@@ -244,10 +497,6 @@ export class ChunkManager {
     const buffers: Buffer[] = [];
     let bufferedBytes = 0;
 
-    /**
-     * Async write — avoids blocking the event loop unlike writeSync.
-     * Returns a promise so we can await it before advancing writeHead.
-     */
     const flushBuffers = async (): Promise<void> => {
       if (buffers.length === 0) return;
       if (this.aborted || this.fd === -1) { buffers.length = 0; bufferedBytes = 0; return; }
@@ -273,14 +522,12 @@ export class ChunkManager {
         totalBytes:   this.state.totalSize,
       });
 
-      // Bandwidth throttle (optional)
       if (this.opts.bandwidthLimitBps > 0) {
         const throttleMs = (combined.length / this.opts.bandwidthLimitBps) * 1000;
         if (throttleMs > 5) await this.sleep(throttleMs);
       }
     };
 
-    // undici body is a web ReadableStream / AsyncIterable<Buffer>
     for await (const data of response.body) {
       if (this.aborted) {
         await response.body.dump().catch(() => {});
@@ -295,15 +542,24 @@ export class ChunkManager {
       }
     }
 
-    // Flush remainder
     await flushBuffers();
 
     chunk.completed = true;
     this.queueStateUpdate(chunk.index, chunk.downloaded, true);
     this.emit("chunkComplete", chunk.index);
+
+    // ── Enqueue for HDD write (turbo HDD+SSD progressive move) ──────────
+    if (this.ioWriteQueue && !this.ioWriteQueue["stopped"]) {
+      this.ioWriteQueue.enqueue({
+        chunkIndex: chunk.index,
+        start: chunk.start,
+        end: chunk.end,
+        size: chunk.end - chunk.start + 1,
+      });
+    }
   }
 
-  // ─── HEAD request via undici ─────────────────────────────────────────────────
+  // ─── HEAD request via undici ────────────────────────────────────────────────
 
   static async fetchMetadata(url: string): Promise<{ contentLength: number; acceptsRanges: boolean }> {
     const parsed = new URL(url);
@@ -324,7 +580,142 @@ export class ChunkManager {
     }
   }
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  // ─── Promotion ──────────────────────────────────────────────────────────────
+
+  /**
+   * Promote a normal download to turbo.  Flushes already-downloaded chunks from
+   * SSD tmp → HDD .turbo, then recreates the IOWriteQueue so future chunks are
+   * moved in the background.  The download fd stays on SSD tmp — the download
+   * thread never touches HDD.
+   */
+  async promote(tmpPath: string, turboPath: string): Promise<void> {
+    this.promoting = true;
+
+    // Wait for in-flight chunk downloads to finish
+    while (this.activeCount > 0) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    // Stop the existing IOWriteQueue (abandon remaining queued chunks —
+    // we'll flush them explicitly below, then recreate the queue).
+    if (this.ioWriteQueue) {
+      await this.ioWriteQueue.stop();
+      this.ioWriteQueue = null;
+    }
+
+    // Ensure .turbo exists and is pre-allocated
+    if (!fs.existsSync(turboPath)) {
+      const turboFd = fs.openSync(turboPath, "w");
+      if (this.state.totalSize > 0) {
+        await this.fallocate(turboFd, this.state.totalSize);
+      }
+      fs.closeSync(turboFd);
+    }
+
+    // Flush chunks that were downloaded to tmp but not yet moved to .turbo.
+    // Load fresh state — the IOWriteQueue may have updated movedChunks on disk.
+    const freshState = this.stateManager.load(this.state.id);
+    const alreadyMoved = new Set(freshState?.movedChunks ?? []);
+
+    for (const chunk of this.state.chunks) {
+      if (chunk.downloaded > 0 && !alreadyMoved.has(chunk.index)) {
+        await new Promise<void>((resolve, reject) => {
+          const readStream = fs.createReadStream(tmpPath, {
+            start: chunk.start,
+            end: chunk.start + chunk.downloaded - 1,
+            highWaterMark: 4 * 1024 * 1024,
+          });
+          const writeStream = fs.createWriteStream(turboPath, {
+            start: chunk.start,
+            flags: "r+",
+          });
+          readStream.on("error", reject);
+          writeStream.on("error", reject);
+          writeStream.on("finish", () => {
+            this.stateManager.addMovedChunk(this.state.id, chunk.index);
+            resolve();
+          });
+          readStream.pipe(writeStream);
+        });
+      }
+    }
+
+    // ── Keep fd on SSD tmp — never switch to HDD ──────────────────────
+    // The download loop writes to tmp at max speed.  The IOWriteQueue
+    // (recreated below) streams completed chunks to .turbo independently.
+    this.turboPath = turboPath;
+
+    // Recreate IOWriteQueue so future completed chunks get moved
+    this.ioWriteQueue = new IOWriteQueue(
+      tmpPath,
+      turboPath,
+      this.stateManager,
+      this.state.id,
+      this.state.totalSize,
+      (info) => { this.emit("turboMove", info); },
+      (err) => { this.emit("turboHddError", err); },
+    );
+
+    // Carry over total moved bytes for progress continuity
+    const preMoved = this.state.chunks.reduce((sum, c) => {
+      if (!alreadyMoved.has(c.index)) return sum;
+      return sum + (c.completed ? (c.end - c.start + 1) : c.downloaded);
+    }, 0);
+    if (preMoved > 0) {
+      this.ioWriteQueue.setTotalMovedBytes(preMoved);
+    }
+
+    // Rebuild pending queue (non-completed chunks — the download loop
+    // continues writing them to tmp on SSD).
+    this.pendingQueue = this.state.chunks.filter(c => !c.completed);
+
+    this.promoting = false;
+
+    // Re-trigger the download loop
+    this.triggerTick?.();
+  }
+
+  // ─── Turbo helpers ──────────────────────────────────────────────────────────
+
+  updateMaxConnections(newMax: number): void {
+    this.opts.maxConnections = newMax;
+  }
+
+  getTotalMovedBytes(): number {
+    return this.ioWriteQueue?.getTotalMovedBytes() ?? 0;
+  }
+
+  /** Drain every queued chunk → .turbo, then stop. Used at download completion. */
+  async drainIOWorker(): Promise<void> {
+    if (this.ioWriteQueue) {
+      await this.ioWriteQueue.drain();
+      this.ioWriteQueue = null;
+    }
+  }
+
+  /** Abort the IOWorker — finish the in-flight chunk, discard remaining queue. */
+  async stopIOWorker(): Promise<void> {
+    if (this.ioWriteQueue) {
+      await this.ioWriteQueue.stop();
+      this.ioWriteQueue = null;
+    }
+  }
+
+  cleanupTurboFile(): void {
+    if (this.turboPath && fs.existsSync(this.turboPath)) {
+      try { fs.unlinkSync(this.turboPath); } catch {}
+    }
+  }
+
+  isTurboHddSsd(): boolean {
+    return this.turboPath !== null;
+  }
+
+  getTurboPath(): string | null {
+    return this.turboPath;
+  }
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private fallocate(fd: number, size: number): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -346,12 +737,15 @@ export class ChunkManager {
 
   abort(): void {
     this.aborted = true;
+    // Stop IOWriteQueue gracefully
+    if (this.ioWriteQueue) {
+      this.ioWriteQueue.stop().catch(() => {});
+    }
     if (this.fd !== -1) {
       try { fs.closeSync(this.fd); } catch { }
       this.fd = -1;
     }
     this.flushStateNow();
-    // pool.destroy() is called in start()'s finally block
   }
 
   private queueStateUpdate(index: number, downloaded: number, completed: boolean): void {

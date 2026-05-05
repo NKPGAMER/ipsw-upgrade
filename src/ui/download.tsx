@@ -1,10 +1,10 @@
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { state as dataState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
 
-import type { Task, TaskStatus } from "../../global";
+import type { Task, TaskStatus, DownloadMode } from "../../global";
 import { getFileNameFromUrl } from "../core/helper";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -98,6 +98,22 @@ const ProgressBar = memo(function ProgressBar({ progress, status }: ProgressBarP
   );
 });
 
+// ─── ModeBadge ────────────────────────────────────────────────────────────────
+
+const ModeBadge = memo(function ModeBadge({ mode, flash }: { mode: DownloadMode; flash?: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-widest uppercase border transition-all duration-300 ${
+        mode === "turbo"
+          ? "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30"
+          : "bg-white/5 text-[#4a6478] border-white/10"
+      } ${flash ? "animate-turbo-flash" : ""}`}
+    >
+      {mode === "turbo" ? "TURBO" : "NORMAL"}
+    </span>
+  );
+});
+
 // Icon components
 const IconPause = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -134,12 +150,22 @@ interface DownloadCardProps {
 
 const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) {
   const { t } = useTranslation();
-  const { id, firmware, progress, speed, status, eta, error } = task;
+  const { id, firmware, progress, speed, status, eta, error, mode } = task;
   const isActive = status === "downloading";
   const canPause = status === "downloading";
   const canResume = status === "paused" || status === "error";
   const canCancel = status !== "completed";
   const filename = useMemo(() => getFileNameFromUrl(firmware.url), [firmware.url]);
+  const [turboFlash, setTurboFlash] = useState(false);
+  const prevMode = useRef<DownloadMode>(mode);
+
+  useEffect(() => {
+    if (prevMode.current === "normal" && mode === "turbo") {
+      setTurboFlash(true);
+      setTimeout(() => setTurboFlash(false), 2000);
+    }
+    prevMode.current = mode;
+  }, [mode]);
 
   const accentMap: Record<TaskStatus, string> = {
     downloading: "border-l-[#137fec]",
@@ -187,6 +213,7 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
 
         <div className="flex items-center gap-2 shrink-0">
           <StatusBadge status={status} />
+          <ModeBadge mode={mode} flash={turboFlash} />
           <div className="flex items-center gap-1">
             {canPause && (
               <button
@@ -494,6 +521,14 @@ export default function DownloadPage() {
           )}
         </div>
       </div>
+      <style>{`
+        @keyframes turboFlash {
+          0%   { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
+          30%  { box-shadow: 0 0 0 4px rgba(224,139,26,0.5); }
+          100% { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
+        }
+        .animate-turbo-flash { animation: turboFlash 0.6s ease-out 3; }
+      `}</style>
     </div>
   );
 }

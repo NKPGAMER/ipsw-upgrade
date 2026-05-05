@@ -1,5 +1,7 @@
 export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "cancelled";
 
+export type DownloadMode = "turbo" | "normal";
+
 export type EventChannel = "started" | "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
 
 export interface Task {
@@ -11,6 +13,7 @@ export interface Task {
   eta?: number;
   error?: string;
   savePath: string;
+  mode: DownloadMode;
 }
 
 export interface ChunkState {
@@ -31,6 +34,8 @@ export interface DownloadState {
   supportsRanges: boolean;
   createdAt: number;
   updatedAt: number;
+  mode: DownloadMode;
+  movedChunks: number[];
 }
 
 export interface AddResult {
@@ -60,6 +65,8 @@ export interface IncompleteTask {
   progress: number;          // 0–100
   tmpExists: boolean;        // tmp file still on disk
   savedAt: number;           // updatedAt timestamp from state
+  mode: DownloadMode;
+  movedChunks: number[];
 }
 
 export interface DownloaderConfig {

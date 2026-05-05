@@ -10,6 +10,7 @@ export { IntegrityChecker } from "./integrity";
 export type {
   Task,
   TaskStatus,
+  DownloadMode,
   ChunkState,
   DownloadState,
   AddResult,

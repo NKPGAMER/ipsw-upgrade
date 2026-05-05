@@ -211,6 +211,22 @@ const STATUS_CONFIG: Record<CardTask | "none", {
   incomplete_dl: { label: "Chưa tải xong", pill: "bg-sky-400/12", dot: "bg-sky-400", text: "text-sky-400" },
 };
 
+// ─── Mode Badge ───────────────────────────────────────────────────────────────
+function ModeBadge({ mode, flash }: { mode?: "turbo" | "normal"; flash?: boolean }) {
+  if (!mode) return null;
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-widest uppercase border transition-all duration-300 ${
+        mode === "turbo"
+          ? "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30"
+          : "bg-white/5 text-[#4a6478] border-white/10"
+      } ${flash ? "animate-turbo-flash" : ""}`}
+    >
+      {mode === "turbo" ? "TURBO" : "NORMAL"}
+    </span>
+  );
+}
+
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 function ProgressBar({ value, status }: { value: number; status: TaskStatus | "incomplete_dl" }) {
   const colorMap: Partial<Record<string, string>> = {
@@ -370,6 +386,8 @@ const DeviceCard = memo(function DeviceCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [turboFlash, setTurboFlash] = useState(false);
+  const prevMode = useRef(entry.task?.mode);
 
   const status = computeCardStatus(entry, allFiles, incompleteTasks);
   const cfg = STATUS_CONFIG[status];
@@ -382,6 +400,16 @@ const DeviceCard = memo(function DeviceCard({
     }
     prevPending.current = pending;
   }, [pending]);
+
+  useEffect(() => {
+    const currentMode = entry.task?.mode;
+    if (prevMode.current === "normal" && currentMode === "turbo") {
+      setTurboFlash(true);
+      setTimeout(() => setTurboFlash(false), 2000);
+      pushToast("info", `${entry.device.name} just got Turbo boosted!`);
+    }
+    prevMode.current = currentMode;
+  }, [entry.task?.mode, entry.device.name]);
 
   useEffect(() => {
     const el = cardRef.current;
@@ -489,6 +517,12 @@ const DeviceCard = memo(function DeviceCard({
               />
               <span className={`text-[13px] font-semibold ${cfg.text}`}>{cfg.label}</span>
             </div>
+
+            {inProgress && entry.task?.mode && (
+              <div className="ml-2!">
+                <ModeBadge mode={entry.task.mode} flash={turboFlash} />
+              </div>
+            )}
 
             {inProgress && (
               <span className="text-[11px] text-gray-500 font-mono tabular-nums">
@@ -1747,6 +1781,12 @@ export default function IPSWManager() {
         }
         .animate-card-flash { animation: cardFlash 0.6s ease-out; }
         .animate-shimmer { animation: shimmer 1.8s linear infinite; }
+        @keyframes turboFlash {
+          0%   { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
+          30%  { box-shadow: 0 0 0 4px rgba(224,139,26,0.5); }
+          100% { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
+        }
+        .animate-turbo-flash { animation: turboFlash 0.6s ease-out 3; }
         .scrollbar-thin::-webkit-scrollbar { width: 4px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
