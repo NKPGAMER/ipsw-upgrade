@@ -14,6 +14,7 @@ class Scheduler extends events_1.EventEmitter {
     maxNormal = 0;
     activeTurbo = new Set();
     activeNormal = new Set();
+    activeRunGens = new Map();
     constructor(maxConcurrent = 3) {
         super();
         this.maxConcurrent = maxConcurrent;
@@ -21,13 +22,12 @@ class Scheduler extends events_1.EventEmitter {
     // ── Turbo mode configuration ─────────────────────────────────────────────
     setTurboMode(enabled, environment) {
         this.turboMode = enabled;
-        if (environment)
-            this.env = environment;
+        this.env = environment;
         if (enabled) {
-            switch (this.env) {
+            switch (environment) {
                 case "ssd_save":
-                    this.maxTurbo = 2;
-                    this.maxNormal = 3;
+                    this.maxTurbo = 3;
+                    this.maxNormal = 2;
                     break;
                 case "hdd_ssd_tmp":
                     this.maxTurbo = 1;
@@ -80,9 +80,14 @@ class Scheduler extends events_1.EventEmitter {
             this.active.add(next.id);
             next.onSlotOpen?.("normal");
             this.emit("started", next.id);
+            const gen = (this.activeRunGens.get(next.id) ?? 0) + 1;
+            this.activeRunGens.set(next.id, gen);
             next.run().finally(() => {
+                if (this.activeRunGens.get(next.id) !== gen)
+                    return;
                 this.activeNormal.delete(next.id);
                 this.active.delete(next.id);
+                this.activeRunGens.delete(next.id);
                 this.emit("slot_open", next.id, "normal");
                 this.drain();
             });
@@ -106,9 +111,14 @@ class Scheduler extends events_1.EventEmitter {
         this.active.add(next.id);
         next.onSlotOpen?.("turbo");
         this.emit("started", next.id);
+        const gen = (this.activeRunGens.get(next.id) ?? 0) + 1;
+        this.activeRunGens.set(next.id, gen);
         next.run().finally(() => {
+            if (this.activeRunGens.get(next.id) !== gen)
+                return;
             this.activeTurbo.delete(next.id);
             this.active.delete(next.id);
+            this.activeRunGens.delete(next.id);
             this.emit("slot_open", next.id, "turbo");
             this.drain();
         });
@@ -122,8 +132,13 @@ class Scheduler extends events_1.EventEmitter {
             const next = this.queue.splice(idx, 1)[0];
             this.active.add(next.id);
             this.emit("started", next.id);
+            const gen = (this.activeRunGens.get(next.id) ?? 0) + 1;
+            this.activeRunGens.set(next.id, gen);
             next.run().finally(() => {
+                if (this.activeRunGens.get(next.id) !== gen)
+                    return;
                 this.active.delete(next.id);
+                this.activeRunGens.delete(next.id);
                 this.emit("slot_open", next.id);
                 this.drain();
             });
@@ -131,19 +146,34 @@ class Scheduler extends events_1.EventEmitter {
     }
     pauseTask(id) {
         this.paused.add(id);
+        const wasTurbo = this.activeTurbo.delete(id);
+        const wasNormal = this.activeNormal.delete(id);
+        this.active.delete(id);
+        // Invalidate old promise's finally() so it won't double-free the slot
+        const gen = (this.activeRunGens.get(id) ?? 0) + 1;
+        this.activeRunGens.set(id, gen);
+        if (wasTurbo) {
+            this.emit("slot_open", id, "turbo");
+        }
+        else if (wasNormal) {
+            this.emit("slot_open", id, "normal");
+        }
+        this.drain();
     }
     resumeTask(id) {
         this.paused.delete(id);
         this.drain();
     }
     cancelTask(id) {
-        const wasQueued = this.queue.some(t => t.id === id);
         this.queue = this.queue.filter(t => t.id !== id);
         this.paused.delete(id);
-        this.activeTurbo.delete(id);
-        this.activeNormal.delete(id);
-        // Active tasks release their slot when the in-flight promise settles.
-        if (wasQueued && !this.active.has(id)) {
+        const wasTurbo = this.activeTurbo.delete(id);
+        const wasNormal = this.activeNormal.delete(id);
+        this.active.delete(id);
+        // Invalidate old promise's finally()
+        const gen = (this.activeRunGens.get(id) ?? 0) + 1;
+        this.activeRunGens.set(id, gen);
+        if (wasTurbo || wasNormal) {
             this.drain();
         }
     }
