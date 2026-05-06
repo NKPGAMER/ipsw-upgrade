@@ -6,22 +6,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.IPSWHardLinkManager = void 0;
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
-const HARD_LINK_FOLDER = "IPSW_Files";
+const HARD_LINK_FOLDER = "IPSW_FILES";
 class IPSWHardLinkManager {
     watcher;
     dataHandle;
-    savePath;
-    enabled;
+    config;
     records = new Map();
     constructor(_win, watcher, dataHandle, config) {
         this.watcher = watcher;
         this.dataHandle = dataHandle;
-        this.savePath = path_1.default.resolve(config.savePath);
-        this.enabled = config.enabled;
+        this.config = config;
     }
     async start() {
         await this.syncFolder();
-        if (!this.enabled)
+        if (!this.config.enabled)
             return;
         this.watcher.onFilesAdded((files) => void this.handleAdded(files));
         this.watcher.onFilesRemoved((files) => void this.handleRemoved(files));
@@ -29,20 +27,9 @@ class IPSWHardLinkManager {
     }
     async checkAndCreateHardLinks() {
         await this.syncFolder();
-        if (!this.enabled)
+        if (!this.config.enabled)
             return;
         await this.rebuildFromWatcher();
-    }
-    async updateConfig(config) {
-        this.savePath = path_1.default.resolve(config.savePath);
-        this.enabled = config.enabled;
-        await this.syncFolder();
-        if (this.enabled) {
-            await this.rebuildFromWatcher();
-        }
-        else {
-            await this.cleanupFolder(true);
-        }
     }
     async stop() {
         await this.cleanupFolder();
@@ -51,14 +38,14 @@ class IPSWHardLinkManager {
         await promises_1.default.mkdir(this.folderPath, { recursive: true });
     }
     get folderPath() {
-        return path_1.default.join(this.savePath, HARD_LINK_FOLDER);
+        return path_1.default.join(this.config.watchDir, this.config.outDir || HARD_LINK_FOLDER);
     }
     async rebuildFromWatcher() {
         const files = this.watcher.getFiles();
         await Promise.all(files.map((file) => this.createLinkForFile(file)));
     }
     async handleAdded(files) {
-        if (!this.enabled)
+        if (!this.config.enabled)
             return;
         await Promise.all(files.map((file) => this.createLinkForFile(file)));
     }
@@ -226,14 +213,11 @@ class IPSWHardLinkManager {
         };
     }
     async getMatchedDevicesForFile(fileId, fileBuild) {
-        const devices = this.dataHandle.getDevices('iphone');
+        const devices = this.dataHandle.getDevices();
         const matched = new Map();
         for (const device of devices) {
-            const hasLocalData = await this.dataHandle.hasLocalData({ type: "modelData", identifier: device.identifier });
-            if (!hasLocalData)
-                continue;
-            const modelData = await this.dataHandle.getLocalData(device.identifier);
-            if (!modelData || !modelData.firmwares)
+            const modelData = await this.dataHandle.getModelData(device.identifier, true);
+            if (!modelData)
                 continue;
             for (const firmware of modelData.firmwares) {
                 const parsed = this.parseIPSW(firmware.url.split("/").pop() ?? "");

@@ -12,9 +12,7 @@ const electron_updater_1 = require("electron-updater");
 // System
 const path_1 = require("path");
 // Modules
-// import { AppleDevice } from "./modules/appleDevice";
 const userData_1 = require("./modules/userData");
-const localFile_1 = require("./modules/localFile");
 const disk_1 = require("./modules/disk");
 const dataHandle_1 = require("./modules/dataHandle");
 const ipswWatcher_1 = require("./modules/ipswWatcher");
@@ -73,18 +71,16 @@ async function init() {
     splash = createSplashWindow(width, height);
     mainWindow = createMainWindow(width, height);
     dl = new downloader_1.DownloaderMain(mainWindow, {
-        stateDir: (0, path_1.join)(electron_1.app.getPath("userData"), "ipsw-state"),
-        config: {
-            turboMode: true
-        }
+        turboMode: true
     });
     dh = new dataHandle_1.DataHandle(mainWindow);
     const ipswFolder = exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder;
     const isEnabled = exports.store.get("enable") ?? true;
     watcher = new ipswWatcher_1.IPSWWatcher(mainWindow, ipswFolder);
     linkManager = new ipswHardLinkManager_1.IPSWHardLinkManager(mainWindow, watcher, dh, {
-        savePath: ipswFolder,
+        watchDir: ipswFolder,
         enabled: isEnabled,
+        outDir: "IPSW_FILES_NAME"
     });
     loadRenderer(mainWindow);
     registerMainWindowEvents(mainWindow);
@@ -144,10 +140,6 @@ electron_1.app.on("activate", () => {
     if (electron_1.BrowserWindow.getAllWindows().length === 0)
         void init();
 });
-electron_1.ipcMain.handle("ipsw:sync-link-config", async (_event, savePath, enabled) => {
-    await linkManager?.updateConfig({ savePath, enabled });
-    return { success: true };
-});
 // ─── Auto Updater ─────────────────────────────────────────────────────────────
 function initAutoUpdater() {
     electron_updater_1.autoUpdater.autoDownload = true;
@@ -181,16 +173,6 @@ const handlers = [
             const { canceled, filePaths } = await electron_1.dialog.showOpenDialog(options);
             return canceled ? null : filePaths[0];
         }],
-    // Files
-    ["get:files:ipsw", async (_, folder) => {
-            try {
-                return (0, localFile_1.scanFolder)(folder);
-            }
-            catch (error) {
-                throw new Error(`Failed to scan folder: ${error.message}`);
-            }
-        }],
-    ["delete-file", (_, filePath) => (0, localFile_1.deleteFile)(filePath)],
     // Persistent store
     ["store", (_, method, key, value) => {
             if (!STORE_METHODS.has(method))

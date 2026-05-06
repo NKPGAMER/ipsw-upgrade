@@ -1,27 +1,4 @@
 "use strict";
-/**
- * downloader-main.ts
- *
- * Main-thread orchestrator.
- *
- * Responsibilities:
- *  1. Spawn the downloader Worker thread (downloader-worker.ts)
- *  2. Provide a request/reply bridge for async Worker calls (add, getAllTask, …)
- *  3. Forward spontaneous Worker events → BrowserWindow.webContents.send (renderer)
- *  4. Register ipcMain handlers so the renderer can invoke downloader methods
- *
- * Usage (in your main Electron entry-point):
- *
- *   import { DownloaderMain } from "./downloader/downloader-main";
- *
- *   const downloader = new DownloaderMain(mainWindow, {
- *     stateDir: path.join(app.getPath("userData"), ".ipsw-state"),
- *     config: { maxConcurrentTasks: 3 },
- *   });
- *
- *   // On window close / app quit:
- *   await downloader.destroy();
- */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -60,16 +37,16 @@ exports.DownloaderMain = void 0;
 const path = __importStar(require("path"));
 const worker_threads_1 = require("worker_threads");
 const crypto_1 = require("crypto");
+const electron_1 = require("electron");
 class DownloaderMain {
-    worker = null;
     win;
-    stateDir;
+    stateDir = path.join(electron_1.app.getPath("userData"), "ipsw-state");
     config;
+    worker = null;
     pending = new Map();
-    constructor(win, opts = { stateDir: ".ipsw-state" }) {
+    constructor(win, opts) {
         this.win = win;
-        this.stateDir = opts.stateDir;
-        this.config = opts.config ?? {};
+        this.config = opts ?? {};
         this.registerIPC();
     }
     ensureWorker() {
@@ -133,6 +110,9 @@ class DownloaderMain {
     deleteIncomplete(id) {
         return this.call({ type: "deleteIncomplete", reqId: (0, crypto_1.randomUUID)(), id });
     }
+    getEnvironmentInfo(savePath) {
+        return this.call({ type: "getEnvironmentInfo", reqId: (0, crypto_1.randomUUID)(), savePath });
+    }
     /** Terminate the worker gracefully. Call on app quit. */
     async destroy() {
         if (!this.worker)
@@ -180,10 +160,11 @@ class DownloaderMain {
             ["dm:pause", (_e, id) => { this.pause(id); }],
             ["dm:resume", (_e, id) => { this.resume(id); }],
             ["dm:cancel", (_e, id) => { this.cancel(id); }],
-            ["dm:getAllTask", () => this.getAllTask()],
-            ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
             ["dm:resumeIncomplete", (_e, id) => this.resumeIncomplete(id)],
             ["dm:deleteIncomplete", (_e, id) => this.deleteIncomplete(id)],
+            ["dm:getAllTask", () => this.getAllTask()],
+            ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
+            ["dm:getEnvironmentInfo", (_e, savePath) => this.getEnvironmentInfo(savePath)],
         ];
         for (const [channel, handler] of handlers) {
             try {

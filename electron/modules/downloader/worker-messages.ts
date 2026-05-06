@@ -17,7 +17,8 @@ export type MainToWorker =
   | { type: "getAllTask";         reqId: string }
   | { type: "getIncompleteTasks"; reqId: string }
   | { type: "resumeIncomplete";   reqId: string; id: string }
-  | { type: "deleteIncomplete";   reqId: string; id: string };
+  | { type: "deleteIncomplete";   reqId: string; id: string }
+  | { type: "getEnvironmentInfo"; reqId: string; savePath: string };
 
 // ─── Worker → Main ────────────────────────────────────────────────────────────
 

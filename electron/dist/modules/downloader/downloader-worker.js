@@ -1,13 +1,4 @@
 "use strict";
-/**
- * downloader-worker.ts
- *
- * Worker thread entry point.
- * Instantiates IPSWDownloader, bridges its EventEmitter events to parentPort,
- * and handles command messages sent from the main thread.
- *
- * This file has NO Electron imports — it runs in a Node worker_threads context.
- */
 Object.defineProperty(exports, "__esModule", { value: true });
 const worker_threads_1 = require("worker_threads");
 const downloader_1 = require("./downloader");
@@ -65,6 +56,9 @@ worker_threads_1.parentPort.on("message", async (msg) => {
             break;
         case "deleteIncomplete":
             reply(msg.reqId, dl.deleteIncomplete(msg.id));
+            break;
+        case "getEnvironmentInfo":
+            reply(msg.reqId, await dl.getEnvironmentInfo(msg.savePath));
             break;
         default:
             console.warn("[downloader-worker] unknown message:", msg.type);

@@ -375,12 +375,31 @@ class DataHandle {
         return { status: "wait" };
     }
     // ── Model data (main process, returns promise) ─────────────────────────────
-    async getModelData(identifier) {
-        console.log("[DataHandle] getModelData() start:", identifier);
+    async getModelData(identifier, skipCheck = false) {
         const product = this.getProductType(identifier);
-        console.log("[DataHandle] getModelData() product:", product);
         if (!product)
             return;
+        // TTL check on memory cache — always fast, always allowed
+        const memEntry = this.modelMap.get(identifier);
+        if (memEntry && (Date.now() - memEntry.cachedAt) < TTL_MS) {
+            return memEntry.device;
+        }
+        const file = `products/${product}/${identifier}.json`;
+        // skipCheck: return local data directly, no API verification
+        if (skipCheck) {
+            try {
+                const stored = await (0, userData_1.read)(file);
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    if (data.cachedAt == null)
+                        data.cachedAt = 0;
+                    this.modelMap.set(identifier, data);
+                    return data.device;
+                }
+            }
+            catch { /* fall through to void */ }
+            return;
+        }
         let latestRelease = "";
         try {
             latestRelease = await this.getLatestRelease();
@@ -389,14 +408,6 @@ class DataHandle {
             console.error("[DataHandle] getModelData() latestRelease fetch failed:", error);
             latestRelease = (await this.readStoredRelease()) ?? "";
         }
-        console.log("[DataHandle] getModelData() latestRelease:", latestRelease);
-        // TTL check on memory cache
-        const memEntry = this.modelMap.get(identifier);
-        if (memEntry && (Date.now() - memEntry.cachedAt) < TTL_MS) {
-            console.log("[DataHandle] getModelData() TTL cache hit:", identifier);
-            return memEntry.device;
-        }
-        const file = `products/${product}/${identifier}.json`;
         try {
             const stored = await (0, userData_1.read)(file);
             console.log("[DataHandle] getModelData() file cache:", stored ? "hit" : "miss", file);
@@ -475,17 +486,6 @@ class DataHandle {
         const file = `products/${product}/${identifier}.json`;
         this.scheduleFetch(identifier, product, file);
     }
-    async getLocalData(identifier) {
-        const product = this.getProductType(identifier);
-        if (!product)
-            return;
-        const file = path_1.default.join("products", product, identifier + ".json");
-        const stored = await (0, userData_1.read)(file);
-        if (stored) {
-            return JSON.parse(stored);
-        }
-        return;
-    }
     // Check data in local or remote
     async hasLocalData({ type, identifier }) {
         const userDataPath = electron_1.app.getPath("userData");
@@ -494,10 +494,9 @@ class DataHandle {
             : identifier
                 ? path_1.default.join(userDataPath, "products", this.getProductType(identifier) ?? "", identifier + ".json")
                 : null;
-        // console.log(filePath, fe.pathExistsSync(filePath ?? ""));
         if (!filePath)
             return false;
-        return await fs_extra_1.default.pathExists(filePath);
+        return fs_extra_1.default.pathExistsSync(filePath);
     }
 }
 exports.DataHandle = DataHandle;

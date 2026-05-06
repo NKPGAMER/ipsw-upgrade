@@ -9,9 +9,7 @@ import { autoUpdater, UpdateInfo } from "electron-updater";
 // System
 import { join } from "path";
 // Modules
-// import { AppleDevice } from "./modules/appleDevice";
 import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
-import { scanFolder, deleteFile } from "./modules/localFile";
 import { getDiskSpace, formatBytes } from "./modules/disk";
 import { DataHandle } from "./modules/dataHandle";
 import { IPSWWatcher } from "./modules/ipswWatcher";
@@ -100,8 +98,9 @@ async function init(): Promise<void> {
   const isEnabled = (store as any).get("enable") ?? true;
   watcher = new IPSWWatcher(mainWindow, ipswFolder);
   linkManager = new IPSWHardLinkManager(mainWindow, watcher, dh, {
-    savePath: ipswFolder,
+    watchDir: ipswFolder,
     enabled: isEnabled,
+    outDir: "IPSW_FILES_NAME"
   });
 
   loadRenderer(mainWindow);
@@ -164,11 +163,6 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) void init();
 });
 
-ipcMain.handle("ipsw:sync-link-config", async (_event, savePath: string, enabled: boolean) => {
-  await linkManager?.updateConfig({ savePath, enabled });
-  return { success: true };
-});
-
 // ─── Auto Updater ─────────────────────────────────────────────────────────────
 
 function initAutoUpdater(): void {
@@ -214,17 +208,6 @@ const handlers: IpcHandler[] = [
     const { canceled, filePaths } = await dialog.showOpenDialog(options);
     return canceled ? null : filePaths[0];
   }],
-
-  // Files
-  ["get:files:ipsw", async (_: IpcMainInvokeEvent, folder: string) => {
-    try {
-      return scanFolder(folder);
-    } catch (error: any) {
-      throw new Error(`Failed to scan folder: ${error.message}`);
-    }
-  }],
-
-  ["delete-file", (_: IpcMainInvokeEvent, filePath: string) => deleteFile(filePath)],
 
   // Persistent store
   ["store", (_: IpcMainInvokeEvent, method: string, key: string, value?: any) => {

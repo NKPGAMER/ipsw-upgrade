@@ -55,6 +55,19 @@ export interface DiskInfo {
   isSSd: boolean;
 }
 
+export interface DriveEnvInfo {
+  /** Drive root, e.g. "C:\\" */
+  path: string;
+  mediaType: "SSD" | "HDD";
+}
+
+export interface DiskEnvironmentInfo {
+  environment: "ssd_save" | "hdd_ssd_tmp" | "hdd_only";
+  saveDrive: DriveEnvInfo;
+  /** The SSD chosen for temp files, or null when no suitable SSD exists */
+  tmpDrive: DriveEnvInfo | null;
+}
+
 export interface IncompleteTask {
   id: string;
   firmware: Firmware;

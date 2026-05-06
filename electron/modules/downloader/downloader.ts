@@ -15,6 +15,7 @@ import {
   IncompleteTask,
   DownloadRequestConfig,
   DownloadMode,
+  DiskEnvironmentInfo,
 } from "./types";
 import { DiskManager } from "./disk-manager";
 import { StateManager } from "./state-manager";
@@ -228,8 +229,6 @@ export class IPSWDownloader extends EventEmitter {
         this.refreshSlots();
       }
     });
-
-    this.diskManager.detectSSD("C:\\").then(console.log).catch(console.error);
   }
 
   // ─── Environment detection ─────────────────────────────────────────────────
@@ -241,10 +240,9 @@ export class IPSWDownloader extends EventEmitter {
     if (isSSD) {
       this.environment = "ssd_save";
     } else {
-      // HDD — check if SSD tmp is available
-      const tmpDir = await this.diskManager.chooseTmpDir(savePath, 1 * GB, this.config.tmpDir || undefined);
-      const tmpIsSSD = await this.diskManager.detectSSD(tmpDir);
-      if (tmpIsSSD) {
+      // HDD — check if SSD tmp is available (chooseTmpDir returns null when only HDDs qualify)
+      const tmpDir = await this.diskManager.chooseTmpDir(savePath, 1 * GB, 1 * GB, this.config.tmpDir || undefined);
+      if (tmpDir !== null) {
         this.environment = "hdd_ssd_tmp";
       } else {
         this.environment = "hdd_only";
@@ -573,6 +571,11 @@ export class IPSWDownloader extends EventEmitter {
 
   getTask(id: string): Task | undefined { return this.tasks.get(id); }
 
+  /** Return disk environment info for a given folder (usable before any download starts). */
+  async getEnvironmentInfo(savePath: string): Promise<DiskEnvironmentInfo> {
+    return this.diskManager.getEnvironmentInfo(savePath);
+  }
+
   // ─── Promotion logic ────────────────────────────────────────────────────────
 
   /** Called after any state change to rebalance slots. */
@@ -662,9 +665,12 @@ export class IPSWDownloader extends EventEmitter {
       // Step 2: Choose tmp directory
       const isHDD = !(await this.diskManager.detectSSD(task.savePath));
       const tmpDir = await this.diskManager.chooseTmpDir(
-        task.savePath, task.firmware.filesize, this.config.tmpDir || undefined
+        task.savePath, task.firmware.filesize, task.firmware.filesize, this.config.tmpDir || undefined
       );
-      const tmpFile = path.join(tmpDir, `${id}.ipsw.tmp`);
+      const effectiveTmpDir = tmpDir ?? path.dirname(path.resolve(task.savePath));
+      const tmpDirFinal = path.join(effectiveTmpDir, "ipswManagerTmp");
+      if (!fs.existsSync(tmpDirFinal)) fs.mkdirSync(tmpDirFinal, { recursive: true });
+      const tmpFile = path.join(tmpDirFinal, `${id}.ipsw.tmp`);
 
       // Step 3: Load or create state
       let state = this.stateManager.load(id);

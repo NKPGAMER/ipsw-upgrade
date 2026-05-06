@@ -2,9 +2,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { DiskInfo } from "./types";
+import { DiskInfo, DiskEnvironmentInfo, DriveEnvInfo } from "./types";
 
 const execFileAsync = promisify(execFile);
+
+const GB = 1024 ** 3;
 
 export class DiskManager {
   private usageTracker = new Map<string, number>();
@@ -35,35 +37,59 @@ export class DiskManager {
     return result;
   }
 
-  async chooseTmpDir(savePath: string, requiredBytes: number, preferredTmpDir?: string): Promise<string> {
-    const candidates: string[] = [];
-    if (preferredTmpDir) candidates.push(preferredTmpDir);
-    candidates.push(process.env.TMPDIR || process.env.TEMP || "/tmp");
-    candidates.push(path.dirname(path.resolve(savePath)));
+  /**
+   * Choose the best SSD tmp directory.
+   *
+   * 1. Enumerate all drives.
+   * 2. Filter to drives with available >= requiredBytes + 1 GB.
+   * 3. If only HDDs qualify, return null (no tmp on HDD).
+   * 4. Score SSDs (free space, non-system bonus) and return the winner.
+   *
+   * @param savePath  — where the final IPSW will land (used to score affinity)
+   * @param requiredBytes — minimum free space needed on the drive
+   * @param fileSize  — size of the tmp file about to be created
+   * @param preferredTmpDir — optional user-configured tmp directory (given priority if suitable)
+   */
+  async chooseTmpDir(
+    savePath: string,
+    requiredBytes: number,
+    fileSize: number,
+    preferredTmpDir?: string,
+  ): Promise<string | null> {
+    const buffer = 1 * GB;
+    const minSpace = Math.max(requiredBytes, fileSize) + buffer;
 
-    const probes = await Promise.all(
-      candidates.map(async (dir) => {
-        try {
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-          const info = await this.getDiskInfo(dir);
-          return { dir, info };
-        } catch { return null; }
-      })
-    );
+    // If user specified a preferred dir that exists and is an SSD with enough room, use it.
+    if (preferredTmpDir) {
+      try {
+        const resolved = path.resolve(preferredTmpDir);
+        if (!fs.existsSync(resolved)) fs.mkdirSync(resolved, { recursive: true });
+        const info = await this.getDiskInfo(resolved);
+        if (info.isSSd && info.available >= minSpace) return resolved;
+      } catch { /* try the drive-scan path */ }
+    }
 
-    for (const p of probes) {
-      if (p && p.info.isSSd && p.info.available >= requiredBytes + 1 * 1024 ** 3) return p.dir;
-    }
-    for (const p of probes) {
-      if (p && p.info.available >= requiredBytes) return p.dir;
-    }
-    return path.dirname(path.resolve(savePath));
+    // Enumerate all drives, filter, score
+    const drives = await this.getAllDrives();
+    const ssdCandidates = drives.filter(d => d.isSSd && d.available >= minSpace);
+
+    if (ssdCandidates.length === 0) return null;
+
+    const saveDriveKey = this.driveKey(savePath);
+
+    const scored = ssdCandidates.map(d => ({
+      dir: d.path,
+      score: this.scoreDrive(d, requiredBytes, saveDriveKey),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+
+    return scored[0].dir;
   }
 
   async hasEnoughSpace(
     savePath: string,
     firmwareSize: number,
-    bufferBytes: number = 5 * 1024 ** 3
+    bufferBytes: number = 5 * GB
   ): Promise<{ ok: boolean; available: number; required: number }> {
     const currentUsage = Array.from(this.usageTracker.values()).reduce((a, b) => a + b, 0);
     const required = firmwareSize + currentUsage + bufferBytes;
@@ -74,6 +100,39 @@ export class DiskManager {
   reserveSpace(taskId: string, bytes: number): void { this.usageTracker.set(taskId, bytes); }
   releaseSpace(taskId: string): void { this.usageTracker.delete(taskId); }
   getTotalReserved(): number { return Array.from(this.usageTracker.values()).reduce((a, b) => a + b, 0); }
+
+  /**
+   * Analyse the disk environment for a given save path.
+   * Used by the UI to show what kind of storage layout is active.
+   */
+  async getEnvironmentInfo(savePath: string): Promise<DiskEnvironmentInfo> {
+    const saveResolved = path.resolve(savePath);
+    const saveDir = this.resolveDir(saveResolved);
+    const isSSD = await this.detectSSD(saveDir);
+
+    const saveMount = this.driveKey(saveDir);
+    const saveDrive: DriveEnvInfo = {
+      path: saveMount,
+      mediaType: isSSD ? "SSD" : "HDD",
+    };
+
+    let environment: DiskEnvironmentInfo["environment"];
+    let tmpDrive: DriveEnvInfo | null = null;
+
+    if (isSSD) {
+      environment = "ssd_save";
+    } else {
+      const tmpDir = await this.chooseTmpDir(savePath, 1 * GB, 1 * GB);
+      if (tmpDir !== null) {
+        environment = "hdd_ssd_tmp";
+        tmpDrive = { path: this.driveKey(tmpDir), mediaType: "SSD" };
+      } else {
+        environment = "hdd_only";
+      }
+    }
+
+    return { environment, saveDrive, tmpDrive };
+  }
 
   // ─── Async disk space ────────────────────────────────────────────────────────
 
@@ -90,13 +149,12 @@ export class DiskManager {
     try {
       const s = await (fs.promises as any).statfs(dir);
       return { available: s.bavail * s.bsize, total: s.blocks * s.bsize };
-    } catch { /* older Node — fall back to subprocess */ }
+    } catch { /* older Node — fall back to PowerShell */ }
 
     try {
-      if (process.platform === "win32") return await this.getStatfsWindows(dir);
-      return await this.getStatfsUnix(dir);
+      return await this.getStatfsWindows(dir);
     } catch {
-      return { available: 50 * 1024 ** 3, total: 100 * 1024 ** 3 };
+      return { available: 50 * GB, total: 100 * GB };
     }
   }
 
@@ -115,51 +173,96 @@ export class DiskManager {
     throw new Error("PowerShell parse failed");
   }
 
-  private async getStatfsUnix(dir: string): Promise<{ available: number; total: number }> {
-    const { stdout } = await execFileAsync("df", ["-k", dir], { timeout: 5000 });
-    const lines = stdout.trim().split("\n");
-    const parts = lines[lines.length - 1].trim().split(/\s+/);
-    return { total: parseInt(parts[1]) * 1024, available: parseInt(parts[3]) * 1024 };
-  }
-
-  // ─── Async SSD detection ─────────────────────────────────────────────────────
+  // ─── SSD detection (Windows-only) ───────────────────────────────────────────
 
   private async detectSSDUncached(targetPath: string): Promise<boolean> {
     try {
-      if (process.platform === "linux") return await this.detectSSDLinux(targetPath);
-      if (process.platform === "darwin") return await this.detectSSDMac();
-      if (process.platform === "win32") return await this.detectSSDWindows(targetPath);
+      return await this.detectSSDWindows(targetPath);
     } catch { /* fall through */ }
     return false;
   }
 
-  private async detectSSDLinux(targetPath: string): Promise<boolean> {
-    const { stdout } = await execFileAsync("df", [targetPath], { timeout: 3000 });
-    const device = stdout.trim().split("\n")[1]?.split(/\s+/)[0];
-    if (!device) return false;
-    const devName = path.basename(device).replace(/[0-9]+$/, "");
-    const rotational = await fs.promises.readFile(`/sys/block/${devName}/queue/rotational`, "utf8");
-    return rotational.trim() === "0";
-  }
-
-  private async detectSSDMac(): Promise<boolean> {
-    const { stdout } = await execFileAsync("system_profiler", ["SPStorageDataType"], { timeout: 6000 });
-    return stdout.toLowerCase().includes("solid");
-  }
-
   private async detectSSDWindows(targetPath: string): Promise<boolean> {
     const driveLetter = path.parse(path.resolve(targetPath)).root.replace(/\\/g, "").replace(":", "");
-    const { stdout } = await execFileAsync(
-      "powershell",
-      ["-NoProfile", "-NonInteractive", "-Command",
-       [
-         `$partition = Get-Partition -DriveLetter '${driveLetter}' -ErrorAction Stop`,
-         "$disk = Get-Disk -Number $partition.DiskNumber -ErrorAction Stop",
-         'if ($disk.MediaType) { Write-Output $disk.MediaType }',
-       ].join("; ")],
-      { timeout: 8000 }
-    );
-    return stdout.toLowerCase().includes("ssd");
+
+    // Primary: Get-PhysicalDisk via Storage module (most reliable)
+    try {
+      const { stdout } = await execFileAsync(
+        "powershell",
+        ["-NoProfile", "-NonInteractive", "-Command",
+         `$p=Get-Partition -DriveLetter '${driveLetter}' -ErrorAction SilentlyContinue;` +
+         `if($p){$d=Get-PhysicalDisk -DeviceNumber $p.DiskNumber -ErrorAction SilentlyContinue;` +
+         `if($d.MediaType){Write-Output $d.MediaType}}`],
+        { timeout: 8000 }
+      );
+      const trimmed = stdout.trim();
+      if (trimmed === "SSD") return true;
+      if (trimmed === "HDD") return false;
+    } catch { /* fall through to fsutil */ }
+
+    // Fallback: fsutil sectorinfo (no admin needed on Win10+)
+    try {
+      const { stdout } = await execFileAsync(
+        "fsutil", ["fsinfo", "sectorinfo", `${driveLetter}:`],
+        { timeout: 5000 }
+      );
+      // fsutil outputs "SSD" for SSDs, "Not SSD" for HDDs
+      // "Not SSD" contains "SSD" as substring, so check for it first
+      if (/not\s+ssd/i.test(stdout)) return false;
+      if (/^\s*SSD\s*$/im.test(stdout)) return true;
+    } catch { /* fall through */ }
+
+    // Last resort: check model name via WMI for NVMe/SSD keywords
+    try {
+      const { stdout } = await execFileAsync(
+        "powershell",
+        ["-NoProfile", "-NonInteractive", "-Command",
+         `$p=Get-Partition -DriveLetter '${driveLetter}' -ErrorAction SilentlyContinue;` +
+         `if($p){$d=Get-CimInstance Win32_DiskDrive | Where-Object Index -eq $p.DiskNumber;` +
+         `if($d){Write-Output "$($d.Model) $($d.MediaType)"}}`],
+        { timeout: 8000 }
+      );
+      const lower = stdout.toLowerCase();
+      if (lower.includes("ssd") || lower.includes("nvme")) return true;
+    } catch { /* give up */ }
+
+    return false;
+  }
+
+  // ─── Drive enumeration ──────────────────────────────────────────────────────
+
+  private async getAllDrives(): Promise<DiskInfo[]> {
+    const drives: DiskInfo[] = [];
+    // Scan C: through Z:
+    for (let letter = 67; letter <= 90; letter++) { // 67 = 'C'
+      const root = `${String.fromCharCode(letter)}:\\`;
+      if (!fs.existsSync(root)) continue;
+      try {
+        drives.push(await this.getDiskInfo(root));
+      } catch { /* skip inaccessible drives */ }
+    }
+    return drives;
+  }
+
+  /** Score an SSD drive — higher is better. */
+  private scoreDrive(drive: DiskInfo, requiredBytes: number, saveDriveKey: string): number {
+    let score = 0;
+
+    // Free space headroom after required (0–50 pts, 2 pts per GB)
+    const headroomGB = (drive.available - requiredBytes) / GB;
+    score += Math.min(50, Math.floor(Math.max(0, headroomGB) * 2));
+
+    // Non-system drive bonus (30 pts) — avoids competing with OS paging / I/O
+    if (!drive.path.toUpperCase().startsWith("C:")) score += 30;
+
+    // Same drive as savePath bonus (20 pts) — rename is instant on same volume
+    if (this.driveKey(drive.path) === saveDriveKey) score += 20;
+
+    // Larger total capacity hints at better controller / more channels (0–20 pts)
+    const totalGB = drive.total / GB;
+    score += Math.min(20, Math.floor(totalGB / 50));
+
+    return score;
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────

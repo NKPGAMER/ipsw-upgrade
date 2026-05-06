@@ -100,6 +100,10 @@ export class DownloaderMain {
     return this.call({ type: "deleteIncomplete", reqId: randomUUID(), id });
   }
 
+  getEnvironmentInfo(savePath: string): Promise<import("./types").DiskEnvironmentInfo> {
+    return this.call({ type: "getEnvironmentInfo", reqId: randomUUID(), savePath });
+  }
+
   /** Terminate the worker gracefully. Call on app quit. */
   async destroy(): Promise<void> {
     if (!this.worker) return;
@@ -157,6 +161,7 @@ export class DownloaderMain {
       ["dm:deleteIncomplete", (_e: any, id: string) => this.deleteIncomplete(id)],
       ["dm:getAllTask", () => this.getAllTask()],
       ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
+      ["dm:getEnvironmentInfo", (_e: any, savePath: string) => this.getEnvironmentInfo(savePath)],
     ];
 
     for (const [channel, handler] of handlers) {

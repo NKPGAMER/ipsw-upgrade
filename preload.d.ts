@@ -3,7 +3,7 @@ import type { UpdateInfo } from "electron-updater";
 import type { FSWatcher, WriteStream } from 'fs';
 import type { ChildProcess } from 'child_process';
 import type { ClientRequest } from "http";
-import type { Task, AddResult, IncompleteTask, EventChannel } from "./global"
+import type { Task, AddResult, IncompleteTask, EventChannel, DiskEnvironmentInfo } from "./global"
 
 /* ---------- Common types ---------- */
 
@@ -31,25 +31,6 @@ interface ElectronApi {
 
   selectFolder: () => Promise<string | null>;
   selectFile: (options?: FileFilter[]) => Promise<string | null>;
-  getFiles: (folder: string) => Promise<IPSWFile[]>;
-  createMd5: (filePath: string, options: Md5Options) => Promise<any>;
-  deleteFile: (path: string) => Promise<{ success: boolean; error?: string }>;
-  onMessage: (callback: (message: string) => void) => void;
-  onErrorMessage: (callback: (message: string) => void) => void;
-
-  getOnlineState: () => Promise<boolean>;
-  onInternetChanged: (callback: (online: boolean) => void) => void;
-
-  onAppClose: (callback: (options?: {
-    taskCount: number
-  }) => void) => void;
-  sendAppCloseResult: (result: boolean) => void;
-
-  userData: {
-    deleteFile: (fileName: string) => Promise<void>;
-    read: (fileName: string) => Promise<string | null>;
-    write: (fileName: string, data: string) => Promise<void>;
-  };
 
   file: {
     getFiles: () => Promise<IPSWFile[]>,
@@ -99,17 +80,18 @@ interface DownloaderAPI {
   getIncompleteTasks: () => Promise<IncompleteTask>;
   resumeIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
   deleteIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
+  getEnvironmentInfo: (savePath: string) => Promise<DiskEnvironmentInfo>;
 
   // Events
-  onStarted:           (cb: (id: string, task: Task) => void) => EventResponse;
-  onAdded:             (cb: (id: string, task: Task) => void) => EventResponse;
-  onCompleted:         (cb: (id: string, task: Task) => void) => EventResponse;
-  onProgress:          (cb: (id: string, task: Task) => void) => EventResponse;
-  onPaused:            (cb: (id: string, task: Task) => void) => EventResponse;
-  onResumed:           (cb: (id: string, task?: Task) => void) => EventResponse;
-  onCancelled:         (cb: (id: string) => void) => EventResponse;
+  onStarted: (cb: (id: string, task: Task) => void) => EventResponse;
+  onAdded: (cb: (id: string, task: Task) => void) => EventResponse;
+  onCompleted: (cb: (id: string, task: Task) => void) => EventResponse;
+  onProgress: (cb: (id: string, task: Task) => void) => EventResponse;
+  onPaused: (cb: (id: string, task: Task) => void) => EventResponse;
+  onResumed: (cb: (id: string, task?: Task) => void) => EventResponse;
+  onCancelled: (cb: (id: string) => void) => EventResponse;
   onIncompleteDeleted: (cb: (id: string) => void) => EventResponse;
-  onError:             (cb: (id: string, error: string, task: Task) => void) => EventResponse;
+  onError: (cb: (id: string, error: string, task: Task) => void) => EventResponse;
 }
 
 declare global {
@@ -124,14 +106,14 @@ declare global {
   type ConfirmVariant = "default" | "danger" | "warning" | "info";
 
   interface DeviceResponse {
-  name: string;
-  identifier: string;
-  boardconfig: string;
-  platform: string;
-  cpid: number;
-  bdid: number;
-  firmwares: Firmware[];
-}
+    name: string;
+    identifier: string;
+    boardconfig: string;
+    platform: string;
+    cpid: number;
+    bdid: number;
+    firmwares: Firmware[];
+  }
 
   interface ConfirmOptions {
     title?: string

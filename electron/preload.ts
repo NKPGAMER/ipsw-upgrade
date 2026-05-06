@@ -21,66 +21,6 @@ const api: ElectronApi = {
   getVersion: versionArg ? versionArg.split("=")[1] : "unknown",
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   selectFile: (options?: FileFilter[]) => ipcRenderer.invoke('select-file', options),
-  getFiles: (folder: string) => ipcRenderer.invoke('get:files:ipsw', folder),
-  createMd5: async (filePath: string, options?: Md5Options): Promise<string> => {
-    if (options?.onProgress) {
-      const progressHandler = (_: any, progress: ProgressInfo) => {
-        options.onProgress?.(progress);
-      };
-
-      // Lắng nghe progress events
-      ipcRenderer.on('md5-progress', progressHandler);
-
-      try {
-        // Gọi main process để tính MD5
-        const result = await ipcRenderer.invoke('create-md5', filePath);
-        return result;
-      } finally {
-        // Cleanup listener sau khi hoàn thành
-        ipcRenderer.removeListener('md5-progress', progressHandler);
-      }
-    }
-
-    // Không có progress callback - gọi trực tiếp
-    return await ipcRenderer.invoke('create-md5', filePath);
-  },
-  deleteFile: (path: string) => ipcRenderer.invoke('delete-file', path),
-
-  onMessage: (callback) => {
-    ipcRenderer.on('ui-message', (_, data) => {
-      callback(data);
-    });
-  },
-
-  onErrorMessage: (callback) => {
-    ipcRenderer.on('ui-error-message', (_, data) => {
-      callback(data);
-    });
-  },
-
-  getOnlineState: () => ipcRenderer.invoke('app-get-online-state'),
-
-  onInternetChanged(callback) {
-    ipcRenderer.on('internet-changed', (_, online) => {
-      callback(online);
-    })
-  },
-
-  onAppClose(callback) {
-    ipcRenderer.on('onAppClose', (_, event) => {
-      callback(event)
-    })
-  },
-
-  sendAppCloseResult(result) {
-    ipcRenderer.invoke('closeAppResult', result)
-  },
-
-  userData: {
-    deleteFile: (fileName: string) => ipcRenderer.invoke('user:deleteFile', fileName),
-    read: (fileName: string) => ipcRenderer.invoke('user:read', fileName),
-    write: (fileName: string, data: string) => ipcRenderer.invoke('user:write', fileName, data),
-  },
 
   file: {
     getFiles: () => ipcRenderer.invoke("ipsw:get-files"),
@@ -140,6 +80,7 @@ const downloaderAPI: DownloaderAPI = {
   getIncompleteTasks: () => ipcRenderer.invoke("dm:getIncompleteTasks"),
   resumeIncomplete: (id) => ipcRenderer.invoke("dm:resumeIncomplete", id),
   deleteIncomplete: (id) => ipcRenderer.invoke("dm:deleteIncomplete", id),
+  getEnvironmentInfo: (savePath: string) => ipcRenderer.invoke("dm:getEnvironmentInfo", savePath),
 
   onStarted: (cb) => listen("dm:started", cb),
   onAdded: (cb) => listen("dm:added", cb),
@@ -156,8 +97,3 @@ contextBridge.exposeInMainWorld('api', api);
 contextBridge.exposeInMainWorld('downloader', downloaderAPI);
 contextBridge.exposeInMainWorld('store', storeApi);
 contextBridge.exposeInMainWorld('updater', updaterApi);
-contextBridge.exposeInMainWorld('ipsw_api', {
-  devices: 'https://api.ipsw.me/v4/devices',
-  getFirmware: 'https://api.ipsw.me/v4/device/$id?type=ipsw',
-  releases: 'https://api.ipsw.me/v4/releases'
-});

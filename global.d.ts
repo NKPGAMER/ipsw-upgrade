@@ -81,6 +81,17 @@ export interface DownloaderConfig {
   tmpDir?: string;
 }
 
+export interface DriveEnvInfo {
+  path: string;
+  mediaType: "SSD" | "HDD";
+}
+
+export interface DiskEnvironmentInfo {
+  environment: "ssd_save" | "hdd_ssd_tmp" | "hdd_only";
+  saveDrive: DriveEnvInfo;
+  tmpDrive: DriveEnvInfo | null;
+}
+
 export interface DownloadEvents {
   progress: (taskId: string, task: Task) => void;
   completed: (taskId: string, task: Task) => void;

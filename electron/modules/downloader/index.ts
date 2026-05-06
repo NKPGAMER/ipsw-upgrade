@@ -17,6 +17,8 @@ export type {
   DownloaderConfig,
   IncompleteTask,
   DiskInfo,
+  DriveEnvInfo,
+  DiskEnvironmentInfo,
 } from "./types";
 
 export type { MainToWorker, WorkerToMain, WorkerEvent, WorkerReply } from "./worker-messages";

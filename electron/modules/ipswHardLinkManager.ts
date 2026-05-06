@@ -5,7 +5,8 @@ import { DataHandle } from "./dataHandle";
 import { IPSWFile, IPSWWatcher } from "./ipswWatcher";
 
 export interface HardLinkManagerConfig {
-  savePath: string;
+  watchDir: string;
+  outDir?: string;
   enabled: boolean;
 }
 
@@ -23,25 +24,23 @@ interface MatchedDeviceInfo {
   buildId: string;
 }
 
-const HARD_LINK_FOLDER = "IPSW_Files";
+const HARD_LINK_FOLDER = "IPSW_FILES";
 
 export class IPSWHardLinkManager {
   private readonly watcher: IPSWWatcher;
   private readonly dataHandle: DataHandle;
-  private savePath: string;
-  private enabled: boolean;
+  private readonly config: HardLinkManagerConfig;
   private readonly records = new Map<string, HardLinkRecord>();
 
   constructor(_win: BrowserWindow, watcher: IPSWWatcher, dataHandle: DataHandle, config: HardLinkManagerConfig) {
     this.watcher = watcher;
     this.dataHandle = dataHandle;
-    this.savePath = path.resolve(config.savePath);
-    this.enabled = config.enabled;
+    this.config = config;
   }
 
   async start(): Promise<void> {
     await this.syncFolder();
-    if (!this.enabled) return;
+    if (!this.config.enabled) return;
 
     this.watcher.onFilesAdded((files) => void this.handleAdded(files));
     this.watcher.onFilesRemoved((files) => void this.handleRemoved(files));
@@ -50,20 +49,8 @@ export class IPSWHardLinkManager {
 
   async checkAndCreateHardLinks(): Promise<void> {
     await this.syncFolder();
-    if (!this.enabled) return;
+    if (!this.config.enabled) return;
     await this.rebuildFromWatcher();
-  }
-
-  async updateConfig(config: HardLinkManagerConfig): Promise<void> {
-    this.savePath = path.resolve(config.savePath);
-    this.enabled = config.enabled;
-
-    await this.syncFolder();
-    if (this.enabled) {
-      await this.rebuildFromWatcher();
-    } else {
-      await this.cleanupFolder(true);
-    }
   }
 
   async stop(): Promise<void> {
@@ -75,7 +62,7 @@ export class IPSWHardLinkManager {
   }
 
   private get folderPath(): string {
-    return path.join(this.savePath, HARD_LINK_FOLDER);
+    return path.join(this.config.watchDir, this.config.outDir || HARD_LINK_FOLDER);
   }
 
   private async rebuildFromWatcher(): Promise<void> {
@@ -84,7 +71,7 @@ export class IPSWHardLinkManager {
   }
 
   private async handleAdded(files: IPSWFile[]): Promise<void> {
-    if (!this.enabled) return;
+    if (!this.config.enabled) return;
     await Promise.all(files.map((file) => this.createLinkForFile(file)));
   }
 
@@ -165,10 +152,10 @@ export class IPSWHardLinkManager {
 
   private async cleanupFolder(removeFolder = false): Promise<void> {
     const entries = await fs.readdir(this.folderPath).catch(() => [] as string[]);
-    await Promise.all(entries.map((entry) => fs.unlink(path.join(this.folderPath, entry)).catch(() => {})));
+    await Promise.all(entries.map((entry) => fs.unlink(path.join(this.folderPath, entry)).catch(() => { })));
 
     if (removeFolder) {
-      await fs.rmdir(this.folderPath).catch(() => {});
+      await fs.rmdir(this.folderPath).catch(() => { });
     }
     this.records.clear();
   }
@@ -271,15 +258,12 @@ export class IPSWHardLinkManager {
   }
 
   private async getMatchedDevicesForFile(fileId: string, fileBuild: string): Promise<MatchedDeviceInfo[]> {
-    const devices = this.dataHandle.getDevices('iphone');
+    const devices = this.dataHandle.getDevices();
     const matched = new Map<string, MatchedDeviceInfo>();
 
     for (const device of devices) {
-      const hasLocalData = await this.dataHandle.hasLocalData({ type: "modelData", identifier: device.identifier });
-
-      if (!hasLocalData) continue;
-      const modelData = await this.dataHandle.getLocalData(device.identifier);
-      if (!modelData || !modelData.firmwares) continue;
+      const modelData = await this.dataHandle.getModelData(device.identifier, true);
+      if (!modelData) continue;
 
       for (const firmware of modelData.firmwares) {
         const parsed = this.parseIPSW(firmware.url.split("/").pop() ?? "");

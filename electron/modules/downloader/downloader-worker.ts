@@ -72,6 +72,10 @@ parentPort.on("message", async (msg: MainToWorker) => {
       reply(msg.reqId, dl.deleteIncomplete(msg.id));
       break;
 
+    case "getEnvironmentInfo":
+      reply(msg.reqId, await dl.getEnvironmentInfo(msg.savePath));
+      break;
+
     default:
       console.warn("[downloader-worker] unknown message:", (msg as any).type);
   }

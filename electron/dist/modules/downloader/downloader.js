@@ -1,11 +1,4 @@
 "use strict";
-/**
- * downloader.ts
- *
- * IPSWDownloader — runs entirely inside the worker thread.
- * No Electron imports here. Communication with main thread happens via
- * worker_threads.parentPort (see downloader-worker.ts).
- */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -220,7 +213,6 @@ class IPSWDownloader extends events_1.EventEmitter {
                 this.refreshSlots();
             }
         });
-        this.diskManager.detectSSD("C:\\").then(console.log).catch(console.error);
     }
     // ─── Environment detection ─────────────────────────────────────────────────
     async ensureEnvironment(savePath) {
@@ -231,10 +223,9 @@ class IPSWDownloader extends events_1.EventEmitter {
             this.environment = "ssd_save";
         }
         else {
-            // HDD — check if SSD tmp is available
-            const tmpDir = await this.diskManager.chooseTmpDir(savePath, 1 * GB, this.config.tmpDir || undefined);
-            const tmpIsSSD = await this.diskManager.detectSSD(tmpDir);
-            if (tmpIsSSD) {
+            // HDD — check if SSD tmp is available (chooseTmpDir returns null when only HDDs qualify)
+            const tmpDir = await this.diskManager.chooseTmpDir(savePath, 1 * GB, 1 * GB, this.config.tmpDir || undefined);
+            if (tmpDir !== null) {
                 this.environment = "hdd_ssd_tmp";
             }
             else {
@@ -532,6 +523,10 @@ class IPSWDownloader extends events_1.EventEmitter {
         return { success: true };
     }
     getTask(id) { return this.tasks.get(id); }
+    /** Return disk environment info for a given folder (usable before any download starts). */
+    async getEnvironmentInfo(savePath) {
+        return this.diskManager.getEnvironmentInfo(savePath);
+    }
     // ─── Promotion logic ────────────────────────────────────────────────────────
     /** Called after any state change to rebalance slots. */
     refreshSlots() {
@@ -610,8 +605,12 @@ class IPSWDownloader extends events_1.EventEmitter {
             const meta = await chunk_manager_1.ChunkManager.fetchMetadata(task.firmware.url);
             // Step 2: Choose tmp directory
             const isHDD = !(await this.diskManager.detectSSD(task.savePath));
-            const tmpDir = await this.diskManager.chooseTmpDir(task.savePath, task.firmware.filesize, this.config.tmpDir || undefined);
-            const tmpFile = path.join(tmpDir, `${id}.ipsw.tmp`);
+            const tmpDir = await this.diskManager.chooseTmpDir(task.savePath, task.firmware.filesize, task.firmware.filesize, this.config.tmpDir || undefined);
+            const effectiveTmpDir = tmpDir ?? path.dirname(path.resolve(task.savePath));
+            const tmpDirFinal = path.join(effectiveTmpDir, "ipswManagerTmp");
+            if (!fs.existsSync(tmpDirFinal))
+                fs.mkdirSync(tmpDirFinal, { recursive: true });
+            const tmpFile = path.join(tmpDirFinal, `${id}.ipsw.tmp`);
             // Step 3: Load or create state
             let state = this.stateManager.load(id);
             if (!state) {

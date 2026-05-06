@@ -35,13 +35,13 @@ interface ReleaseResponse {
 
 const FILES = {
   metadata: "metadata.json",
-  devices:  "devices.json",
+  devices: "devices.json",
 } as const;
 
 const API = {
-  devices:    "https://api.ipsw.me/v4/devices",
-  getFirmware:"https://api.ipsw.me/v4/device/{{id}}?type=ipsw",
-  releases:   "https://api.ipsw.me/v4/releases",
+  devices: "https://api.ipsw.me/v4/devices",
+  getFirmware: "https://api.ipsw.me/v4/device/{{id}}?type=ipsw",
+  releases: "https://api.ipsw.me/v4/releases",
 } as const;
 
 const METADATA_RELEASE_KEY = "lastRelease";
@@ -68,7 +68,7 @@ const metadata = new class {
   async read(): Promise<Record<string, unknown>>;
   async read<T = unknown>(key: string): Promise<T | null>;
   async read<T = unknown>(key?: string): Promise<Record<string, unknown> | T | null> {
-    const raw  = await read(FILES.metadata);
+    const raw = await read(FILES.metadata);
     const data = this.parse(raw);
     if (key === undefined) return data;
     return (data[key] as T) ?? null;
@@ -96,11 +96,11 @@ export class DataHandle {
   private readonly DATA_DIR = path.join(app.getPath("userData"), "ipswData");
   private readonly FILES = {
     metadata: path.join(this.DATA_DIR, FILES.metadata),
-    devices:  path.join(this.DATA_DIR, FILES.devices),
+    devices: path.join(this.DATA_DIR, FILES.devices),
     products: path.join(this.DATA_DIR, "products"),
   } as const;
   private latestRelease: string | undefined;
-  private devices:       Device[]  = [];
+  private devices: Device[] = [];
   private modelMap = new Map<Device["identifier"], ModelData>();
   private win: BrowserWindow | undefined;
 
@@ -289,15 +289,15 @@ export class DataHandle {
 
   private getProductType(identifier: string): Product | undefined {
     const lower = identifier.toLowerCase();
-    if (lower.startsWith("iphone"))           return "iphone";
-    if (lower.startsWith("ipad"))             return "ipad";
-    if (lower.startsWith("watch"))            return "watch";
-    if (lower.startsWith("mac"))              return "mac";
-    if (lower.startsWith("realitydevice"))    return "realitydevice";
-    if (lower.startsWith("appletv"))          return "tv";
+    if (lower.startsWith("iphone")) return "iphone";
+    if (lower.startsWith("ipad")) return "ipad";
+    if (lower.startsWith("watch")) return "watch";
+    if (lower.startsWith("mac")) return "mac";
+    if (lower.startsWith("realitydevice")) return "realitydevice";
+    if (lower.startsWith("appletv")) return "tv";
     if (lower.startsWith("homepod")
-      || lower.startsWith("audioaccessory"))  return "homepod";
-    if (lower.startsWith("ipod"))             return "ipod";
+      || lower.startsWith("audioaccessory")) return "homepod";
+    if (lower.startsWith("ipod")) return "ipod";
     return undefined;
   }
 
@@ -374,8 +374,8 @@ export class DataHandle {
 
   getDevices(product?: Product): Device[] {
     return product
-    ? this.devices.filter(device => device.identifier.toLocaleLowerCase().startsWith(product))
-    : this.devices;
+      ? this.devices.filter(device => device.identifier.toLocaleLowerCase().startsWith(product))
+      : this.devices;
   }
 
   // ── New public API: get() returns data or "wait" ──────────────────────────
@@ -420,11 +420,31 @@ export class DataHandle {
 
   // ── Model data (main process, returns promise) ─────────────────────────────
 
-  async getModelData(identifier: Device["identifier"]): Promise<DeviceResponse | void> {
-    console.log("[DataHandle] getModelData() start:", identifier);
+  async getModelData(identifier: Device["identifier"], skipCheck = false): Promise<DeviceResponse | void> {
     const product = this.getProductType(identifier);
-    console.log("[DataHandle] getModelData() product:", product);
     if (!product) return;
+
+    // TTL check on memory cache — always fast, always allowed
+    const memEntry = this.modelMap.get(identifier);
+    if (memEntry && (Date.now() - memEntry.cachedAt) < TTL_MS) {
+      return memEntry.device;
+    }
+
+    const file = `products/${product}/${identifier}.json`;
+
+    // skipCheck: return local data directly, no API verification
+    if (skipCheck) {
+      try {
+        const stored = await read(file);
+        if (stored) {
+          const data: ModelData = JSON.parse(stored);
+          if (data.cachedAt == null) data.cachedAt = 0;
+          this.modelMap.set(identifier, data);
+          return data.device;
+        }
+      } catch { /* fall through to void */ }
+      return;
+    }
 
     let latestRelease = "";
     try {
@@ -433,16 +453,7 @@ export class DataHandle {
       console.error("[DataHandle] getModelData() latestRelease fetch failed:", error);
       latestRelease = (await this.readStoredRelease()) ?? "";
     }
-    console.log("[DataHandle] getModelData() latestRelease:", latestRelease);
 
-    // TTL check on memory cache
-    const memEntry = this.modelMap.get(identifier);
-    if (memEntry && (Date.now() - memEntry.cachedAt) < TTL_MS) {
-      console.log("[DataHandle] getModelData() TTL cache hit:", identifier);
-      return memEntry.device;
-    }
-
-    const file = `products/${product}/${identifier}.json`;
     try {
       const stored = await read(file);
       console.log("[DataHandle] getModelData() file cache:", stored ? "hit" : "miss", file);
@@ -534,28 +545,16 @@ export class DataHandle {
     this.scheduleFetch(identifier, product, file);
   }
 
-  public async getLocalData(identifier: Device["identifier"]): Promise<DeviceResponse | void> {
-    const product = this.getProductType(identifier);
-    if (!product) return;
-    const file = path.join("products", product, identifier + ".json");
-    const stored = await read(file);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    return;
-  }
-
   // Check data in local or remote
   public async hasLocalData({ type, identifier }: { type: "devices" | "modelData"; identifier?: Device["identifier"] }): Promise<boolean> {
     const userDataPath = app.getPath("userData");
     const filePath = type === "devices"
-    ? path.join(userDataPath, FILES.devices)
-    : identifier
-    ? path.join(userDataPath, "products", this.getProductType(identifier) ?? "", identifier + ".json")
-    : null;
+      ? path.join(userDataPath, FILES.devices)
+      : identifier
+        ? path.join(userDataPath, "products", this.getProductType(identifier) ?? "", identifier + ".json")
+        : null;
 
-    // console.log(filePath, fe.pathExistsSync(filePath ?? ""));
     if (!filePath) return false;
-    return await fe.pathExists(filePath);
+    return fe.pathExistsSync(filePath);
   }
 }

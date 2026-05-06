@@ -45,6 +45,40 @@ const StorageFreeIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
   </svg>
 );
 
+const CpuIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
+    strokeLinecap="round" style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}>
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <rect x="9" y="9" width="6" height="6" />
+    <line x1="9" y1="1" x2="9" y2="4" />
+    <line x1="15" y1="1" x2="15" y2="4" />
+    <line x1="9" y1="20" x2="9" y2="23" />
+    <line x1="15" y1="20" x2="15" y2="23" />
+    <line x1="20" y1="9" x2="23" y2="9" />
+    <line x1="20" y1="14" x2="23" y2="14" />
+    <line x1="1" y1="9" x2="4" y2="9" />
+    <line x1="1" y1="14" x2="4" y2="14" />
+  </svg>
+);
+
+const HddIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth={1.5}
+    strokeLinecap="round" style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}>
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+    <line x1="6" y1="10" x2="6.01" y2="10" />
+    <line x1="9" y1="10" x2="9.01" y2="10" />
+    <line x1="12" y1="10" x2="12.01" y2="10" />
+  </svg>
+);
+
+const ENV_LABEL: Record<string, string> = {
+  ssd_save: "SSD Trực tiếp",
+  hdd_ssd_tmp: "HDD + SSD TMP",
+  hdd_only: "HDD Thuần",
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ProductId =
@@ -94,6 +128,10 @@ const ICONS = {
   usedLg: <StorageUsedIcon size="lg" />,
   freeSm: <StorageFreeIcon size="sm" />,
   freeLg: <StorageFreeIcon size="lg" />,
+  cpuSm: <CpuIcon size="sm" />,
+  cpuLg: <CpuIcon size="lg" />,
+  hddSm: <HddIcon size="sm" />,
+  hddLg: <HddIcon size="lg" />,
 } as const;
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
@@ -192,14 +230,20 @@ const ProductCard = ({ product, onClick }: { product: Product; onClick: () => vo
 
 export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [envInfo, setEnvInfo] = useState<{
+    environment: string;
+    saveDrive: { path: string; mediaType: string };
+    tmpDrive: { path: string; mediaType: string } | null;
+  } | null>(null);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
 
   const reloadStats = useCallback(async () => {
     try {
-      const [freeSpace, allFiles] = await Promise.all([
+      const [freeSpace, allFiles, env] = await Promise.all([
         window.api.getDiskSpace(state.currentFolder),
         Promise.resolve(ipswClient.getFiles()),
+        window.downloader.getEnvironmentInfo(state.currentFolder).catch(() => null),
       ]);
 
       if (!mountedRef.current) return;
@@ -213,6 +257,7 @@ export default function Home() {
           color: pct >= 90 ? "text-red-600" : pct >= 60 ? "text-yellow-500" : "text-green-600",
         },
       });
+      setEnvInfo(env);
     } catch (err) {
       console.error("[Home] reloadStats failed:", err);
     }
@@ -256,6 +301,33 @@ export default function Home() {
     },
   ], [stats]);
 
+  const envStatItems: StatItem[] = useMemo(() => {
+    const env = envInfo;
+    return [
+      {
+        label: "Môi trường",
+        value: env ? ENV_LABEL[env.environment] ?? env.environment : "-",
+        unit: "",
+        iconSm: ICONS.cpuSm,
+        iconLg: ICONS.cpuLg,
+      },
+      {
+        label: "Ổ đĩa lưu",
+        value: env ? env.saveDrive.path : "-",
+        unit: env ? env.saveDrive.mediaType : "",
+        iconSm: ICONS.hddSm,
+        iconLg: ICONS.hddLg,
+      },
+      {
+        label: "Ổ đĩa TMP",
+        value: env?.tmpDrive ? env.tmpDrive.path : (env ? "—" : "-"),
+        unit: env?.tmpDrive ? env.tmpDrive.mediaType : "",
+        iconSm: ICONS.hddSm,
+        iconLg: ICONS.hddLg,
+      },
+    ];
+  }, [envInfo]);
+
   return (
     <div className="flex flex-col min-h-screen w-full bg-[#0d0d0d] text-[#e5e5e5]">
 
@@ -288,13 +360,28 @@ export default function Home() {
       <main className="flex-1 p-6! md:px-8! md:py-7! overflow-y-auto">
 
         {/* Stats row — skeleton khi chưa load xong */}
-        <div className="grid grid-cols-3 gap-3! mb-7!">
+        <div className="grid grid-cols-3 gap-3! mb-3!">
           {stats === null
             ? Array.from({ length: 3 }, (_, i) => <StatCardSkeleton key={i} />)
             : statItems.map((s) => (
               <div
                 key={s.label}
                 style={{ animation: "fadeSlideIn 0.25s ease both" }}
+              >
+                <StatCard {...s} />
+              </div>
+            ))
+          }
+        </div>
+
+        {/* Environment row */}
+        <div className="grid grid-cols-3 gap-3! mb-7!">
+          {envInfo === null
+            ? Array.from({ length: 3 }, (_, i) => <StatCardSkeleton key={i} />)
+            : envStatItems.map((s) => (
+              <div
+                key={s.label}
+                style={{ animation: "fadeSlideIn 0.35s ease both" }}
               >
                 <StatCard {...s} />
               </div>
