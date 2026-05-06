@@ -1,11 +1,3 @@
-/**
- * downloader.ts
- *
- * IPSWDownloader — runs entirely inside the worker thread.
- * No Electron imports here. Communication with main thread happens via
- * worker_threads.parentPort (see downloader-worker.ts).
- */
-
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";

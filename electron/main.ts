@@ -92,10 +92,7 @@ async function init(): Promise<void> {
   mainWindow = createMainWindow(width, height);
 
   dl = new DownloaderMain(mainWindow, {
-    stateDir: join(app.getPath("userData"), "ipsw-state"),
-    config: {
-      turboMode: true
-    }
+    turboMode: true
   });
 
   dh = new DataHandle(mainWindow);

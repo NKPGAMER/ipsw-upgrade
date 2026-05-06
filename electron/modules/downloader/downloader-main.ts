@@ -1,59 +1,26 @@
-/**
- * downloader-main.ts
- *
- * Main-thread orchestrator.
- *
- * Responsibilities:
- *  1. Spawn the downloader Worker thread (downloader-worker.ts)
- *  2. Provide a request/reply bridge for async Worker calls (add, getAllTask, …)
- *  3. Forward spontaneous Worker events → BrowserWindow.webContents.send (renderer)
- *  4. Register ipcMain handlers so the renderer can invoke downloader methods
- *
- * Usage (in your main Electron entry-point):
- *
- *   import { DownloaderMain } from "./downloader/downloader-main";
- *
- *   const downloader = new DownloaderMain(mainWindow, {
- *     stateDir: path.join(app.getPath("userData"), ".ipsw-state"),
- *     config: { maxConcurrentTasks: 3 },
- *   });
- *
- *   // On window close / app quit:
- *   await downloader.destroy();
- */
-
 import * as path from "path";
 import { Worker } from "worker_threads";
 import { randomUUID } from "crypto";
 
 import type { MainToWorker, WorkerToMain } from "./worker-messages";
 import type { DownloaderConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
+import { app } from "electron";
 
-// Electron types — resolved at runtime; typed loosely so this file compiles
-// without depending on a specific @types/electron version.
-// In your project these will be inferred correctly from Electron's bundled types.
 interface BrowserWindow {
   isDestroyed(): boolean;
   webContents: { send(channel: string, ...args: any[]): void };
 }
 
-export interface DownloaderMainOptions {
-  /** Absolute path to the state directory — passed to the worker. */
-  stateDir: string;
-  config?: DownloaderConfig;
-}
-
 export class DownloaderMain {
-  private worker: Worker | null = null;
-  private win?: BrowserWindow;
-  private readonly stateDir: string;
+  private readonly win: BrowserWindow;
+  private readonly stateDir: string = path.join(app.getPath("userData"), "ipsw-state");
   private readonly config: DownloaderConfig;
+  private worker: Worker | null = null;
   private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
 
-  constructor(win?: BrowserWindow, opts: DownloaderMainOptions = { stateDir: ".ipsw-state" }) {
+  constructor(win: BrowserWindow, opts?: DownloaderConfig) {
     this.win = win;
-    this.stateDir = opts.stateDir;
-    this.config = opts.config ?? {};
+    this.config = opts ?? {};
 
     this.registerIPC();
   }
@@ -113,7 +80,7 @@ export class DownloaderMain {
     return this.call<AddResult>({ type: "add", reqId: randomUUID(), firmware, savePath, config });
   }
 
-  pause(id: string): void  { this.ensureWorker().postMessage({ type: "pause",  id } satisfies MainToWorker); }
+  pause(id: string): void { this.ensureWorker().postMessage({ type: "pause", id } satisfies MainToWorker); }
   resume(id: string): void { this.ensureWorker().postMessage({ type: "resume", id } satisfies MainToWorker); }
   cancel(id: string): void { this.ensureWorker().postMessage({ type: "cancel", id } satisfies MainToWorker); }
 
@@ -186,14 +153,14 @@ export class DownloaderMain {
       ["dm:pause", (_e: any, id: string) => { this.pause(id); }],
       ["dm:resume", (_e: any, id: string) => { this.resume(id); }],
       ["dm:cancel", (_e: any, id: string) => { this.cancel(id); }],
-      ["dm:getAllTask", () => this.getAllTask()],
-      ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
       ["dm:resumeIncomplete", (_e: any, id: string) => this.resumeIncomplete(id)],
       ["dm:deleteIncomplete", (_e: any, id: string) => this.deleteIncomplete(id)],
+      ["dm:getAllTask", () => this.getAllTask()],
+      ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
     ];
 
     for (const [channel, handler] of handlers) {
-      try { ipcMain.removeHandler(channel); } catch {}
+      try { ipcMain.removeHandler(channel); } catch { }
       ipcMain.handle(channel, handler);
     }
   }
