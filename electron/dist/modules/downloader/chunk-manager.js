@@ -282,13 +282,28 @@ class ChunkManager {
                 if (this.turboHddSsd?.onTurboHddError)
                     this.turboHddSsd.onTurboHddError(err);
             });
-            // If recovering, pre-load movedChunks and set totalMovedBytes
-            const preMoved = this.state.movedChunks.reduce((sum, idx) => {
-                const c = this.state.chunks[idx];
-                return sum + (c ? (c.downloaded > 0 ? (c.end - c.start + 1) : 0) : 0);
-            }, 0);
-            if (preMoved > 0) {
-                this.ioWriteQueue.setTotalMovedBytes(preMoved);
+            // Recover: enqueue completed-but-not-moved chunks, set total moved bytes
+            const movedSet = new Set(this.state.movedChunks ?? []);
+            let preMovedBytes = 0;
+            for (const chunk of this.state.chunks) {
+                if (movedSet.has(chunk.index)) {
+                    preMovedBytes += chunk.completed
+                        ? (chunk.end - chunk.start + 1)
+                        : chunk.downloaded;
+                    continue;
+                }
+                if (chunk.completed) {
+                    // Chunk was downloaded but never moved — enqueue for background move
+                    this.ioWriteQueue.enqueue({
+                        chunkIndex: chunk.index,
+                        start: chunk.start,
+                        end: chunk.end,
+                        size: chunk.end - chunk.start + 1,
+                    });
+                }
+            }
+            if (preMovedBytes > 0) {
+                this.ioWriteQueue.setTotalMovedBytes(preMovedBytes);
             }
         }
         try {
@@ -491,10 +506,10 @@ class ChunkManager {
     }
     // ─── Promotion ──────────────────────────────────────────────────────────────
     /**
-     * Promote a normal download to turbo.  Flushes already-downloaded chunks from
-     * SSD tmp → HDD .turbo, then recreates the IOWriteQueue so future chunks are
-     * moved in the background.  The download fd stays on SSD tmp — the download
-     * thread never touches HDD.
+     * Promote a normal download to turbo. Creates the IOWriteQueue and enqueues
+     * already-completed chunks so they're moved tmp → .turbo in the background.
+     * Partially-downloaded chunks stay on tmp and will be enqueued when they
+     * complete. The download fd stays on SSD tmp — the download never touches HDD.
      */
     async promote(tmpPath, turboPath) {
         this.promoting = true;
@@ -502,8 +517,7 @@ class ChunkManager {
         while (this.activeCount > 0) {
             await new Promise(r => setTimeout(r, 100));
         }
-        // Stop the existing IOWriteQueue (abandon remaining queued chunks —
-        // we'll flush them explicitly below, then recreate the queue).
+        // Stop existing IOWriteQueue if any
         if (this.ioWriteQueue) {
             await this.ioWriteQueue.stop();
             this.ioWriteQueue = null;
@@ -516,49 +530,35 @@ class ChunkManager {
             }
             fs.closeSync(turboFd);
         }
-        // Flush chunks that were downloaded to tmp but not yet moved to .turbo.
-        // Load fresh state — the IOWriteQueue may have updated movedChunks on disk.
+        this.turboPath = turboPath;
+        // Create IOWriteQueue first, then enqueue completed chunks into it
+        // (non-blocking — they move in the background while download continues)
+        this.ioWriteQueue = new IOWriteQueue(tmpPath, turboPath, this.stateManager, this.state.id, this.state.totalSize, (info) => { this.emit("turboMove", info); }, (err) => { this.emit("turboHddError", err); });
+        // Load fresh state to see which chunks were already moved
         const freshState = this.stateManager.load(this.state.id);
         const alreadyMoved = new Set(freshState?.movedChunks ?? []);
+        let preMovedBytes = 0;
         for (const chunk of this.state.chunks) {
-            if (chunk.downloaded > 0 && !alreadyMoved.has(chunk.index)) {
-                await new Promise((resolve, reject) => {
-                    const readStream = fs.createReadStream(tmpPath, {
-                        start: chunk.start,
-                        end: chunk.start + chunk.downloaded - 1,
-                        highWaterMark: 4 * 1024 * 1024,
-                    });
-                    const writeStream = fs.createWriteStream(turboPath, {
-                        start: chunk.start,
-                        flags: "r+",
-                    });
-                    readStream.on("error", reject);
-                    writeStream.on("error", reject);
-                    writeStream.on("finish", () => {
-                        this.stateManager.addMovedChunk(this.state.id, chunk.index);
-                        resolve();
-                    });
-                    readStream.pipe(writeStream);
+            if (alreadyMoved.has(chunk.index)) {
+                preMovedBytes += chunk.completed
+                    ? (chunk.end - chunk.start + 1)
+                    : chunk.downloaded;
+                continue;
+            }
+            if (chunk.completed) {
+                // Enqueue completed chunk for background move tmp → .turbo
+                this.ioWriteQueue.enqueue({
+                    chunkIndex: chunk.index,
+                    start: chunk.start,
+                    end: chunk.end,
+                    size: chunk.end - chunk.start + 1,
                 });
             }
         }
-        // ── Keep fd on SSD tmp — never switch to HDD ──────────────────────
-        // The download loop writes to tmp at max speed.  The IOWriteQueue
-        // (recreated below) streams completed chunks to .turbo independently.
-        this.turboPath = turboPath;
-        // Recreate IOWriteQueue so future completed chunks get moved
-        this.ioWriteQueue = new IOWriteQueue(tmpPath, turboPath, this.stateManager, this.state.id, this.state.totalSize, (info) => { this.emit("turboMove", info); }, (err) => { this.emit("turboHddError", err); });
-        // Carry over total moved bytes for progress continuity
-        const preMoved = this.state.chunks.reduce((sum, c) => {
-            if (!alreadyMoved.has(c.index))
-                return sum;
-            return sum + (c.completed ? (c.end - c.start + 1) : c.downloaded);
-        }, 0);
-        if (preMoved > 0) {
-            this.ioWriteQueue.setTotalMovedBytes(preMoved);
+        if (preMovedBytes > 0) {
+            this.ioWriteQueue.setTotalMovedBytes(preMovedBytes);
         }
-        // Rebuild pending queue (non-completed chunks — the download loop
-        // continues writing them to tmp on SSD).
+        // Rebuild pending queue for the download loop
         this.pendingQueue = this.state.chunks.filter(c => !c.completed);
         this.promoting = false;
         // Re-trigger the download loop

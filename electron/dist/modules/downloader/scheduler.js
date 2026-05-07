@@ -60,6 +60,24 @@ class Scheduler extends events_1.EventEmitter {
         this.queue.push(task);
         this.drain();
     }
+    /** Update the turboPriority flag and onSlotOpen callback on a queued task. */
+    updateQueueEntry(id, patch) {
+        const stored = this.tasks.get(id);
+        if (!stored)
+            return;
+        if (patch.turboPriority !== undefined)
+            stored.turboPriority = patch.turboPriority;
+        if (patch.onSlotOpen !== undefined)
+            stored.onSlotOpen = patch.onSlotOpen;
+        // Also update the in-queue copy so findIndex sees the new turboPriority
+        const qi = this.queue.findIndex(t => t.id === id);
+        if (qi !== -1) {
+            if (patch.turboPriority !== undefined)
+                this.queue[qi].turboPriority = patch.turboPriority;
+            if (patch.onSlotOpen !== undefined)
+                this.queue[qi].onSlotOpen = patch.onSlotOpen;
+        }
+    }
     drain() {
         if (this.turboMode) {
             this.drainTurbo();
@@ -69,11 +87,9 @@ class Scheduler extends events_1.EventEmitter {
         }
     }
     drainTurbo() {
-        // Turbo only pulls from Normal (promotion), Normal only pulls from Queue.
-        // Fill normal slots from queue — turbo slots are filled via promotion
-        // or the fallback tryFillTurboSlotFromQueue() call below.
+        // Fill normal slots from queue — skip turbo-priority tasks (they need turbo slots)
         while (this.activeNormal.size < this.maxNormal && this.queue.length > 0) {
-            const idx = this.queue.findIndex(t => !this.paused.has(t.id));
+            const idx = this.queue.findIndex(t => !this.paused.has(t.id) && !t.turboPriority);
             if (idx === -1)
                 break;
             const next = this.queue.splice(idx, 1)[0];
@@ -86,6 +102,7 @@ class Scheduler extends events_1.EventEmitter {
             next.run().finally(() => {
                 if (this.activeRunGens.get(next.id) !== gen)
                     return;
+                this.activeTurbo.delete(next.id);
                 this.activeNormal.delete(next.id);
                 this.active.delete(next.id);
                 this.activeRunGens.delete(next.id);
@@ -94,9 +111,11 @@ class Scheduler extends events_1.EventEmitter {
                 this.drain();
             });
         }
-        // Fill any free turbo slot directly from the queue (edge case: normal slots
-        // are full with "moving" tasks that can't be promoted yet).
-        this.tryFillTurboSlotFromQueue();
+        // Fill all free turbo slots directly from the queue
+        while (this.activeTurbo.size < this.maxTurbo) {
+            if (!this.tryFillTurboSlotFromQueue())
+                break;
+        }
     }
     /**
      * Edge case: all normal slots are full but their tasks are in "move" status
@@ -108,7 +127,10 @@ class Scheduler extends events_1.EventEmitter {
             return false;
         if (this.activeTurbo.size >= this.maxTurbo)
             return false;
-        const idx = this.queue.findIndex(t => !this.paused.has(t.id));
+        // Prefer turbo-priority tasks, then fall back to any task
+        let idx = this.queue.findIndex(t => t.turboPriority && !this.paused.has(t.id));
+        if (idx === -1)
+            idx = this.queue.findIndex(t => !this.paused.has(t.id));
         if (idx === -1)
             return false;
         const next = this.queue.splice(idx, 1)[0];
@@ -122,6 +144,7 @@ class Scheduler extends events_1.EventEmitter {
             if (this.activeRunGens.get(next.id) !== gen)
                 return;
             this.activeTurbo.delete(next.id);
+            this.activeNormal.delete(next.id);
             this.active.delete(next.id);
             this.activeRunGens.delete(next.id);
             this.tasks.delete(next.id);
@@ -143,6 +166,8 @@ class Scheduler extends events_1.EventEmitter {
             next.run().finally(() => {
                 if (this.activeRunGens.get(next.id) !== gen)
                     return;
+                this.activeTurbo.delete(next.id);
+                this.activeNormal.delete(next.id);
                 this.active.delete(next.id);
                 this.activeRunGens.delete(next.id);
                 this.tasks.delete(next.id);
@@ -212,6 +237,9 @@ class Scheduler extends events_1.EventEmitter {
     getMaxNormal() {
         return this.turboMode ? this.maxNormal : this.maxConcurrent;
     }
+    getMaxTurbo() {
+        return this.turboMode ? this.maxTurbo : 0;
+    }
     /** All normal slots are occupied (regardless of task state) */
     areAllNormalSlotsFull() {
         if (!this.turboMode)
@@ -221,8 +249,21 @@ class Scheduler extends events_1.EventEmitter {
     getActiveNormalDownloadingIds() {
         return Array.from(this.activeNormal);
     }
+    getActiveTurboIds() {
+        return Array.from(this.activeTurbo);
+    }
     getActiveTurboCount() {
         return this.activeTurbo.size;
+    }
+    /** Move a task from turbo to normal slot (must have a free normal slot). */
+    demoteTurboToNormal(id) {
+        if (!this.activeTurbo.has(id))
+            return false;
+        if (this.activeNormal.size >= this.maxNormal)
+            return false;
+        this.activeTurbo.delete(id);
+        this.activeNormal.add(id);
+        return true;
     }
     getActiveNormalCount() {
         return this.activeNormal.size;

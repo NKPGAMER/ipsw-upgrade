@@ -216,11 +216,10 @@ function ModeBadge({ mode, flash }: { mode?: "turbo" | "normal"; flash?: boolean
   if (!mode) return null;
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-widest uppercase border transition-all duration-300 ${
-        mode === "turbo"
-          ? "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30"
-          : "bg-white/5 text-[#4a6478] border-white/10"
-      } ${flash ? "animate-turbo-flash" : ""}`}
+      className={`inline-flex items-center rounded-lg px-3! py-1! text-[10px] font-semibold tracking-widest uppercase border transition-all duration-300 ${mode === "turbo"
+        ? "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30"
+        : "bg-[#137fec]/12 text-[#137fec] border-[#137fec]/30"
+        } ${flash ? "animate-turbo-flash" : ""}`}
     >
       {mode === "turbo" ? "TURBO" : "NORMAL"}
     </span>
@@ -511,18 +510,20 @@ const DeviceCard = memo(function DeviceCard({
           )}
 
           <div className="mt-1! pt-3! flex items-center justify-between">
-            <div className={`inline-flex items-center gap-2 rounded-lg px-3! py-1.5! ${cfg.pill}`}>
-              <div
-                className={`w-1.75 h-1.75 rounded-full ${cfg.dot} shrink-0 ${cfg.animate ? "animate-pulse" : ""}`}
-              />
-              <span className={`text-[13px] font-semibold ${cfg.text}`}>{cfg.label}</span>
-            </div>
-
-            {inProgress && entry.task?.mode && (
-              <div className="ml-2!">
-                <ModeBadge mode={entry.task.mode} flash={turboFlash} />
+            <div className="flex flex-start">
+              <div className={`inline-flex items-center gap-2 rounded-lg px-3! py-1.5! ${cfg.pill}`}>
+                <div
+                  className={`w-1.75 h-1.75 rounded-full ${cfg.dot} shrink-0 ${cfg.animate ? "animate-pulse" : ""}`}
+                />
+                <span className={`text-[13px] font-semibold ${cfg.text}`}>{cfg.label}</span>
               </div>
-            )}
+
+              {inProgress && entry.task?.mode && (
+                <div className="ml-2!">
+                  <ModeBadge mode={entry.task.mode} flash={turboFlash} />
+                </div>
+              )}
+            </div>
 
             {inProgress && (
               <span className="text-[11px] text-gray-500 font-mono tabular-nums">
@@ -679,7 +680,7 @@ const ControlButtons = memo(function ControlButtons({
         {/* Progress info */}
         <div className="bg-sky-500/8 border border-sky-500/20 rounded-xl px-3! py-2.5! space-y-1.5!">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-sky-300 font-semibold">Tải dở dang</p>
+            <p className="text-[11px] text-sky-300 font-semibold">Tải chưa xong</p>
             <span className="font-mono text-[11px] text-sky-400">{incompTask.progress}%</span>
           </div>
           <div className="w-full h-1 bg-white/8 rounded-full overflow-hidden">
@@ -693,7 +694,7 @@ const ControlButtons = memo(function ControlButtons({
           </p>
           {!incompTask.tmpExists && (
             <p className="text-[10px] text-amber-400/80">
-              ⚠ File cache không tồn tại — sẽ tải lại từ đầu.
+              ⚠ Không tìm thấy file tạm thời, sẽ tải lại từ đầu.
             </p>
           )}
         </div>
@@ -744,7 +745,7 @@ const ControlButtons = memo(function ControlButtons({
           className="w-full py-2.5! rounded-xl bg-cyan-500/12 hover:bg-cyan-500/22 border border-cyan-500/20 text-cyan-300 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {pendingAction === "download"
-            ? <><Spinner className="w-3.5 h-3.5 text-cyan-300" /> Đang thêm…</>
+            ? <><Spinner className="w-3.5 h-3.5 text-cyan-300" /> Đang chuẩn bị...</>
             : <>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M12 2v13m-5-5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
@@ -963,7 +964,7 @@ function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]; onDow
                     onClick={() => onDownload(fw)}
                     className="px-2.5! py-1! rounded-lg bg-[#137fec]/12 hover:bg-[#137fec]/25 text-[#4fa8f5] text-[10px] font-semibold border border-[#137fec]/20 transition-colors"
                   >
-                    Tải
+                    Tải xuống
                   </button>
                 </td>
               </tr>
@@ -992,6 +993,17 @@ function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]; onDow
       )}
     </div>
   );
+}
+
+function latestFirmwareItem({ title, content }: { title: string, content: string }) {
+  return (
+    <div className="bg-white/4 rounded-lg p-2!">
+      <p className="text-[12px] text-gray-600 font-semibold mb-0.5!">{title}</p>
+      <p className="text-[11px] text-gray-300 font-mono truncate" title={content}>
+        {content}
+      </p>
+    </div>
+  )
 }
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
@@ -1045,9 +1057,9 @@ function DetailPanel({
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="px-5! py-4! border-b border-white/6">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3!">
             <div className="w-0.75 h-3 rounded-full bg-[#137fec]" />
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Phiên bản mới nhất</p>
+            <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-widest">Phiên bản mới nhất</p>
           </div>
 
           {entry.firmwares == null ? (
@@ -1067,10 +1079,20 @@ function DetailPanel({
                   <div>
                     <div className="flex items-center gap-2 mb-1!">
                       <span className="text-[22px] font-bold text-white tracking-tight">{latest.version}</span>
-                      {latest.signed && (
+                      {latest.signed ? (
                         <span className="text-[10px] px-2! py-0.5! rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold">
                           Signed
                         </span>
+                      ) : (
+                        <>
+                          <span className="text-[10px] px-2! py-0.5! rounded-md bg-orange-500/15 text-orange-400 border border-orange-500/20 font-semibold">
+                            Unsigned
+                          </span>
+                          <p className="text-[11px] font-bold text-amber-400/80">
+                            ⚠ Phiên bản mới nhất đã bị thu hồi. Hãy tìm phiên bản phù hợp trong mục phía dưới.
+                          </p>
+                        </>
+
                       )}
                     </div>
                     <p className="text-[10px] text-gray-500 font-mono">{latest.buildid}</p>
@@ -1081,18 +1103,10 @@ function DetailPanel({
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-white/4 rounded-lg p-2">
-                    <p className="text-[9px] text-gray-600 mb-0.5">SHA-256</p>
-                    <p className="text-[9px] text-gray-500 font-mono truncate" title={latest.sha256sum}>
-                      {latest.sha256sum.slice(0, 18)}…
-                    </p>
-                  </div>
-                  <div className="bg-white/4 rounded-lg p-2">
-                    <p className="text-[9px] text-gray-600 mb-0.5">MD5</p>
-                    <p className="text-[9px] text-gray-500 font-mono truncate" title={latest.md5sum}>
-                      {latest.md5sum.slice(0, 18)}…
-                    </p>
-                  </div>
+                  {latestFirmwareItem({ title: "Name", content: getFileNameFromUrl(latest.url) || "-" })}
+                  {latestFirmwareItem({ title: "Size", content: formatBytes(latest.filesize) || "-" })}
+                  {latestFirmwareItem({ title: "SHA-256", content: latest.sha256sum || "-" })}
+                  {latestFirmwareItem({ title: "MD5", content: latest.md5sum || "-" })}
                 </div>
               </div>
               <ControlButtons
@@ -1615,15 +1629,15 @@ export default function IPSWManager() {
                 disabled={isScanning}
                 title="Cập nhật tất cả firmware"
                 className={`w-10 h-8 p-2! rounded-lg border flex items-center justify-center transition-colors shrink-0 
-                  ${isScanning 
-                    ? "bg-[#137fec]/15 border-[#137fec]/30 text-[#137fec] cursor-wait" 
+                  ${isScanning
+                    ? "bg-[#137fec]/15 border-[#137fec]/30 text-[#137fec] cursor-wait"
                     : "bg-white/5 hover:bg-white/10 border-white/8 text-gray-500 hover:text-gray-400"
                   }`}
                 onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
               >
                 {isScanning ? <Spinner className="w-5 h-5" /> : TASKBAR_ICON.update}
               </button>
-              
+
               {!isScanning && (
                 <button
                   onClick={async () => {
@@ -1755,7 +1769,7 @@ export default function IPSWManager() {
       </div>
 
       <ToastContainer />
-      
+
       {/* Khóa chuột toàn bộ app khi đang quét */}
       {isScanning && (
         <div className="fixed inset-0 z-9999 cursor-wait pointer-events-auto" />

@@ -34,8 +34,6 @@ class MoveQueue {
   private readonly hddLimit = 2;
   private readonly ssdLimit = 3;
 
-  constructor(private diskManager: DiskManager) { }
-
   async enqueue(
     src: string,
     dest: string,
@@ -195,6 +193,10 @@ export class IPSWDownloader extends EventEmitter {
   private readonly progressEmitMinDelta = 1;
   private readonly moveProgressEmitIntervalMs = 200;
 
+  // Guards against stale runDownload() catch blocks emitting spurious errors
+  // after pause/cancel/resume. Incremented on each lifecycle change.
+  private runGenerations = new Map<string, number>();
+
   private environment: DownloadEnvironment = "ssd_save";
   private envDetected = false;
 
@@ -216,7 +218,7 @@ export class IPSWDownloader extends EventEmitter {
     };
 
     this.diskManager = new DiskManager();
-    this.moveQueue = new MoveQueue(this.diskManager);
+    this.moveQueue = new MoveQueue();
     this.stateManager = new StateManager(stateDir);
     this.scheduler = new Scheduler(this.config.maxConcurrentTasks);
     this.integrity = new IntegrityChecker();
@@ -310,18 +312,15 @@ export class IPSWDownloader extends EventEmitter {
       },
     });
     this.emit("added", id, task);
-
-    // After scheduling, try to fill turbo slots (promotion or queue→turbo)
-    if (this.config.turboMode) {
-      setImmediate(() => this.refreshSlots());
-    }
-
     return { success: true, id };
   }
 
   pause(id: string): void {
     const task = this.tasks.get(id);
     if (!task || task.status !== "downloading") return;
+
+    // Bump generation so the old runDownload catch block is silenced
+    this.runGenerations.set(id, (this.runGenerations.get(id) ?? 0) + 1);
 
     const cm = this.chunkManagers.get(id);
     if (cm) cm.abort();
@@ -335,14 +334,25 @@ export class IPSWDownloader extends EventEmitter {
     const task = this.tasks.get(id);
     if (!task || task.status !== "paused") return;
 
-    // Reset mode to "normal" — scheduler re-decides slot assignment.
-    // This prevents turbo-slot overflow when a paused turbo task resumes.
+    // Bump generation so any lingering old runDownload catch block is silenced
+    this.runGenerations.set(id, (this.runGenerations.get(id) ?? 0) + 1);
+
+    const wasTurbo = task.mode === "turbo" && this.config.turboMode;
+
+    // Reset mode — onSlotOpen will reassign based on actual slot type
     task.mode = "normal";
 
+    // If resuming a turbo task and all turbo slots are full, preempt
+    // to make room.
+    if (wasTurbo && !this.scheduler.hasFreeTurboSlot()) {
+      this.preemptForTurboSlot();
+    }
+
     this.updateTaskStatus(id, "queued");
-    this.scheduler.enqueue({
-      id,
-      run: () => this.runDownload(id),
+    // Task is already in queue from pauseTask — update its entry with turbo priority
+    // and the latest onSlotOpen callback.
+    this.scheduler.updateQueueEntry(id, {
+      turboPriority: wasTurbo,
       onSlotOpen: (slotType: DownloadMode) => {
         const t = this.tasks.get(id);
         if (t) {
@@ -354,14 +364,78 @@ export class IPSWDownloader extends EventEmitter {
     this.scheduler.resumeTask(id);
     this.emit("resumed", id, this.tasks.get(id)!);
 
-    // Trigger promotion attempt after resume — if slots are short, fill them
     if (this.config.turboMode) {
       setImmediate(() => this.refreshSlots());
     }
   }
 
+  /**
+   * Make room for a turbo task. If a normal slot is already free, simply
+   * demote one turbo task to normal. Otherwise preempt the downloading task
+   * with the lowest progress and demote a turbo task to the freed slot.
+   */
+  private preemptForTurboSlot(): void {
+    // If a normal slot is already free, just demote one turbo task — no pause needed.
+    if (this.scheduler.hasFreeNormalSlot()) {
+      const turboIds = this.scheduler.getActiveTurboIds();
+      if (turboIds.length > 0) {
+        this.demoteTurboTask(turboIds[0]);
+      }
+      return;
+    }
+
+    // No free normal slot — find the downloading task with the lowest progress
+    // and pause it to free a slot, then demote a turbo task into it.
+    const allIds = [
+      ...this.scheduler.getActiveNormalDownloadingIds(),
+      ...this.scheduler.getActiveTurboIds(),
+    ];
+    let victimId: string | null = null;
+    let lowestProgress = 100;
+    for (const nid of allIds) {
+      const nt = this.tasks.get(nid);
+      if (nt && nt.status === "downloading" && nt.progress < lowestProgress) {
+        lowestProgress = nt.progress;
+        victimId = nid;
+      }
+    }
+    if (!victimId) return;
+
+    const victimMode = this.tasks.get(victimId)?.mode;
+    this.pause(victimId);
+
+    // If the victim was normal, we freed a normal slot but the turbo slot
+    // is still occupied. Demote a turbo task to the freed normal slot.
+    if (victimMode === "normal" && !this.scheduler.hasFreeTurboSlot()) {
+      const turboIds = this.scheduler.getActiveTurboIds();
+      if (turboIds.length > 0) {
+        this.demoteTurboTask(turboIds[0]);
+      }
+    }
+  }
+
+  /** Demote a turbo task to a normal slot (normal slot must be free). */
+  private demoteTurboTask(demoteId: string): void {
+    if (!this.scheduler.demoteTurboToNormal(demoteId)) return;
+    const demotedTask = this.tasks.get(demoteId);
+    if (!demotedTask) return;
+    demotedTask.mode = "normal";
+    const demotedCm = this.chunkManagers.get(demoteId);
+    if (demotedCm) {
+      const isHDD = this.environment !== "ssd_save";
+      const baseMaxConn = isHDD
+        ? Math.min(8, this.config.maxConnectionsPerTask)
+        : this.config.maxConnectionsPerTask;
+      demotedCm.updateMaxConnections(baseMaxConn);
+    }
+    this.emit("progress", demoteId, demotedTask);
+  }
+
   cancel(id: string): void {
     const task = this.tasks.get(id);
+
+    // Bump generation so the old runDownload catch block is silenced
+    this.runGenerations.set(id, (this.runGenerations.get(id) ?? 0) + 1);
 
     if (task) this.updateTaskStatus(id, "cancelled" as TaskStatus);
 
@@ -510,6 +584,13 @@ export class IPSWDownloader extends EventEmitter {
     }
 
     const downloadedBytes = state.chunks.reduce((s, c) => s + c.downloaded, 0);
+    const wasTurbo = (state.mode ?? "normal") === "turbo" && this.config.turboMode;
+
+    // If resuming a turbo incomplete task and all turbo slots are full,
+    // preempt to make room.
+    if (wasTurbo && !this.scheduler.hasFreeTurboSlot()) {
+      this.preemptForTurboSlot();
+    }
 
     const task: Task = {
       id,
@@ -537,13 +618,9 @@ export class IPSWDownloader extends EventEmitter {
           this.emit("progress", id, t);
         }
       },
+      turboPriority: wasTurbo,
     });
     this.emit("added", id, task);
-
-    // Trigger promotion attempt so incomplete tasks can get turbo
-    if (this.config.turboMode) {
-      setImmediate(() => this.refreshSlots());
-    }
 
     return { success: true };
   }
@@ -588,25 +665,34 @@ export class IPSWDownloader extends EventEmitter {
     if (!this.config.turboMode) return;
     if (!this.scheduler.hasFreeTurboSlot()) return;
 
+    const freeSlots = this.scheduler.getMaxTurbo() - this.scheduler.getActiveTurboCount();
     const normalIds = this.scheduler.getActiveNormalDownloadingIds();
+
+    const candidates: string[] = [];
     for (const id of normalIds) {
       const task = this.tasks.get(id);
-      if (!task) continue;
-      if (task.status !== "downloading") continue;
+      if (task && task.status === "downloading") {
+        candidates.push(id);
+        if (candidates.length >= freeSlots) break;
+      }
+    }
 
-      this.promoteTask(id).catch(err => {
-        console.error(`[IPSWDownloader] promoteTask(${id}) failed:`, err);
-      });
-      return; // promoteTask is async; cascade via refreshSlots in promoteTask's drain
+    if (candidates.length > 0) {
+      // Promote all eligible tasks in parallel
+      Promise.allSettled(candidates.map(id =>
+        this.promoteTask(id).catch(err => {
+          console.error(`[IPSWDownloader] promoteTask(${id}) failed:`, err);
+        })
+      ));
+      return;
     }
 
     // No normal downloading task available for promotion.
-    // If all normal slots are full (tasks in "move"), pull from queue as turbo.
-    if (this.scheduler.areAllNormalSlotsFull()) {
-      this.scheduler.tryFillTurboSlotFromQueue();
+    // Pull from queue directly into any remaining free turbo slots.
+    while (this.scheduler.hasFreeTurboSlot()) {
+      if (!this.scheduler.tryFillTurboSlotFromQueue()) break;
     }
   }
-
   private async promoteTask(id: string): Promise<void> {
     const task = this.tasks.get(id);
     if (!task) return;
@@ -654,6 +740,10 @@ export class IPSWDownloader extends EventEmitter {
   private async runDownload(id: string): Promise<void> {
     const task = this.tasks.get(id);
     if (!task) return;
+
+    // Capture generation to guard against stale catch blocks
+    const gen = (this.runGenerations.get(id) ?? 0) + 1;
+    this.runGenerations.set(id, gen);
 
     try {
       this.updateTaskStatus(id, "downloading");
@@ -803,27 +893,33 @@ export class IPSWDownloader extends EventEmitter {
       const finalPath = this.buildFinalPath(task.firmware, task.savePath);
 
       if (cm.isTurboHddSsd()) {
-        // Turbo HDD+SSD: chunks were progressively moved to .turbo during download.
-        // Drain the IOWriteQueue so every completed chunk is on .turbo.
+        // Turbo HDD+SSD: chunks were progressively moved to .turbo during
+        // download. Drain remaining queued chunks, then rename .turbo → final.
         this.updateTaskStatus(id, "moving");
-        task.progress = 0;
+
+        // Start progress from already-moved bytes (not 0)
+        const initialMoved = cm.getTotalMovedBytes();
+        task.progress = state.totalSize > 0
+          ? Math.floor((initialMoved / state.totalSize) * 100)
+          : 0;
         task.speed = 0;
         task.eta = undefined;
         this.emitProgressNow(id, task);
 
-        // Drain — wait for ALL queued chunks to finish moving (not just abort)
+        // Drain — wait for ALL queued chunks to finish moving
+        // turboMove events update task.progress during the drain
         await cm.drainIOWorker();
 
+        // Final progress from moved bytes (accurate, not based on download %)
         const totalMoved = cm.getTotalMovedBytes();
         task.progress = state.totalSize > 0
-          ? Math.floor((totalMoved / state.totalSize) * 100)
+          ? Math.min(99, Math.floor((totalMoved / state.totalSize) * 100))
           : 100;
         this.emitThrottledProgress(id, task);
 
         const turboPath = cm.getTurboPath()!;
 
-        // Verify every completed chunk is in movedChunks (NOT file size —
-        // the .turbo is pre-allocated so stat would say "full" even with holes).
+        // Verify all completed chunks are in movedChunks
         const stateReloaded = this.stateManager.load(id);
         const completedIndices = (stateReloaded?.chunks ?? [])
           .filter(c => c.completed)
@@ -832,10 +928,13 @@ export class IPSWDownloader extends EventEmitter {
         const allMoved = completedIndices.every(i => movedSet.has(i));
 
         if (allMoved) {
+          // All chunks accounted for — rename .turbo → final in one shot
           try { fs.unlinkSync(finalPath); } catch { }
           fs.renameSync(turboPath, finalPath);
         } else {
-          // Fallback: use MoveQueue for any chunks that weren't moved
+          // Some chunks weren't moved — fallback to MoveQueue (tmp → final).
+          // Clean up the incomplete .turbo file.
+          cm.cleanupTurboFile();
           this.emit("log", id, `Turbo move incomplete (${movedSet.size}/${completedIndices.length} chunks), falling back to MoveQueue`);
           await this.moveQueue.enqueue(tmpFile, finalPath, isHDD, true, ({ pct, speed, eta }) => {
             task.progress = pct;
@@ -871,8 +970,8 @@ export class IPSWDownloader extends EventEmitter {
       this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: false });
 
     } catch (err: any) {
-      if (task.status === "cancelled") return;
-      if (task.status === "paused") return;
+      // Stale runDownload — pause/cancel/resume bumped the generation
+      if (this.runGenerations.get(id) !== gen) return;
 
       this.updateTaskStatus(id, "error");
       task.error = err.message;
@@ -1003,6 +1102,7 @@ export class IPSWDownloader extends EventEmitter {
 
     this.states.delete(id);
     this.chunkManagers.delete(id);
+    this.runGenerations.delete(id);
     if (options.deleteTask) {
       this.tasks.delete(id);
     }
