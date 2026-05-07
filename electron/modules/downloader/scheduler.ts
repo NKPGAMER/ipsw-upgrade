@@ -23,6 +23,7 @@ export class Scheduler extends EventEmitter {
   private activeTurbo = new Set<string>();
   private activeNormal = new Set<string>();
   private activeRunGens = new Map<string, number>();
+  private tasks = new Map<string, SchedulerTask>();
 
   constructor(maxConcurrent = 3) {
     super();
@@ -57,6 +58,7 @@ export class Scheduler extends EventEmitter {
 
   enqueue(task: SchedulerTask): void {
     if (this.active.has(task.id) || this.queue.some(t => t.id === task.id)) return;
+    this.tasks.set(task.id, task);
     this.queue.push(task);
     this.drain();
   }
@@ -71,9 +73,8 @@ export class Scheduler extends EventEmitter {
 
   private drainTurbo(): void {
     // Turbo only pulls from Normal (promotion), Normal only pulls from Queue.
-    // Fill normal slots from queue — turbo slots are filled exclusively via
-    // promoteNormalToTurbo() or tryFillTurboSlotFromQueue() (for the edge case
-    // where all normal slots are full and their tasks are "moving", not "downloading").
+    // Fill normal slots from queue — turbo slots are filled via promotion
+    // or the fallback tryFillTurboSlotFromQueue() call below.
     while (this.activeNormal.size < this.maxNormal && this.queue.length > 0) {
       const idx = this.queue.findIndex(t => !this.paused.has(t.id));
       if (idx === -1) break;
@@ -89,10 +90,14 @@ export class Scheduler extends EventEmitter {
         this.activeNormal.delete(next.id);
         this.active.delete(next.id);
         this.activeRunGens.delete(next.id);
+        this.tasks.delete(next.id);
         this.emit("slot_open", next.id, "normal" as DownloadMode);
         this.drain();
       });
     }
+    // Fill any free turbo slot directly from the queue (edge case: normal slots
+    // are full with "moving" tasks that can't be promoted yet).
+    this.tryFillTurboSlotFromQueue();
   }
 
   /**
@@ -117,6 +122,7 @@ export class Scheduler extends EventEmitter {
       this.activeTurbo.delete(next.id);
       this.active.delete(next.id);
       this.activeRunGens.delete(next.id);
+      this.tasks.delete(next.id);
       this.emit("slot_open", next.id, "turbo" as DownloadMode);
       this.drain();
     });
@@ -137,6 +143,7 @@ export class Scheduler extends EventEmitter {
         if (this.activeRunGens.get(next.id) !== gen) return;
         this.active.delete(next.id);
         this.activeRunGens.delete(next.id);
+        this.tasks.delete(next.id);
         this.emit("slot_open", next.id);
         this.drain();
       });
@@ -147,14 +154,21 @@ export class Scheduler extends EventEmitter {
     this.paused.add(id);
     const wasTurbo = this.activeTurbo.delete(id);
     const wasNormal = this.activeNormal.delete(id);
-    this.active.delete(id);
+    const wasActive = wasTurbo || wasNormal || this.active.delete(id);
     // Invalidate old promise's finally() so it won't double-free the slot
     const gen = (this.activeRunGens.get(id) ?? 0) + 1;
     this.activeRunGens.set(id, gen);
-    if (wasTurbo) {
-      this.emit("slot_open", id, "turbo" as DownloadMode);
-    } else if (wasNormal) {
-      this.emit("slot_open", id, "normal" as DownloadMode);
+    if (wasActive) {
+      // Re-enqueue at the front so resume can pick it up
+      const task = this.tasks.get(id);
+      if (task) {
+        this.queue.unshift(task);
+      }
+      if (wasTurbo) {
+        this.emit("slot_open", id, "turbo" as DownloadMode);
+      } else if (wasNormal) {
+        this.emit("slot_open", id, "normal" as DownloadMode);
+      }
     }
     this.drain();
   }
@@ -170,6 +184,7 @@ export class Scheduler extends EventEmitter {
     const wasTurbo = this.activeTurbo.delete(id);
     const wasNormal = this.activeNormal.delete(id);
     this.active.delete(id);
+    this.tasks.delete(id);
     // Invalidate old promise's finally()
     const gen = (this.activeRunGens.get(id) ?? 0) + 1;
     this.activeRunGens.set(id, gen);

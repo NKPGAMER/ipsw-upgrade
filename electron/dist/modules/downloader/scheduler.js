@@ -15,6 +15,7 @@ class Scheduler extends events_1.EventEmitter {
     activeTurbo = new Set();
     activeNormal = new Set();
     activeRunGens = new Map();
+    tasks = new Map();
     constructor(maxConcurrent = 3) {
         super();
         this.maxConcurrent = maxConcurrent;
@@ -55,6 +56,7 @@ class Scheduler extends events_1.EventEmitter {
     enqueue(task) {
         if (this.active.has(task.id) || this.queue.some(t => t.id === task.id))
             return;
+        this.tasks.set(task.id, task);
         this.queue.push(task);
         this.drain();
     }
@@ -68,9 +70,8 @@ class Scheduler extends events_1.EventEmitter {
     }
     drainTurbo() {
         // Turbo only pulls from Normal (promotion), Normal only pulls from Queue.
-        // Fill normal slots from queue — turbo slots are filled exclusively via
-        // promoteNormalToTurbo() or tryFillTurboSlotFromQueue() (for the edge case
-        // where all normal slots are full and their tasks are "moving", not "downloading").
+        // Fill normal slots from queue — turbo slots are filled via promotion
+        // or the fallback tryFillTurboSlotFromQueue() call below.
         while (this.activeNormal.size < this.maxNormal && this.queue.length > 0) {
             const idx = this.queue.findIndex(t => !this.paused.has(t.id));
             if (idx === -1)
@@ -88,10 +89,14 @@ class Scheduler extends events_1.EventEmitter {
                 this.activeNormal.delete(next.id);
                 this.active.delete(next.id);
                 this.activeRunGens.delete(next.id);
+                this.tasks.delete(next.id);
                 this.emit("slot_open", next.id, "normal");
                 this.drain();
             });
         }
+        // Fill any free turbo slot directly from the queue (edge case: normal slots
+        // are full with "moving" tasks that can't be promoted yet).
+        this.tryFillTurboSlotFromQueue();
     }
     /**
      * Edge case: all normal slots are full but their tasks are in "move" status
@@ -119,6 +124,7 @@ class Scheduler extends events_1.EventEmitter {
             this.activeTurbo.delete(next.id);
             this.active.delete(next.id);
             this.activeRunGens.delete(next.id);
+            this.tasks.delete(next.id);
             this.emit("slot_open", next.id, "turbo");
             this.drain();
         });
@@ -139,6 +145,7 @@ class Scheduler extends events_1.EventEmitter {
                     return;
                 this.active.delete(next.id);
                 this.activeRunGens.delete(next.id);
+                this.tasks.delete(next.id);
                 this.emit("slot_open", next.id);
                 this.drain();
             });
@@ -148,15 +155,22 @@ class Scheduler extends events_1.EventEmitter {
         this.paused.add(id);
         const wasTurbo = this.activeTurbo.delete(id);
         const wasNormal = this.activeNormal.delete(id);
-        this.active.delete(id);
+        const wasActive = wasTurbo || wasNormal || this.active.delete(id);
         // Invalidate old promise's finally() so it won't double-free the slot
         const gen = (this.activeRunGens.get(id) ?? 0) + 1;
         this.activeRunGens.set(id, gen);
-        if (wasTurbo) {
-            this.emit("slot_open", id, "turbo");
-        }
-        else if (wasNormal) {
-            this.emit("slot_open", id, "normal");
+        if (wasActive) {
+            // Re-enqueue at the front so resume can pick it up
+            const task = this.tasks.get(id);
+            if (task) {
+                this.queue.unshift(task);
+            }
+            if (wasTurbo) {
+                this.emit("slot_open", id, "turbo");
+            }
+            else if (wasNormal) {
+                this.emit("slot_open", id, "normal");
+            }
         }
         this.drain();
     }
@@ -170,6 +184,7 @@ class Scheduler extends events_1.EventEmitter {
         const wasTurbo = this.activeTurbo.delete(id);
         const wasNormal = this.activeNormal.delete(id);
         this.active.delete(id);
+        this.tasks.delete(id);
         // Invalidate old promise's finally()
         const gen = (this.activeRunGens.get(id) ?? 0) + 1;
         this.activeRunGens.set(id, gen);
