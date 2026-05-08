@@ -21,6 +21,7 @@ const api = {
         changeDir: (d) => electron_1.ipcRenderer.invoke("ipsw:change-dir", d),
         onReload: (cb) => listen("ipsw:reload", cb)
     },
+    onMessage: (cb) => listen("message", cb),
     requestModelData: (identifier) => electron_1.ipcRenderer.invoke("dh:requestModelData", identifier),
     getDeviceModelData: (identifier) => electron_1.ipcRenderer.invoke("dh:getDeviceModelData", identifier),
     onDeviceDataUpdated: (cb) => {

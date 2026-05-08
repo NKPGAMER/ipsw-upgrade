@@ -1008,7 +1008,7 @@ function latestFirmwareItem({ title, content }: { title: string, content: string
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 function DetailPanel({
-  entry, product, allFiles, incompleteTasks, pendingAction, onClose, onAction,
+  entry, product, allFiles, incompleteTasks, pendingAction, onClose, onAction, linkedDevices,
 }: {
   entry: DeviceEntry;
   product: Product;
@@ -1017,6 +1017,7 @@ function DetailPanel({
   pendingAction: ControlAction | null;
   onClose: () => void;
   onAction: (action: ControlAction, fw?: Firmware) => void;
+  linkedDevices: DeviceEntry[];
 }) {
   const latest = entry.firmwares?.[0] ?? null;
   const status = computeCardStatus(entry, allFiles, incompleteTasks);
@@ -1117,6 +1118,27 @@ function DetailPanel({
                 corruptedFile={corruptedFile}
                 onAction={onAction}
               />
+
+              {linkedDevices.length > 0 && (
+                <div className="mt-3! bg-[#137fec]/6 border border-[#137fec]/15 rounded-xl px-3! py-2.5!">
+                  <p className="text-[10px] font-semibold text-[#137fec] mb-2! flex items-center gap-1.5">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Liên kết ({linkedDevices.length})
+                  </p>
+                  <div className="space-y-1!">
+                    {linkedDevices.map(le => (
+                      <div key={le.device.identifier} className="flex items-center gap-2 text-[10px] text-[#137fec]/70">
+                        <span className="w-1 h-1 rounded-full bg-[#137fec]/50 shrink-0" />
+                        <span className="truncate">{le.device.name}</span>
+                        <span className="text-gray-600 font-mono shrink-0">{le.device.identifier}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <p className="text-[12px] text-gray-500 py-2!">Không có firmware.</p>
@@ -1206,6 +1228,9 @@ export default function IPSWManager() {
   const taskMapRef = useRef<Map<string, Task>>(new Map());
   const entriesRef = useRef<DeviceEntry[]>([]);
   const requestedFwRef = useRef<Set<string>>(new Set());
+  const urlToIdentifiersRef = useRef<Map<string, Set<string>>>(new Map());
+  const identifierGroupRef = useRef<Map<string, Set<string>>>(new Map());
+  const [identifierToGroup, setIdentifierToGroup] = useState<Map<string, Set<string>>>(new Map());
 
   const location = useLocation();
   const { product }: { product: ProductId } = location.state;
@@ -1248,7 +1273,17 @@ export default function IPSWManager() {
     setEntries(prev => {
       let changed = false;
       const result = prev.map(e => {
-        const newTask = next.get(e.device.identifier);
+        let newTask = next.get(e.device.identifier);
+        // If no direct task, check linked group for a shared task
+        if (!newTask) {
+          const group = identifierGroupRef.current.get(e.device.identifier);
+          if (group) {
+            for (const linkedId of group) {
+              newTask = next.get(linkedId);
+              if (newTask) break;
+            }
+          }
+        }
         if (e.task === newTask) return e;
         changed = true;
         return { ...e, task: newTask };
@@ -1274,11 +1309,21 @@ export default function IPSWManager() {
   // ── IPC: listen for firmware data ─────────────────────────────────────────
   useEffect(() => {
     const unsub = window.api.onDeviceDataUpdated(({ identifier, data }) => {
-      setEntries(prev => prev.map(e =>
-        e.device.identifier === identifier
-          ? { ...e, firmwares: data.firmwares ?? [] }
-          : e
-      ));
+      setEntries(prev => {
+        const group = identifierGroupRef.current.get(identifier);
+        if (group && group.size > 1) {
+          return prev.map(e =>
+            group.has(e.device.identifier)
+              ? { ...e, firmwares: data.firmwares ?? [] }
+              : e
+          );
+        }
+        return prev.map(e =>
+          e.device.identifier === identifier
+            ? { ...e, firmwares: data.firmwares ?? [] }
+            : e
+        );
+      });
     });
     return () => unsub();
   }, []);
@@ -1296,11 +1341,83 @@ export default function IPSWManager() {
 
     const result = await window.api.getDeviceModelData(identifier);
     if (result.status === "ready") {
-      setEntries(prev => prev.map(e =>
-        e.device.identifier === identifier
-          ? { ...e, firmwares: result.data.firmwares ?? [] }
-          : e
-      ));
+      const newFirmwares: Firmware[] = result.data.firmwares ?? [];
+
+      setEntries(prev => {
+        if (newFirmwares.length === 0) {
+          return prev.map(e =>
+            e.device.identifier === identifier
+              ? { ...e, firmwares: newFirmwares }
+              : e
+          );
+        }
+
+        const targetUrl = newFirmwares[0].url;
+        const idx = prev.findIndex(e => e.device.identifier === identifier);
+        if (idx === -1) {
+          return prev.map(e =>
+            e.device.identifier === identifier
+              ? { ...e, firmwares: newFirmwares }
+              : e
+          );
+        }
+
+        // Scan 4 cards before and 4 cards after for matching firmware URL
+        const start = Math.max(0, idx - 4);
+        const end = Math.min(prev.length - 1, idx + 4);
+        const linkedIds = new Set<string>();
+        linkedIds.add(identifier);
+
+        for (let i = start; i <= end; i++) {
+          if (i === idx) continue;
+          const fw = prev[i].firmwares;
+          if (fw && fw.length > 0 && fw[0].url === targetUrl) {
+            linkedIds.add(prev[i].device.identifier);
+          }
+        }
+
+        if (linkedIds.size > 1) {
+          // Build linked group
+          urlToIdentifiersRef.current.set(targetUrl, linkedIds);
+          for (const id of linkedIds) {
+            identifierGroupRef.current.set(id, linkedIds);
+          }
+          setIdentifierToGroup(prevGroups => {
+            const next = new Map(prevGroups);
+            for (const id of linkedIds) next.set(id, linkedIds);
+            return next;
+          });
+
+          // Reload data for mismatched linked cards (fire and forget)
+          for (const id of linkedIds) {
+            if (id !== identifier && !requestedFwRef.current.has(id)) {
+              requestedFwRef.current.add(id);
+              window.api.getDeviceModelData(id).then(reloadResult => {
+                if (reloadResult.status === "ready") {
+                  setEntries(prev2 => prev2.map(e =>
+                    linkedIds.has(e.device.identifier)
+                      ? { ...e, firmwares: reloadResult.data.firmwares ?? [] }
+                      : e
+                  ));
+                }
+              });
+            }
+          }
+
+          // Sync firmware data to all linked cards
+          return prev.map(e =>
+            linkedIds.has(e.device.identifier)
+              ? { ...e, firmwares: newFirmwares }
+              : e
+          );
+        }
+
+        return prev.map(e =>
+          e.device.identifier === identifier
+            ? { ...e, firmwares: newFirmwares }
+            : e
+        );
+      });
     }
   }, []);
 
@@ -1435,10 +1552,33 @@ export default function IPSWManager() {
     [entries, selectedId]
   );
 
+  const linkedEntries = useMemo(() => {
+    if (!selectedEntry) return [] as DeviceEntry[];
+    const group = identifierGroupRef.current.get(selectedEntry.device.identifier);
+    if (!group || group.size <= 1) return [] as DeviceEntry[];
+    return entries.filter(e =>
+      e.device.identifier !== selectedEntry.device.identifier && group.has(e.device.identifier)
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, selectedEntry, identifierToGroup]);
+
   const handleResize = useCallback((dx: number) => {
     if (!containerRef.current) return;
     const totalW = containerRef.current.clientWidth;
     setListWidthPct(prev => Math.max(28, Math.min(72, prev + (dx / totalW) * 100)));
+  }, []);
+
+  const getEffectiveTask = useCallback((identifier: string): Task | undefined => {
+    const direct = taskMapRef.current.get(identifier);
+    if (direct) return direct;
+    const group = identifierGroupRef.current.get(identifier);
+    if (group) {
+      for (const linkedId of group) {
+        const t = taskMapRef.current.get(linkedId);
+        if (t) return t;
+      }
+    }
+    return undefined;
   }, []);
 
   const handleAction = useCallback(async (
@@ -1450,7 +1590,7 @@ export default function IPSWManager() {
     const entry = entriesRef.current.find(e => e.device.identifier === deviceIdentifier);
     if (!entry) return;
 
-    const task = taskMapRef.current.get(deviceIdentifier);
+    const task = getEffectiveTask(deviceIdentifier);
     const firmware = fw ?? entry.firmwares?.[0];
 
     setPending(deviceIdentifier, action);
@@ -1762,6 +1902,7 @@ export default function IPSWManager() {
                 pendingAction={pendingActions.get(selectedEntry.device.identifier) ?? null}
                 onClose={() => setSelectedId(null)}
                 onAction={(action, fw) => handleAction(selectedEntry.device.identifier, action, fw)}
+                linkedDevices={linkedEntries}
               />
             </div>
           </>

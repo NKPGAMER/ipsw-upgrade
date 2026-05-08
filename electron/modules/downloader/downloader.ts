@@ -213,6 +213,7 @@ export class IPSWDownloader extends EventEmitter {
       bandwidthLimitBps: config.bandwidthLimitBps ?? 0,
       tmpDir: config.tmpDir ?? "",
       turboMode: config.turboMode ?? false,
+      skipVerify: config.skipVerify ?? false,
       turboConnectionsMultiplier: config.turboConnectionsMultiplier ?? 2.0,
       turboChunkSizeMultiplier: config.turboChunkSizeMultiplier ?? 2.0,
     };
@@ -859,34 +860,36 @@ export class IPSWDownloader extends EventEmitter {
       if (task.status === "paused" || task.status === "cancelled") return;
 
       // Step 8: Verify integrity
-      this.updateTaskStatus(id, "verifying");
-      task.speed = 0;
-      task.eta = undefined;
-      this.emitProgressNow(id, task);
+      if (!this.config.skipVerify) {
+        this.updateTaskStatus(id, "verifying");
+        task.speed = 0;
+        task.eta = undefined;
+        this.emitProgressNow(id, task);
 
-      let lastVerifyEmitAt = 0;
-      const result = await this.integrity.verify(tmpFile, task.firmware, ({ pct, speed, eta }) => {
-        task.progress = pct;
-        task.speed = speed;
-        task.eta = eta;
+        let lastVerifyEmitAt = 0;
+        const result = await this.integrity.verify(tmpFile, task.firmware, ({ pct, speed, eta }) => {
+          task.progress = pct;
+          task.speed = speed;
+          task.eta = eta;
 
-        const now = Date.now();
-        if (now - lastVerifyEmitAt >= this.moveProgressEmitIntervalMs || pct === 100) {
-          lastVerifyEmitAt = now;
+          const now = Date.now();
+          if (now - lastVerifyEmitAt >= this.moveProgressEmitIntervalMs || pct === 100) {
+            lastVerifyEmitAt = now;
+            this.emitThrottledProgress(id, task);
+            return;
+          }
+
           this.emitThrottledProgress(id, task);
+        });
+
+        if (!result.ok) {
+          this.updateTaskStatus(id, "error");
+          task.error = `Checksum mismatch (${result.algo}): expected ${result.expected}, got ${result.actual}`;
+          this.emit("error", id, task.error, task);
+          cm.cleanupTurboFile();
+          this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: true });
           return;
         }
-
-        this.emitThrottledProgress(id, task);
-      });
-
-      if (!result.ok) {
-        this.updateTaskStatus(id, "error");
-        task.error = `Checksum mismatch (${result.algo}): expected ${result.expected}, got ${result.actual}`;
-        this.emit("error", id, task.error, task);
-        cm.cleanupTurboFile();
-        this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: true });
-        return;
       }
 
       // Step 9: Move tmp → final (or finish progressive turbo move)

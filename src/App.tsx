@@ -6,6 +6,7 @@ const Settings = lazy(() => import("./ui/setting"));
 const Downloads = lazy(() => import("./ui/download"));
 const SelectDevice = lazy(() => import("./ui/SelectDevice"));
 const IPSWUpdateManager = lazy(() => import("./ui/IPSWUpdateManager"));
+const Welcome = lazy(() => import("./ui/welcome"));
 
 const LoadingScreen = memo(() => (
     <div
@@ -58,15 +59,18 @@ const LoadingScreen = memo(() => (
 ));
 
 export default function App() {
-    return (<HashRouter>
-        <Suspense fallback={<LoadingScreen />}>
-            <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/downloads" element={<Downloads />} />
-                <Route path="/selectDevice" element={<SelectDevice />} />
-                <Route path="/ipswUpdate" element={<IPSWUpdateManager />} />
-            </Routes>
-        </Suspense>
-    </HashRouter>)
+    return (
+        <HashRouter>
+            <Suspense fallback={<LoadingScreen />}>
+                <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/downloads" element={<Downloads />} />
+                    <Route path="/selectDevice" element={<SelectDevice />} />
+                    <Route path="/ipswUpdate" element={<IPSWUpdateManager />} />
+                    <Route path="/welcome" element={<Welcome />} />
+                </Routes>
+            </Suspense>
+        </HashRouter>
+    )
 }

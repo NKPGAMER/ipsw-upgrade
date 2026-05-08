@@ -93,6 +93,7 @@ export interface DownloaderConfig {
   bandwidthLimitBps?: number;
   tmpDir?: string;
   turboMode?: boolean;
+  skipVerify?: boolean;
   turboConnectionsMultiplier?: number;
   turboChunkSizeMultiplier?: number;
 }

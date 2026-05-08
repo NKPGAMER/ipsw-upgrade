@@ -17,13 +17,8 @@ import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
 import { DownloaderMain } from "./modules/downloader";
 // Config
 import config from "./config";
+import { setWin } from "./utils/system";
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface UpdateResult {
-  status: "no-update" | "update-available" | "error";
-  info?: UpdateInfo;
-  error?: string;
-}
 
 type IpcHandler = [string, (event: IpcMainInvokeEvent, ...args: any[]) => any];
 
@@ -47,6 +42,10 @@ let linkManager: IPSWHardLinkManager | null = null;
 let splash: BrowserWindow | undefined;
 let mainWindow: BrowserWindow | undefined;
 let isReady = false;
+
+const storeGet = (key: string, fallback?: any) => {
+  return (store as any).get(key) ?? fallback;
+}
 
 // ─── Window Factory ───────────────────────────────────────────────────────────
 
@@ -86,21 +85,23 @@ function createMainWindow(width: number, height: number): BrowserWindow {
 
 async function init(): Promise<void> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const ipswFolder = storeGet("ipswFolder", config.defaultAppSettings.ipswFolder);
   splash = createSplashWindow(width, height);
   mainWindow = createMainWindow(width, height);
 
+  setWin(mainWindow);
+
   dl = new DownloaderMain(mainWindow, {
-    turboMode: true
+    turboMode: storeGet("turboMode", false)
   });
 
   dh = new DataHandle(mainWindow);
-  const ipswFolder = (store as any).get("ipswFolder") ?? config.defaultAppSettings.ipswFolder;
-  const isEnabled = (store as any).get("enable") ?? true;
+
   watcher = new IPSWWatcher(mainWindow, ipswFolder);
   linkManager = new IPSWHardLinkManager(mainWindow, watcher, dh, {
     watchDir: ipswFolder,
-    enabled: isEnabled,
-    outDir: "IPSW_FILES_NAME"
+    enabled: storeGet("link_enabled", true),
+    outDir: storeGet("link_out_dir", "IPSW_FILES_NAME")
   });
 
   loadRenderer(mainWindow);
@@ -216,12 +217,6 @@ const handlers: IpcHandler[] = [
       ? (store as any).set(key, value)
       : (store as any)[method](key);
   }],
-
-  // User data
-  ["user:write", (_: IpcMainInvokeEvent, fileName: string, data: any) => write(fileName, data)],
-  ["user:read", (_: IpcMainInvokeEvent, fileName: string) => read(fileName)],
-  ["user:deleteFile", (_: IpcMainInvokeEvent, fileName: string) => userDataDeleteFile(fileName)],
-
   // Disk
   ["getDiskSpace", (_: IpcMainInvokeEvent, targetPath?: string) => getDiskSpace(targetPath)],
   ["formatBytes", (_: IpcMainInvokeEvent, bytes: number, decimals: number) => formatBytes(bytes, decimals)],

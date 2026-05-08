@@ -4,7 +4,7 @@ import type { ElectronApi, ElectronStoreApi, ElectronUpdaterApi, DownloaderAPI }
 function listen<T extends any[]>(
   channel: string,
   cb: (...args: T) => void
-) {
+): EventResponse {
   const handler = (_: any, ...args: T) => cb(...args);
   ipcRenderer.on(channel, handler);
 
@@ -28,6 +28,8 @@ const api: ElectronApi = {
     changeDir: (d) => ipcRenderer.invoke("ipsw:change-dir", d),
     onReload: (cb) => listen("ipsw:reload", cb)
   },
+
+  onMessage: (cb) => listen("message", cb),
 
   requestModelData: (identifier: string) => ipcRenderer.invoke("dh:requestModelData", identifier),
 

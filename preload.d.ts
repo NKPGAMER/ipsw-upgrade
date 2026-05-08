@@ -37,7 +37,9 @@ interface ElectronApi {
     delete: (target: string | string[] | IPSWFile | IPSWFile[]) => Promise<void>;
     changeDir: (newDir: string) => Promise<void>;
     onReload: (callback: (files: IPSWFile[]) => void) => EventResponse;
-  }
+  },
+
+  onMessage: (cb: (message: string, options: { type: 'success' | 'error' | 'warning' | 'info' } = { type: 'success' }) => void) => EventResponse;
 
   requestModelData: (identifier: Device['identifier']) => void;
 
@@ -67,10 +69,6 @@ interface ElectronUpdaterApi {
   install: () => void;
 }
 
-interface EventResponse {
-  unsubscribe: () => void;
-}
-
 interface DownloaderAPI {
   add: (firmware: Firmware, savePath: string, config?: { deleteFiles?: IPSWFile[] }) => Promise<AddResult>;
   pause: (id: string) => Promise<void>;
@@ -98,6 +96,10 @@ declare global {
   type Product = 'iphone' | 'ipad' | 'watch' | 'mac' | 'realitydevice' | 'tv' | 'homepod' | 'ipod';
 
   type ModelDataResult = { status: "ready"; data: DeviceResponse } | { status: "wait" };
+
+  interface EventResponse {
+    unsubscribe: () => void;
+  }
 
   interface DeviceDataUpdatedPayload {
     identifier: string;

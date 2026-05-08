@@ -16,6 +16,9 @@ export class DiskManager {
   // Cache disk space per dir — valid for 5 seconds
   private spaceCache = new Map<string, { result: { available: number; total: number }; ts: number }>();
   private readonly SPACE_CACHE_TTL = 5000;
+  // Cache full drive enumeration — drives don't change during a session (30s TTL)
+  private drivesCache: { result: DiskInfo[]; ts: number } | null = null;
+  private readonly DRIVES_CACHE_TTL = 30000;
 
   // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -232,15 +235,26 @@ export class DiskManager {
   // ─── Drive enumeration ──────────────────────────────────────────────────────
 
   private async getAllDrives(): Promise<DiskInfo[]> {
-    const drives: DiskInfo[] = [];
-    // Scan C: through Z:
-    for (let letter = 67; letter <= 90; letter++) { // 67 = 'C'
-      const root = `${String.fromCharCode(letter)}:\\`;
-      if (!fs.existsSync(root)) continue;
-      try {
-        drives.push(await this.getDiskInfo(root));
-      } catch { /* skip inaccessible drives */ }
+    // Return fresh cache — drives don't change during a session
+    if (this.drivesCache && Date.now() - this.drivesCache.ts < this.DRIVES_CACHE_TTL) {
+      return this.drivesCache.result;
     }
+
+    // Collect existing drive roots first (sync existsSync is fast)
+    const roots: string[] = [];
+    for (let letter = 67; letter <= 90; letter++) {
+      const root = `${String.fromCharCode(letter)}:\\`;
+      if (fs.existsSync(root)) roots.push(root);
+    }
+
+    // Query all drives in parallel — each getDiskInfo does getStatfs + detectSSD concurrently
+    const settled = await Promise.allSettled(roots.map(r => this.getDiskInfo(r)));
+    const drives: DiskInfo[] = [];
+    for (const s of settled) {
+      if (s.status === "fulfilled") drives.push(s.value);
+    }
+
+    this.drivesCache = { result: drives, ts: Date.now() };
     return drives;
   }
 

@@ -11,8 +11,6 @@ const electron_store_1 = __importDefault(require("electron-store"));
 const electron_updater_1 = require("electron-updater");
 // System
 const path_1 = require("path");
-// Modules
-const userData_1 = require("./modules/userData");
 const disk_1 = require("./modules/disk");
 const dataHandle_1 = require("./modules/dataHandle");
 const ipswWatcher_1 = require("./modules/ipswWatcher");
@@ -20,6 +18,7 @@ const ipswHardLinkManager_1 = require("./modules/ipswHardLinkManager");
 const downloader_1 = require("./modules/downloader");
 // Config
 const config_1 = __importDefault(require("./config"));
+const system_1 = require("./utils/system");
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STORE_METHODS = new Set(["get", "set", "has", "delete"]);
 const SPLASH_TIMEOUT_MS = 10_000;
@@ -34,6 +33,9 @@ let linkManager = null;
 let splash;
 let mainWindow;
 let isReady = false;
+const storeGet = (key, fallback) => {
+    return exports.store.get(key) ?? fallback;
+};
 // ─── Window Factory ───────────────────────────────────────────────────────────
 function createSplashWindow(width, height) {
     const win = new electron_1.BrowserWindow({
@@ -68,19 +70,19 @@ function createMainWindow(width, height) {
 // ─── Initialisation ───────────────────────────────────────────────────────────
 async function init() {
     const { width, height } = electron_1.screen.getPrimaryDisplay().workAreaSize;
+    const ipswFolder = storeGet("ipswFolder", config_1.default.defaultAppSettings.ipswFolder);
     splash = createSplashWindow(width, height);
     mainWindow = createMainWindow(width, height);
+    (0, system_1.setWin)(mainWindow);
     dl = new downloader_1.DownloaderMain(mainWindow, {
-        turboMode: true
+        turboMode: storeGet("turboMode", false)
     });
     dh = new dataHandle_1.DataHandle(mainWindow);
-    const ipswFolder = exports.store.get("ipswFolder") ?? config_1.default.defaultAppSettings.ipswFolder;
-    const isEnabled = exports.store.get("enable") ?? true;
     watcher = new ipswWatcher_1.IPSWWatcher(mainWindow, ipswFolder);
     linkManager = new ipswHardLinkManager_1.IPSWHardLinkManager(mainWindow, watcher, dh, {
         watchDir: ipswFolder,
-        enabled: isEnabled,
-        outDir: "IPSW_FILES_NAME"
+        enabled: storeGet("link_enabled", true),
+        outDir: storeGet("link_out_dir", "IPSW_FILES_NAME")
     });
     loadRenderer(mainWindow);
     registerMainWindowEvents(mainWindow);
@@ -181,10 +183,6 @@ const handlers = [
                 ? exports.store.set(key, value)
                 : exports.store[method](key);
         }],
-    // User data
-    ["user:write", (_, fileName, data) => (0, userData_1.write)(fileName, data)],
-    ["user:read", (_, fileName) => (0, userData_1.read)(fileName)],
-    ["user:deleteFile", (_, fileName) => (0, userData_1.deleteFile)(fileName)],
     // Disk
     ["getDiskSpace", (_, targetPath) => (0, disk_1.getDiskSpace)(targetPath)],
     ["formatBytes", (_, bytes, decimals) => (0, disk_1.formatBytes)(bytes, decimals)],

@@ -239,11 +239,12 @@ export default function Home() {
   const mountedRef = useRef(true);
 
   const reloadStats = useCallback(async () => {
+    // Phase 1: Fast — files (in-memory) + free space (async, single-drive query)
+    // Renders the top stat row immediately without waiting for environment info
     try {
-      const [freeSpace, allFiles, env] = await Promise.all([
+      const [freeSpace, allFiles] = await Promise.all([
         window.api.getDiskSpace(state.currentFolder),
         Promise.resolve(ipswClient.getFiles()),
-        window.downloader.getEnvironmentInfo(state.currentFolder).catch(() => null),
       ]);
 
       if (!mountedRef.current) return;
@@ -257,9 +258,17 @@ export default function Home() {
           color: pct >= 90 ? "text-red-600" : pct >= 60 ? "text-yellow-500" : "text-green-600",
         },
       });
+    } catch (err) {
+      console.error("[Home] reloadStats phase1 failed:", err);
+    }
+
+    // Phase 2: Slow — environment info goes through worker thread + may scan all drives
+    try {
+      const env = await window.downloader.getEnvironmentInfo(state.currentFolder).catch(() => null);
+      if (!mountedRef.current) return;
       setEnvInfo(env);
     } catch (err) {
-      console.error("[Home] reloadStats failed:", err);
+      console.error("[Home] reloadStats phase2 failed:", err);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
