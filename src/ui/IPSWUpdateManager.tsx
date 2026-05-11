@@ -6,6 +6,7 @@ import {
   useMemo,
   memo,
 } from "react";
+import { formatBytes, formatEta, Spinner } from "./shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ipswClient } from "..";
 import { parseIPSW, getFileNameFromUrl } from "../core/helper";
@@ -59,19 +60,6 @@ interface ScanState {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const fmtBytes = (b: number): string => {
-  if (b >= 1e9) return (b / 1e9).toFixed(1) + " GB";
-  if (b >= 1e6) return (b / 1e6).toFixed(1) + " MB";
-  return (b / 1e3).toFixed(0) + " KB";
-};
-
-const fmtEta = (s?: number): string => {
-  if (!s || s <= 0) return "";
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
-  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
-};
-
 const OS_LABEL: Record<Product, string> = {
   iphone: "iOS", ipad: "iPadOS", watch: "watchOS",
   mac: "macOS", tv: "tvOS", realitydevice: "visionOS",
@@ -98,15 +86,6 @@ const STATUS_CFG: Record<EntryStatus, {
   completed: { label: "Hoàn thành", pill: "bg-emerald-500/12", dot: "bg-emerald-400", text: "text-emerald-400" },
   error: { label: "Lỗi", pill: "bg-red-500/10", dot: "bg-red-400", text: "text-red-400" },
 };
-
-// ─── Spinner ──────────────────────────────────────────────────────────────────
-
-const Spinner = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-    <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
-  </svg>
-);
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 
@@ -255,8 +234,8 @@ const UpdateRow = memo(function UpdateRow({
             {/* Speed & ETA */}
             {entryState.status === "downloading" && entryState.speed > 0 && (
               <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>
-                {fmtBytes(entryState.speed)}/s
-                {entryState.eta ? ` · ${fmtEta(entryState.eta)}` : ""}
+                {formatBytes(entryState.speed)}/s
+                {entryState.eta ? ` · ${formatEta(entryState.eta)}` : ""}
               </span>
             )}
 
@@ -286,7 +265,7 @@ const UpdateRow = memo(function UpdateRow({
         {/* File size */}
         <div className="shrink-0 text-right">
           <span className="text-[11px] font-mono tabular-nums" style={{ color: "rgba(255,255,255,0.3)" }}>
-            {fmtBytes(fw.filesize)}
+            {formatBytes(fw.filesize)}
           </span>
           {fw.signed && (
             <div
@@ -724,7 +703,7 @@ export default function IPSWUpdateManager() {
         <div className="flex items-center gap-2 ml-2!">
           {stats.total > 0 && (
             <span className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)" }}>
-              {stats.total} mục · {fmtBytes(totalBytes)}
+              {stats.total} mục · {formatBytes(totalBytes)}
             </span>
           )}
           {stats.done > 0 && (
@@ -775,7 +754,7 @@ export default function IPSWUpdateManager() {
               <path d="M7 16V4m-3 3 3-3 3 3M17 8v12m3-3-3 3-3-3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Kéo thả để sắp xếp thứ tự tải · Tổng:{" "}
-            <span style={{ color: "rgba(255,255,255,0.5)" }}>{fmtBytes(totalBytes)}</span>
+            <span style={{ color: "rgba(255,255,255,0.5)" }}>{formatBytes(totalBytes)}</span>
           </div>
         )}
 

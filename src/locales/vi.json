@@ -14,6 +14,8 @@
     "app.autoDeleteOld.desc": "Tự động xóa các phiên bản cũ",
     "app.autoDeleteDuplicate.label": "Xóa phần mềm cũ",
     "app.autoDeleteDuplicate.desc": "Tự động xóa các phiên bản trùng nhau",
+    "app.download.turboMode.label": "Chế độ tăng tốc",
+    "app.download.turboMode.desc": "Sử dụng tối đa tài nguyên máy để tải xuống nhanh hơn",
     "confirm.title": "Bạn vân muốn tiếp tục?",
     "confirm.title.exit": "Bạn chắc chắn muốn thoát?",
     "confirm.removeRedundantFiles": "Đã tìm thấy các tệp không cần thiết\n- Tệp cũ: **$1**\n- Tệp trùng: **$2**",
@@ -100,6 +102,25 @@
                 "start": "Có dữ liệu mới từ server. Đang cập nhật",
                 "success": "Cập nhật hoàn tất"
             }
+        },
+        "firmware": {
+            "normalizeName": {
+                "label": "Chuẩn hóa tên",
+                "desc": "Chuẩn hóa tên tệp theo định dạng Apple"
+            },
+            "removeOldFile": {
+                "label": "Xóa phần mềm cũ",
+                "desc": "Tự động xóa phần mềm cũ"
+            },
+            "removeDuplicateFile": {
+                "label": "Xóa phần mềm trùng lặp",
+                "desc": "Tự động xóa phần mềm trùng lặp"
+            },
+            "linkOutDir": {
+                "label": "Tên thư mục đầu ra",
+                "desc": "Tên thư mục chứa liên kết đến tệp IPSW",
+                "save": "Lưu"
+            }
         }
     },
     "message": {
@@ -119,9 +140,8 @@
                 "UNKNOWN": "Đã xảy ra lỗi không xác định"
             }
         },
-
         "error": {
-            "UNKNOWN":"Đã xảy ra lỗi không xác định"
+            "UNKNOWN": "Đã xảy ra lỗi không xác định"
         }
     },
     "status": {
@@ -165,5 +185,58 @@
     },
     "empty": {
         "message": "Không có gì ở đây"
+    },
+    "wizard": {
+        "badge.new": "Mới",
+        "btn.back": "Quay lại",
+        "getStarted": "Bắt đầu",
+        "welcome": {
+            "version": "Phiên bản {{version}} · Trình thiết lập",
+            "text": "Chào mừng bạn đến với IPSW Manager {{version}}. Trình thiết lập sẽ hướng dẫn bạn cấu hình ban đầu. Bạn có thể thay đổi các cài đặt này sau từ trang Cài đặt.",
+            "whatsnew": "Tính năng mới!",
+            "feature1": "Tái cấu trúc toàn bộ hệ thống và cấu hình mới",
+            "feature2": "Loại bỏ IDM Core và thay bằng downloader core tự phát triển",
+            "feature3": "Thêm \"Turbo Mode\" - Tối đa tốc độ tải xuống",
+            "feature4": "Thêm \"Cleanup\" - tự động xóa tệp trùng lặp, lỗi thời và hỏng",
+            "feature5": "Thêm \"Normalize Name\" - dễ dàng tìm đúng file hơn trong thư mục lưu",
+            "feature6": "Thêm \"Update All Firmware\" - tự động tìm, lên danh sách và tải xuống tất cả phần mềm mới nhất",
+            "featureTag.download": "Tải xuống",
+            "featureTag.firmware": "Phần mềm"
+        },
+        "download": {
+            "title": "Cài đặt tải xuống",
+            "subtitle": "Cấu hình cách tải và lưu trữ tệp IPSW.",
+            "section.storage": "Lưu trữ",
+            "saveDir.label": "Thư mục lưu",
+            "saveDir.desc": "Thư mục đích cho tất cả tệp IPSW đã tải",
+            "section.performance": "Hiệu suất",
+            "turbo.label": "Chế độ tăng tốc",
+            "turbo.desc": "Sử dụng tối đa tài nguyên máy để tải xuống nhanh hơn",
+            "section.integrity": "Xác minh",
+            "skipVerify.label": "Bỏ qua xác minh",
+            "skipVerify.desc": "Bỏ qua kiểm tra tệp đã hoàn thiện chưa sau khi tải xong",
+            "btn.next": "Tiếp theo"
+        },
+        "firmware": {
+            "title": "Cài đặt phần mềm",
+            "subtitle": "Quản lý cách phân tích và duy trì tệp firmware.",
+            "section.parsing": "Phân tích",
+            "parse.label": "Chuẩn hóa tên tệp",
+            "parse.desc": "Tạo một tệp mới với tên dễ đọc hơn. (VD: 'iPhone14,5_26.4.2_23E261_Restore.ipsw' -> 'iPhone 13 (26.4.2).ipsw)",
+            "section.cleanup": "Dọn dẹp tự động",
+            "removeOld.label": "Tự động xóa phần mềm cũ",
+            "removeOld.desc": "Chỉ giữ bản dựng mới nhất cho mỗi thiết bị. Các phiên bản cũ sẽ bị xóa khi khởi động.",
+            "removeDupe.label": "Tự động xóa phần mềm trùng lặp",
+            "removeDupe.desc": "Phát hiện và xóa tệp IPSW trùng lặp.",
+            "removeInvalid.label": "Tự động xóa phần mềm lỗi",
+            "removeInvalid.desc": "Xóa tệp IPSW hỏng hoặc không hoàn chỉnh khi khởi động.",
+            "linkOutDir.label": "Tên thư mục liên kết",
+            "linkOutDir.desc": "Thư mục chứa các liên kết đến tệp IPSW (nằm trong thư mục lưu)",
+            "btn.finish": "Hoàn tất"
+        },
+        "done": {
+            "title": "Sẵn sàng!",
+            "subtitle": "Đang khởi động IPSW Manager…"
+        }
     }
 }

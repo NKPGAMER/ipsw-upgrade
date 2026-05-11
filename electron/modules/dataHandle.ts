@@ -1,8 +1,6 @@
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow } from "electron";
 import config from "../config";
 import { deleteFile, read, write } from "./userData";
-import path from "path";
-import fe from "fs-extra";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -93,12 +91,6 @@ const metadata = new class {
 // ─── DataHandle ───────────────────────────────────────────────────────────────
 
 export class DataHandle {
-  private readonly DATA_DIR = path.join(app.getPath("userData"), "ipswData");
-  private readonly FILES = {
-    metadata: path.join(this.DATA_DIR, FILES.metadata),
-    devices: path.join(this.DATA_DIR, FILES.devices),
-    products: path.join(this.DATA_DIR, "products"),
-  } as const;
   private latestRelease: string | undefined;
   private devices: Device[] = [];
   private modelMap = new Map<Device["identifier"], ModelData>();
@@ -110,8 +102,6 @@ export class DataHandle {
 
   constructor(window?: BrowserWindow) {
     this.win = window;
-    fe.ensureDir(this.DATA_DIR);
-    fe.ensureDir(this.FILES.products);
   }
 
   // ── IPC ────────────────────────────────────────────────────────────────────
@@ -176,7 +166,7 @@ export class DataHandle {
     }
   }
 
-  private scheduleFetch(identifier: string, _product: Product, file: string): void {
+  private scheduleFetch(identifier: string, file: string): void {
     if (this.pendingIds.has(identifier)) return;
     this.pendingIds.add(identifier);
     this.drainQueue(identifier, file);
@@ -193,13 +183,7 @@ export class DataHandle {
       // Delay between starting requests
       await sleep(REQUEST_DELAY_MS);
 
-      let latestRelease = "";
-      try {
-        latestRelease = await this.getLatestRelease();
-      } catch (error) {
-        console.error("[DataHandle] latestRelease fetch failed in queue:", error);
-        latestRelease = (await this.readStoredRelease()) ?? "";
-      }
+      const latestRelease = await this.resolveLatestRelease("drainQueue");
 
       // Check file cache again (might have been populated while waiting)
       try {
@@ -283,6 +267,16 @@ export class DataHandle {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
+  private async resolveLatestRelease(caller: string): Promise<string> {
+    if (this.latestRelease) return this.latestRelease;
+    try {
+      return await this.getLatestRelease();
+    } catch (error) {
+      console.error(`[DataHandle] ${caller} latestRelease fetch failed:`, error);
+      return (await this.readStoredRelease()) ?? "";
+    }
+  }
+
   private shouldUpdate(storedRelease: string, latestRelease: string): boolean {
     return storedRelease !== latestRelease;
   }
@@ -320,13 +314,7 @@ export class DataHandle {
         const isValid = await this.validateOrDeleteFile(FILES.devices, stored);
         console.log("[DataHandle] loadDevices() cache version valid:", isValid, "storedRelease:", stored.lastRelease);
         if (isValid) {
-          let latestRelease = "";
-          try {
-            latestRelease = await this.getLatestRelease();
-          } catch (error) {
-            console.error("[DataHandle] loadDevices() latestRelease fetch failed:", error);
-            latestRelease = (await this.readStoredRelease()) ?? "";
-          }
+          const latestRelease = await this.resolveLatestRelease("loadDevices");
           console.log("[DataHandle] loadDevices() latestRelease:", latestRelease);
           if (!latestRelease || !this.shouldUpdate(stored.lastRelease, latestRelease)) {
             this.devices = stored.devices;
@@ -399,12 +387,7 @@ export class DataHandle {
         if (data.cachedAt == null) data.cachedAt = 0;
         const isValid = await this.validateOrDeleteFile(file, data);
         if (isValid) {
-          let latestRelease = "";
-          try {
-            latestRelease = await this.getLatestRelease();
-          } catch {
-            latestRelease = (await this.readStoredRelease()) ?? "";
-          }
+          const latestRelease = await this.resolveLatestRelease("get");
           if (!latestRelease || !this.shouldUpdate(data.lastRelease, latestRelease)) {
             this.modelMap.set(identifier, data);
             return { status: "ready", data: data.device };
@@ -414,7 +397,7 @@ export class DataHandle {
     } catch { /* fall through to queue */ }
 
     // 3. Cache miss — queue and return "wait"
-    this.scheduleFetch(identifier, product, file);
+    this.scheduleFetch(identifier, file);
     return { status: "wait" };
   }
 
@@ -446,25 +429,16 @@ export class DataHandle {
       return;
     }
 
-    let latestRelease = "";
-    try {
-      latestRelease = await this.getLatestRelease();
-    } catch (error) {
-      console.error("[DataHandle] getModelData() latestRelease fetch failed:", error);
-      latestRelease = (await this.readStoredRelease()) ?? "";
-    }
+    const latestRelease = await this.resolveLatestRelease("getModelData");
 
     try {
       const stored = await read(file);
-      console.log("[DataHandle] getModelData() file cache:", stored ? "hit" : "miss", file);
       if (stored) {
         const data: ModelData = JSON.parse(stored);
         if (data.cachedAt == null) data.cachedAt = 0;
         const isValid = await this.validateOrDeleteFile(file, data);
-        console.log("[DataHandle] getModelData() cache version valid:", isValid, "storedRelease:", data.lastRelease);
         if (isValid && !this.shouldUpdate(data.lastRelease, latestRelease)) {
           this.modelMap.set(identifier, data);
-          console.log("[DataHandle] getModelData() using cached model data:", identifier);
           return data.device;
         }
       }
@@ -483,14 +457,11 @@ export class DataHandle {
     file: string,
   ): Promise<DeviceResponse | void> {
     const url = API.getFirmware.replace("{{id}}", identifier);
-    console.log("[DataHandle] getModelDataFromAPI() request:", { identifier, product, url, latestRelease });
     const response = await fetch(url);
-    console.log("[DataHandle] getModelDataFromAPI() response status:", response.status, identifier);
     if (response.status === 429) {
       const stored = await this.readStoredModelData(file);
       if (stored) {
         this.modelMap.set(identifier, stored);
-        console.log("[DataHandle] getModelDataFromAPI() 429 fallback cached model data:", identifier);
         return stored.device;
       }
       return;
@@ -498,7 +469,6 @@ export class DataHandle {
     if (response.status !== 200) return;
 
     const deviceData: DeviceResponse = await response.json();
-    console.log("[DataHandle] getModelDataFromAPI() device data received:", identifier);
     const modelData: ModelData = {
       dataHandleVersion: config.DataVersion,
       lastRelease: latestRelease,
@@ -542,19 +512,15 @@ export class DataHandle {
 
     // Use the new queue; drainQueue emits both deviceDataUpdated and modelData
     const file = `products/${product}/${identifier}.json`;
-    this.scheduleFetch(identifier, product, file);
+    this.scheduleFetch(identifier, file);
   }
 
   // Check data in local or remote
   public async hasLocalData({ type, identifier }: { type: "devices" | "modelData"; identifier?: Device["identifier"] }): Promise<boolean> {
-    const userDataPath = app.getPath("userData");
-    const filePath = type === "devices"
-      ? path.join(userDataPath, FILES.devices)
-      : identifier
-        ? path.join(userDataPath, "products", this.getProductType(identifier) ?? "", identifier + ".json")
-        : null;
-
-    if (!filePath) return false;
-    return fe.pathExistsSync(filePath);
+    if (type === "devices") return (await read(FILES.devices)) !== null;
+    if (!identifier) return false;
+    const product = this.getProductType(identifier);
+    if (!product) return false;
+    return (await read(`products/${product}/${identifier}.json`)) !== null;
   }
 }

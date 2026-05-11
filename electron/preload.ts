@@ -16,6 +16,7 @@ function listen<T extends any[]>(
 const versionArg = process.argv.find(arg => arg.startsWith('--app-version'));
 
 const api: ElectronApi = {
+  relaunch: () => ipcRenderer.invoke('app:relaunch'),
   getDiskSpace: (targetPath?: string) => ipcRenderer.invoke('getDiskSpace', targetPath),
   formatBytes: (bytes: number, decimals?: number) => ipcRenderer.invoke('formatBytes', bytes, decimals),
   getVersion: versionArg ? versionArg.split("=")[1] : "unknown",

@@ -47,6 +47,7 @@ export class Scheduler extends EventEmitter {
     } else {
       this.maxTurbo = 0;
       this.maxNormal = 0;
+      this.maxConcurrent = environment === "hdd_only" ? 2 : 3;
     }
     // Kick drain to rebalance slots after limits change
     this.drain();

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatBytes } from "./shared";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { state as dataState } from "../data";
@@ -8,12 +9,6 @@ import type { Task, TaskStatus, DownloadMode } from "../../global";
 import { getFileNameFromUrl } from "../core/helper";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmtSize = (b: number): string => {
-  if (b >= 1e9) return (b / 1e9).toFixed(2) + " GB";
-  if (b >= 1e6) return (b / 1e6).toFixed(1) + " MB";
-  return (b / 1e3).toFixed(0) + " KB";
-};
 
 const fmtSpeed = (bps: number): string => {
   if (bps >= 1e6) return (bps / 1e6).toFixed(1) + " MB/s";
@@ -27,7 +22,6 @@ const fmtEta = (s?: number): string => {
   if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 };
-
 const STATUS_ORDER: Record<TaskStatus, number> = {
   downloading: 0,
   verifying: 1,
@@ -207,7 +201,7 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
             <span className="text-[#4a6478] text-[9px]">·</span>
             <span className="font-mono text-[11px] text-[#4a6478]">{firmware.buildid}</span>
             <span className="text-[#4a6478] text-[9px]">·</span>
-            <span className="text-[11px] text-[#4a6478]">{fmtSize(firmware.filesize)}</span>
+            <span className="text-[11px] text-[#4a6478]">{formatBytes(firmware.filesize)}</span>
           </div>
         </div>
 

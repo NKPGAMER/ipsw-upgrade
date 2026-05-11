@@ -9,38 +9,21 @@ import { ipswClient } from "..";
 import type { IncompleteTaskClient } from "../core/ipswClient";
 import { state as globalState } from "../data";
 import utils from "../core/utils";
+import { formatBytes, formatEta, formatDate, Spinner } from "./shared";
 
 type CardTask = TaskStatus | "none" | "downloaded" | "old" | "corrupted" | "incomplete_dl"
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function formatBytes(bytes: number): string {
-  if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + " GB";
-  if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + " MB";
-  return (bytes / 1e3).toFixed(0) + " KB";
-}
-
-function formatEta(sec?: number): string {
-  if (!sec || sec <= 0) return "";
-  if (sec < 60) return `${sec}s`;
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
-  return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("vi-VN", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-}
-
-// ─── Spinner ──────────────────────────────────────────────────────────────────
-function Spinner({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-      <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
-    </svg>
-  );
+// ─── Resolve Product ──────────────────────────────────────────────────────────
+function resolveProduct(identifier: string): Product {
+  const lower = identifier.toLowerCase();
+  if (lower.startsWith("ipad")) return "ipad";
+  if (lower.startsWith("watch")) return "watch";
+  if (lower.startsWith("mac")) return "mac";
+  if (lower.startsWith("appletv")) return "tv";
+  if (lower.startsWith("audioaccessory")) return "homepod";
+  if (lower.startsWith("realitydevice")) return "realitydevice";
+  if (lower.startsWith("ipod")) return "ipod";
+  return "iphone";
 }
 
 // ─── Status Mappings ──────────────────────────────────────────────────────────
@@ -315,6 +298,7 @@ function computeCardStatus(
   entry: DeviceEntry,
   allFiles: IPSWFile[],
   incompleteTasks: IncompleteTaskClient[],
+  linkedGroup?: Set<string>,
 ): CardTask {
   // If a live download task is active, it takes priority
   if (entry.firmwares != null || entry.task) {
@@ -332,11 +316,21 @@ function computeCardStatus(
   const latestFw = entry.firmwares[0];
 
   // Check for incomplete downloads (tải dở) — only when no active task
-  const incompTask = incompleteTasks.find(
+  let incompTask = incompleteTasks.find(
     (t) =>
       t.firmware.identifier === entry.device.identifier &&
       t.firmware.buildid === latestFw.buildid
   );
+  // Also check linked group if no direct match
+  if (!incompTask && linkedGroup) {
+    for (const linkedId of linkedGroup) {
+      if (linkedId === entry.device.identifier) continue;
+      incompTask = incompleteTasks.find(
+        t => t.firmware.identifier === linkedId && t.firmware.buildid === latestFw.buildid
+      );
+      if (incompTask) break;
+    }
+  }
   if (incompTask) return "incomplete_dl";
 
   if (latestFw?.signed && allFiles.length > 0) {
@@ -373,6 +367,7 @@ const DeviceCard = memo(function DeviceCard({
   pending,
   onClick,
   onVisible,
+  linkedGroup,
 }: {
   entry: DeviceEntry;
   selected: boolean;
@@ -381,6 +376,7 @@ const DeviceCard = memo(function DeviceCard({
   pending: boolean;
   onClick: () => void;
   onVisible: (identifier: string) => void;
+  linkedGroup?: Set<string>;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -388,7 +384,7 @@ const DeviceCard = memo(function DeviceCard({
   const [turboFlash, setTurboFlash] = useState(false);
   const prevMode = useRef(entry.task?.mode);
 
-  const status = computeCardStatus(entry, allFiles, incompleteTasks);
+  const status = computeCardStatus(entry, allFiles, incompleteTasks, linkedGroup);
   const cfg = STATUS_CONFIG[status];
 
   const prevPending = useRef(false);
@@ -428,22 +424,29 @@ const DeviceCard = memo(function DeviceCard({
   const latestFw = entry.firmwares?.[0] ?? null;
   const inProgress = !!entry.task &&
     ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+  const isOwner = !entry.task || entry.task.firmware.identifier === entry.device.identifier;
 
-  // Find incomplete task for this device
+  // Find incomplete task for this device (check linked group too)
   const incompTask = latestFw
-    ? incompleteTasks.find(
-      t => t.firmware.identifier === entry.device.identifier && t.firmware.buildid === latestFw.buildid
-    )
+    ? (() => {
+        const direct = incompleteTasks.find(
+          t => t.firmware.identifier === entry.device.identifier && t.firmware.buildid === latestFw.buildid
+        );
+        if (direct) return direct;
+        if (linkedGroup) {
+          for (const linkedId of linkedGroup) {
+            if (linkedId === entry.device.identifier) continue;
+            const match = incompleteTasks.find(
+              t => t.firmware.identifier === linkedId && t.firmware.buildid === latestFw.buildid
+            );
+            if (match) return match;
+          }
+        }
+        return undefined;
+      })()
     : undefined;
 
-  const product = entry.device.identifier.toLowerCase().startsWith("ipad") ? "ipad"
-    : entry.device.identifier.toLowerCase().startsWith("watch") ? "watch"
-      : entry.device.identifier.toLowerCase().startsWith("mac") ? "mac"
-        : entry.device.identifier.toLowerCase().startsWith("appletv") ? "tv"
-          : entry.device.identifier.toLowerCase().startsWith("audioaccessory") ? "homepod"
-            : entry.device.identifier.toLowerCase().startsWith("realitydevice") ? "realitydevice"
-              : entry.device.identifier.toLowerCase().startsWith("ipod") ? "ipod"
-                : "iphone";
+  const product = resolveProduct(entry.device.identifier);
 
   const osLabel = OS_LABEL[product as Product] ?? "Version";
   const firmwaresLoaded = entry.firmwares != null;
@@ -518,14 +521,14 @@ const DeviceCard = memo(function DeviceCard({
                 <span className={`text-[13px] font-semibold ${cfg.text}`}>{cfg.label}</span>
               </div>
 
-              {inProgress && entry.task?.mode && (
+              {isOwner && inProgress && entry.task?.mode && (
                 <div className="ml-2!">
                   <ModeBadge mode={entry.task.mode} flash={turboFlash} />
                 </div>
               )}
             </div>
 
-            {inProgress && (
+            {isOwner && inProgress && (
               <span className="text-[11px] text-gray-500 font-mono tabular-nums">
                 {entry.task!.progress}%
               </span>
@@ -543,7 +546,7 @@ const DeviceCard = memo(function DeviceCard({
             </p>
           )}
 
-          {inProgress && (
+          {isOwner && inProgress && (
             <>
               <ProgressBar value={entry.task!.progress} status={status as TaskStatus} />
               {status === "downloading" && entry.task!.speed > 0 && (
@@ -572,6 +575,7 @@ const ControlButtons = memo(function ControlButtons({
   incompTask,
   corruptedFile,
   onAction,
+  readonly,
 }: {
   entry: DeviceEntry;
   status: CardTask;
@@ -579,6 +583,7 @@ const ControlButtons = memo(function ControlButtons({
   incompTask?: IncompleteTaskClient;
   corruptedFile?: IPSWFile;
   onAction: (action: ControlAction, fw?: Firmware) => void;
+  readonly?: boolean;
 }) {
   const latestFw = entry.firmwares?.[0];
   const busy = pendingAction !== null;
@@ -845,6 +850,18 @@ const ControlButtons = memo(function ControlButtons({
 
   // ── Đang tải / tạm dừng / đang chờ ──────────────────────────────────────
   if (["downloading", "paused", "queued"].includes(status)) {
+    if (readonly) {
+      return (
+        <div className="bg-white/4 rounded-xl p-3! border border-white/6">
+          <div className="flex items-center gap-2">
+            <div className={`w-1.75 h-1.75 rounded-full ${STATUS_CONFIG[status].dot} ${STATUS_CONFIG[status].animate ? "animate-pulse" : ""}`} />
+            <span className={`text-[13px] font-semibold ${STATUS_CONFIG[status].text}`}>{STATUS_LABEL[status]}</span>
+            <span className="text-[10px] text-gray-500">qua thiết bị liên kết</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-2!">
         <div className="bg-white/4 rounded-xl p-3! border border-white/6 space-y-1.5">
@@ -910,6 +927,18 @@ const ControlButtons = memo(function ControlButtons({
 
   // ── Đang xác minh / di chuyển ─────────────────────────────────────────────
   if (status === "verifying" || status === "moving") {
+    if (readonly) {
+      return (
+        <div className="bg-white/4 rounded-xl p-3! border border-white/6">
+          <div className="flex items-center gap-2">
+            <div className={`w-1.75 h-1.75 rounded-full ${STATUS_CONFIG[status].dot} animate-pulse`} />
+            <span className={`text-[13px] font-semibold ${STATUS_CONFIG[status].text}`}>{STATUS_LABEL[status]}…</span>
+            <span className="text-[10px] text-gray-500">qua thiết bị liên kết</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white/4 rounded-xl p-3! border border-white/6 space-y-1.5">
         <div className="flex justify-between text-[11px]">
@@ -1008,7 +1037,7 @@ function latestFirmwareItem({ title, content }: { title: string, content: string
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 function DetailPanel({
-  entry, product, allFiles, incompleteTasks, pendingAction, onClose, onAction, linkedDevices,
+  entry, product, allFiles, incompleteTasks, pendingAction, onClose, onAction, linkedDevices, linkedGroup,
 }: {
   entry: DeviceEntry;
   product: Product;
@@ -1018,15 +1047,30 @@ function DetailPanel({
   onClose: () => void;
   onAction: (action: ControlAction, fw?: Firmware) => void;
   linkedDevices: DeviceEntry[];
+  linkedGroup?: Set<string>;
 }) {
   const latest = entry.firmwares?.[0] ?? null;
-  const status = computeCardStatus(entry, allFiles, incompleteTasks);
+  const status = computeCardStatus(entry, allFiles, incompleteTasks, linkedGroup);
+  const isBorrowed = entry.task != null && entry.task.firmware.identifier !== entry.device.identifier;
 
-  // Find matching incomplete task for this device's latest firmware
+  // Find matching incomplete task (check linked group too)
   const incompTask = latest
-    ? incompleteTasks.find(
-      t => t.firmware.identifier === entry.device.identifier && t.firmware.buildid === latest.buildid
-    )
+    ? (() => {
+        const direct = incompleteTasks.find(
+          t => t.firmware.identifier === entry.device.identifier && t.firmware.buildid === latest.buildid
+        );
+        if (direct) return direct;
+        if (linkedGroup) {
+          for (const linkedId of linkedGroup) {
+            if (linkedId === entry.device.identifier) continue;
+            const match = incompleteTasks.find(
+              t => t.firmware.identifier === linkedId && t.firmware.buildid === latest.buildid
+            );
+            if (match) return match;
+          }
+        }
+        return undefined;
+      })()
     : undefined;
 
   // Find corrupted file on disk (for "corrupted" status)
@@ -1117,6 +1161,7 @@ function DetailPanel({
                 incompTask={incompTask}
                 corruptedFile={corruptedFile}
                 onAction={onAction}
+                readonly={isBorrowed}
               />
 
               {linkedDevices.length > 0 && (
@@ -1220,7 +1265,6 @@ export default function IPSWManager() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listWidthPct, setListWidthPct] = useState(65);
   const [pendingActions, setPendingActions] = useState<Map<string, ControlAction>>(new Map());
-  const [isScanning, setIsScanning] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -1274,13 +1318,16 @@ export default function IPSWManager() {
       let changed = false;
       const result = prev.map(e => {
         let newTask = next.get(e.device.identifier);
-        // If no direct task, check linked group for a shared task
+        // If no direct task, check linked group for a shared task (status only, no progress)
         if (!newTask) {
           const group = identifierGroupRef.current.get(e.device.identifier);
           if (group) {
             for (const linkedId of group) {
-              newTask = next.get(linkedId);
-              if (newTask) break;
+              const linkedTask = next.get(linkedId);
+              if (linkedTask) {
+                newTask = { ...linkedTask, progress: 0, speed: 0, eta: undefined };
+                break;
+              }
             }
           }
         }
@@ -1486,6 +1533,9 @@ export default function IPSWManager() {
     setSelectedId(null);
     setPendingActions(new Map());
     requestedFwRef.current = new Set();
+    urlToIdentifiersRef.current = new Map();
+    identifierGroupRef.current = new Map();
+    setIdentifierToGroup(new Map());
 
     async function load() {
       const devices: Device[] = (await window.api.getDevices())
@@ -1591,7 +1641,8 @@ export default function IPSWManager() {
     if (!entry) return;
 
     const task = getEffectiveTask(deviceIdentifier);
-    const firmware = fw ?? entry.firmwares?.[0];
+    const raw = fw ?? entry.firmwares?.[0];
+    const firmware = raw ? { ...raw, identifier: deviceIdentifier } : undefined;
 
     setPending(deviceIdentifier, action);
 
@@ -1609,6 +1660,7 @@ export default function IPSWManager() {
           if (!firmware) { setPending(deviceIdentifier, null); return; }
           {
             await deleteFile({ identifier: deviceIdentifier });
+            setAllFiles(ipswClient.getFiles());
             const nextMap = new Map(taskMapRef.current);
             nextMap.delete(deviceIdentifier);
             applyTaskMap(nextMap);
@@ -1619,7 +1671,9 @@ export default function IPSWManager() {
 
         case "update":
           await deleteFile({ identifier: deviceIdentifier });
+          setAllFiles(ipswClient.getFiles());
           if (firmware) await updateFirmware(firmware);
+          setPending(deviceIdentifier, null);
           break;
 
         case "pause":
@@ -1637,6 +1691,7 @@ export default function IPSWManager() {
         case "delete":
           await deleteFile({ identifier: deviceIdentifier });
           {
+            setAllFiles(ipswClient.getFiles());
             const nextMap = new Map(taskMapRef.current);
             nextMap.delete(deviceIdentifier);
             applyTaskMap(nextMap);
@@ -1766,30 +1821,23 @@ export default function IPSWManager() {
             {/* Right */}
             <div className="flex items-center justify-between gap-1.5 shrink-0">
               <button
-                disabled={isScanning}
                 title="Cập nhật tất cả firmware"
-                className={`w-10 h-8 p-2! rounded-lg border flex items-center justify-center transition-colors shrink-0 
-                  ${isScanning
-                    ? "bg-[#137fec]/15 border-[#137fec]/30 text-[#137fec] cursor-wait"
-                    : "bg-white/5 hover:bg-white/10 border-white/8 text-gray-500 hover:text-gray-400"
-                  }`}
+                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
                 onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
               >
-                {isScanning ? <Spinner className="w-5 h-5" /> : TASKBAR_ICON.update}
+                {TASKBAR_ICON.update}
               </button>
 
-              {!isScanning && (
-                <button
-                  onClick={async () => {
-                    const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
-                    utils.customConfirm(`Thao tác này sẽ xóa ${oldFiles.length} tệp cũ và ${duplicateFiles.length} têp bị trùng`)
-                  }}
-                  title="Xóa tệp không cần thiết"
-                  className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
-                >
-                  {TASKBAR_ICON.delete}
-                </button>
-              )}
+              <button
+                onClick={async () => {
+                  const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
+                  utils.customConfirm(`Thao tác này sẽ xóa ${oldFiles.length} tệp cũ và ${duplicateFiles.length} têp bị trùng`)
+                }}
+                title="Xóa tệp không cần thiết"
+                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
+              >
+                {TASKBAR_ICON.delete}
+              </button>
 
               <button
                 onClick={() => navigate("/downloads")}
@@ -1826,7 +1874,7 @@ export default function IPSWManager() {
               <div className="space-y-4">
                 {groupedEntries.ungroupedEntries.length > 0 && (
                   <div className="space-y-2!">
-                    <div className="flex items-center gap-2 px-1! mt3! mb-2!">
+                    <div className="flex items-center gap-2 px-1! mt-3! mb-2!">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#137fec]" />
                       <h3 className="text-[18px] font-bold text-gray-200">{ungroupedTitle}</h3>
                       <span className="text-[12px] text-gray-400">{groupedEntries.ungroupedEntries.length} models</span>
@@ -1840,6 +1888,7 @@ export default function IPSWManager() {
                           allFiles={allFiles}
                           incompleteTasks={incompleteTasks}
                           pending={pendingActions.has(entry.device.identifier)}
+                          linkedGroup={identifierToGroup.get(entry.device.identifier)}
                           onClick={() => {
                             if (entry.firmwares == null) return;
                             setSelectedId(prev =>
@@ -1869,6 +1918,7 @@ export default function IPSWManager() {
                           allFiles={allFiles}
                           incompleteTasks={incompleteTasks}
                           pending={pendingActions.has(entry.device.identifier)}
+                          linkedGroup={identifierToGroup.get(entry.device.identifier)}
                           onClick={() => {
                             if (entry.firmwares == null) return;
                             setSelectedId(prev =>
@@ -1903,6 +1953,7 @@ export default function IPSWManager() {
                 onClose={() => setSelectedId(null)}
                 onAction={(action, fw) => handleAction(selectedEntry.device.identifier, action, fw)}
                 linkedDevices={linkedEntries}
+                linkedGroup={identifierToGroup.get(selectedEntry.device.identifier)}
               />
             </div>
           </>
@@ -1910,11 +1961,6 @@ export default function IPSWManager() {
       </div>
 
       <ToastContainer />
-
-      {/* Khóa chuột toàn bộ app khi đang quét */}
-      {isScanning && (
-        <div className="fixed inset-0 z-9999 cursor-wait pointer-events-auto" />
-      )}
 
       <style>{`
         @keyframes slideIn {

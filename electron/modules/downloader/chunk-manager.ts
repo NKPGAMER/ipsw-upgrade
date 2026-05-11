@@ -140,6 +140,15 @@ class IOWriteQueue {
       });
 
       let moved = 0;
+      let settled = false;
+
+      const fail = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        readStream.destroy();
+        writeStream.destroy();
+        reject(err);
+      };
 
       readStream.on("data", (data: string | Buffer) => {
         const len = typeof data === "string" ? Buffer.byteLength(data) : data.length;
@@ -155,8 +164,8 @@ class IOWriteQueue {
         }
       });
 
-      readStream.on("error", reject);
-      writeStream.on("error", reject);
+      readStream.on("error", fail);
+      writeStream.on("error", fail);
 
       writeStream.on("finish", () => {
         // Persist movedChunks after each complete chunk (not per fragment)
@@ -507,6 +516,22 @@ export class ChunkManager {
       throw new Error(`HTTP ${response.statusCode} for chunk ${chunk.index}`);
     }
 
+    // Validate Content-Range matches what we requested (206 only)
+    if (response.statusCode === 206) {
+      const cr = (response.headers["content-range"] as string) || "";
+      const m = cr.match(/^bytes\s+(\d+)-(\d+)\/(\d+)/i);
+      if (m) {
+        const svStart = parseInt(m[1]);
+        const svEnd   = parseInt(m[2]);
+        if (svStart !== rangeStart || svEnd < rangeStart) {
+          console.warn(
+            `[ChunkManager] chunk ${chunk.index}: server returned Content-Range ` +
+            `${svStart}-${svEnd}, requested ${rangeStart}-${rangeEnd}`
+          );
+        }
+      }
+    }
+
     // ── Stream body → disk ────────────────────────────────────────────────────
     let writeHead  = rangeStart;
     const buffers: Buffer[] = [];
@@ -738,6 +763,12 @@ export class ChunkManager {
 
   abort(): void {
     this.aborted = true;
+    // Destroy the undici pool to abort all in-flight HTTP requests.
+    // Otherwise a stuck downloadChunk (hanging HTTP stream) would never
+    // check this.aborted, deadlocking the entire download.
+    if (this.pool) {
+      this.pool.destroy().catch(() => {});
+    }
     // Stop IOWriteQueue gracefully
     if (this.ioWriteQueue) {
       this.ioWriteQueue.stop().catch(() => {});

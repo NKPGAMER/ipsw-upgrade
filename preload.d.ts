@@ -25,6 +25,7 @@ interface UpdateInfoResult {
 }
 
 interface ElectronApi {
+  relaunch: () => Promise<void>;
   getDiskSpace: (targetPath?: string) => Promise<DiskSpace>,
   formatBytes: (bytes: number, decimals?: number) => Promise<string>,
   getVersion: string;

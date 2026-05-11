@@ -42,6 +42,9 @@
     "setting.firmware.removeOldFile.description": "Automatically remove old firmware",
     "setting.firmware.duplicate": "Remove duplicate firmware",
     "setting.firmware.duplicate.description": "Automatically remove duplicate firmware",
+    "app.firmware.linkOutDir.label": "Output folder name",
+    "app.firmware.linkOutDir.desc": "Folder name for IPSW file hard links",
+    "app.firmware.linkOutDir.save": "Save",
 
     "button.download": "Download",
     "button.reDownload": "Re-download",
@@ -84,5 +87,56 @@
     "verify.completed": "Verification completed",
     "verify.mismatch": "Verification result does not match",
 
-    "placeholder.search": "Search..."
+    "placeholder.search": "Search...",
+    "wizard": {
+        "badge.new": "New",
+        "btn.back": "Back",
+        "getStarted": "Get Started",
+        "welcome": {
+            "version": "Version 4.0.0 · Setup Wizard",
+            "text": "Welcome to IPSW Manager 4.0. This wizard will guide you through the initial configuration. You can change any of these settings later from the app's Settings page.",
+            "whatsnew": "What's New in 4.0",
+            "feature1": "Parallel chunk downloader with resume support — up to 16 threads",
+            "feature2": "SSD-aware I/O scheduling and direct offset-based chunk merging",
+            "feature3": "Parse firmware file names — extract device, version & build info",
+            "feature4": "Auto-cleanup: remove duplicate, outdated and corrupted firmware files",
+            "featureTag.download": "Download",
+            "featureTag.firmware": "Firmware"
+        },
+        "download": {
+            "title": "Download Settings",
+            "subtitle": "Configure how IPSW files are downloaded and stored.",
+            "section.storage": "Storage",
+            "saveDir.label": "Save Directory",
+            "saveDir.desc": "Destination folder for all downloaded IPSW files",
+            "section.performance": "Performance",
+            "turbo.label": "Turbo Mode",
+            "turbo.desc": "Maximize parallel download chunks (up to 16). Recommended for 100Mbps+ connections.",
+            "section.integrity": "Integrity",
+            "skipVerify.label": "Skip Verification",
+            "skipVerify.desc": "Bypass SHA-256 checksum check after download completes. Not recommended.",
+            "btn.next": "Next: Firmware"
+        },
+        "firmware": {
+            "title": "Firmware Settings",
+            "subtitle": "Manage how firmware files are parsed and maintained.",
+            "section.parsing": "Parsing",
+            "parse.label": "Parse File Name",
+            "parse.desc": "Extract device model, iOS version and build identifier from IPSW filenames automatically.",
+            "section.cleanup": "Auto Cleanup",
+            "removeOld.label": "Auto Remove Old Firmware",
+            "removeOld.desc": "Keep only the latest build per device. Older versions will be removed on startup.",
+            "removeDupe.label": "Auto Remove Duplicate Firmware",
+            "removeDupe.desc": "Find and remove duplicate IPSW files.",
+            "removeInvalid.label": "Auto Remove Invalid Firmware",
+            "removeInvalid.desc": "Delete corrupted or incomplete IPSW files detected during startup scan.",
+            "btn.finish": "Finish Setup",
+            "linkOutDir.label": "Output folder name",
+            "linkOutDir.desc": "Folder name for IPSW file hard links (relative to save directory)"
+        },
+        "done": {
+            "title": "All set!",
+            "subtitle": "Launching IPSW Manager…"
+        }
+    }
 }

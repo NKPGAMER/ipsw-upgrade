@@ -1,11 +1,11 @@
 {
   "name": "ipsw-manager",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "",
   "main": "electron/dist/main.js",
   "scripts": {
+    "build": "npx tsc -p electron && vite build",
     "build:main": "npx tsc -p electron -w",
-    "build:renderer": "npx tsc -w",
     "start": "npm run dev",
     "dist": "npm run build && electron-builder --publish always",
     "dev": "concurrently \"vite\" \"electron .\"",
@@ -69,7 +69,9 @@
     ],
     "files": [
       "dist/**/*",
+      "electron/dist/**/*",
       "!dist/**/*.map",
+      "!electron/dist/**/*.map",
       "!**/test/**",
       "!**/*.log"
     ],

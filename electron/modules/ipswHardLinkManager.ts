@@ -1,4 +1,4 @@
-import fs from "fs/promises";
+import fs from "fs-extra";
 import path from "path";
 import { BrowserWindow } from "electron";
 import { DataHandle } from "./dataHandle";
@@ -25,12 +25,21 @@ interface MatchedDeviceInfo {
 }
 
 const HARD_LINK_FOLDER = "IPSW_FILES";
+const MAX_CONCURRENT_LINKS = 8;
+
+const IPSW_PARSE_RE = /^(?<id>.+?)_(?<version>\d+(?:\.\d+){1,3})_(?<build>[A-Za-z0-9]+)_Restore\.ipsw$/;
+const PARENS_CONTENT_RE = /\(([^)]*)\)/g;
+const SKIP_VARIANT_RE = /^(global|gsm|wifi|cellular)$/i;
+const SPECIAL_CHARS_RE = /[<>:"/\\|?*\x00-\x1F]/g;
+const BASE_NAME_RE = /\s*\([^)]*\)/g;
 
 export class IPSWHardLinkManager {
   private readonly watcher: IPSWWatcher;
   private readonly dataHandle: DataHandle;
   private readonly config: HardLinkManagerConfig;
   private readonly records = new Map<string, HardLinkRecord>();
+  private readonly deviceFirmwareCache = new Map<string, MatchedDeviceInfo[]>();
+  private firmwareCachePromise: Promise<void> | null = null;
 
   constructor(_win: BrowserWindow, watcher: IPSWWatcher, dataHandle: DataHandle, config: HardLinkManagerConfig) {
     this.watcher = watcher;
@@ -40,7 +49,10 @@ export class IPSWHardLinkManager {
 
   async start(): Promise<void> {
     await this.syncFolder();
-    if (!this.config.enabled) return;
+    if (!this.config.enabled) {
+      await this.stop();
+      return;
+    }
 
     this.watcher.onFilesAdded((files) => void this.handleAdded(files));
     this.watcher.onFilesRemoved((files) => void this.handleRemoved(files));
@@ -67,15 +79,22 @@ export class IPSWHardLinkManager {
 
   private async rebuildFromWatcher(): Promise<void> {
     const files = this.watcher.getFiles();
-    await Promise.all(files.map((file) => this.createLinkForFile(file)));
+    for (let i = 0; i < files.length; i += MAX_CONCURRENT_LINKS) {
+      const batch = files.slice(i, i + MAX_CONCURRENT_LINKS);
+      await Promise.all(batch.map((file) => this.createLinkForFile(file)));
+    }
   }
 
   private async handleAdded(files: IPSWFile[]): Promise<void> {
     if (!this.config.enabled) return;
-    await Promise.all(files.map((file) => this.createLinkForFile(file)));
+    for (let i = 0; i < files.length; i += MAX_CONCURRENT_LINKS) {
+      const batch = files.slice(i, i + MAX_CONCURRENT_LINKS);
+      await Promise.all(batch.map((file) => this.createLinkForFile(file)));
+    }
   }
 
   private async handleRemoved(files: IPSWFile[]): Promise<void> {
+    if (!this.config.enabled) return;
     await Promise.all(files.map((file) => this.removeLinkForFile(file.path)));
   }
 
@@ -90,52 +109,32 @@ export class IPSWHardLinkManager {
     const deviceNames = [...new Set(matched.map((item) => item.deviceName))];
     if (!deviceNames.length) return;
 
-    const record = this.buildRecord(file.path, deviceNames, parsed.version);
-    const formattedLinkPath = path.join(this.folderPath, this.formatLinkFileName(deviceNames, parsed.version));
+    const fileName = this.formatLinkFileName(deviceNames, parsed.version);
+    const linkPath = path.join(this.folderPath, fileName);
 
-    if (this.records.get(file.path)?.linkPath === formattedLinkPath) return;
+    if (this.records.get(file.path)?.linkPath === linkPath) return;
 
     await fs.mkdir(this.folderPath, { recursive: true });
 
-    const linkExists = await fs.access(record.linkPath).then(() => true).catch(() => false);
-    if (linkExists) {
-      this.records.set(file.path, {
-        ...record,
-        linkPath: formattedLinkPath,
-        fileName: path.basename(formattedLinkPath),
-      });
-      return;
-    }
-
     try {
-      await fs.link(file.path, record.linkPath);
-      if (record.linkPath !== formattedLinkPath) {
-        await fs.rename(record.linkPath, formattedLinkPath);
-      }
-      this.records.set(file.path, {
-        ...record,
-        linkPath: formattedLinkPath,
-        fileName: path.basename(formattedLinkPath),
-      });
+      await fs.link(file.path, linkPath);
     } catch (error: any) {
-      console.error("[IPSWHardLinkManager] Failed to create hard link:", {
-        code: error?.code,
-        message: error?.message,
-        stack: error?.stack,
-        source: file.path,
-        linkPath: record.linkPath,
-        formattedLinkPath,
-      });
-
       if (error?.code === "ENOENT") return;
       if (error?.code === "EEXIST") {
-        this.records.set(file.path, {
-          ...record,
-          linkPath: formattedLinkPath,
-          fileName: path.basename(formattedLinkPath),
-        });
+        // link already exists from another process — adopt it
+      } else {
+        console.error("[IPSWHardLinkManager] Failed to create hard link:", error?.code, error?.message);
+        return;
       }
     }
+
+    this.records.set(file.path, {
+      sourcePath: file.path,
+      linkPath,
+      deviceNames,
+      version: parsed.version,
+      fileName,
+    });
   }
 
   private async removeLinkForFile(sourcePath: string): Promise<void> {
@@ -150,32 +149,16 @@ export class IPSWHardLinkManager {
     this.records.delete(sourcePath);
   }
 
-  private async cleanupFolder(removeFolder = false): Promise<void> {
+  private async cleanupFolder(): Promise<void> {
     const entries = await fs.readdir(this.folderPath).catch(() => [] as string[]);
-    await Promise.all(entries.map((entry) => fs.unlink(path.join(this.folderPath, entry)).catch(() => { })));
-
-    if (removeFolder) {
-      await fs.rmdir(this.folderPath).catch(() => { });
-    }
+    await Promise.all(entries.map((entry) => fs.unlink(path.join(this.folderPath, entry)).catch(() => {})));
     this.records.clear();
-  }
-
-  private buildRecord(sourcePath: string, deviceNames: string[], version: string): HardLinkRecord {
-    const rawName = `${deviceNames.join("_").trim()}_${version}.ipsw`;
-    const fileName = this.normalizeFileName(rawName);
-    return {
-      sourcePath,
-      linkPath: path.join(this.folderPath, fileName),
-      deviceNames,
-      version,
-      fileName,
-    };
   }
 
   private formatLinkFileName(deviceNames: string[], version: string): string {
     const normalizedNames = this.normalizeDeviceNames(deviceNames);
     const groupedNames = this.groupDeviceNames(normalizedNames);
-    const label = groupedNames.length ? groupedNames.join(" - ") : normalizedNames.join(" - ");
+    const label = groupedNames.join(" - ");
     return this.normalizeFileName(`${label} (${version}).ipsw`);
   }
 
@@ -185,52 +168,59 @@ export class IPSWHardLinkManager {
   }
 
   private cleanDeviceName(name: string): string {
-    return name
-      .replace(/\(([^)]*)\)/g, (_match: string, inner: string) => {
-        const filtered = inner
-          .split(",")
-          .map((part: string) => part.trim())
-          .filter((part: string) => !/^global$/i.test(part) && !/^gsm$/i.test(part) && !/^wifi$/i.test(part) && !/^cellular$/i.test(part));
-        return filtered.length ? `(${filtered.join(", ")})` : "";
-      })
-      .replace(/\s+/g, " ")
-      .replace(/\s+_/g, "_")
-      .replace(/_\s+/g, "_")
-      .replace(/\s+,/g, ",")
-      .replace(/,\s+/g, ", ")
-      .replace(/\(\s*\)/g, "")
-      .trim();
+    let result = name;
+    result = result.replace(PARENS_CONTENT_RE, (_match: string, inner: string) => {
+      const filtered = inner
+        .split(",")
+        .map((part: string) => part.trim())
+        .filter((part: string) => !SKIP_VARIANT_RE.test(part));
+      return filtered.length ? `(${filtered.join(", ")})` : "";
+    });
+    result = result.replace(/\s+/g, " ");
+    result = result.replace(/\s+_/g, "_");
+    result = result.replace(/_\s+/g, "_");
+    result = result.replace(/\s+,/g, ",");
+    result = result.replace(/,\s+/g, ", ");
+    result = result.replace(/\(\s*\)/g, "");
+    return result.trim();
+  }
+
+  private baseDeviceName(name: string): string {
+    return name.replace(BASE_NAME_RE, "").trim();
   }
 
   private groupDeviceNames(deviceNames: string[]): string[] {
     const modelMap = new Map<string, string>();
+    const baseCounts = new Map<string, number>();
+
     for (const name of deviceNames) {
-      const baseName = name.replace(/\s*\([^)]*\)/g, "").trim();
+      const baseName = this.baseDeviceName(name);
+      baseCounts.set(baseName, (baseCounts.get(baseName) ?? 0) + 1);
+
       const existing = modelMap.get(baseName);
       if (!existing || name.length < existing.length) {
         modelMap.set(baseName, name);
       }
     }
 
-    const grouped = [...modelMap.values()];
-    if (grouped.length <= 1) return grouped;
+    if (modelMap.size <= 1) return [...modelMap.values()];
 
-    const baseCounts = new Map<string, number>();
-    for (const name of deviceNames) {
-      const baseName = name.replace(/\s*\([^)]*\)/g, "").trim();
-      baseCounts.set(baseName, (baseCounts.get(baseName) ?? 0) + 1);
+    const result: string[] = [];
+    for (const [baseName, count] of baseCounts) {
+      if (count > 1) {
+        result.push(baseName);
+      } else {
+        result.push(modelMap.get(baseName)!);
+      }
     }
 
-    const repeatedModels = [...baseCounts.entries()].filter(([, count]) => count > 1).map(([baseName]) => baseName);
-    if (!repeatedModels.length) return grouped;
-
-    return [...new Set(repeatedModels)].sort();
+    return result.sort();
   }
 
   private normalizeFileName(fileName: string): string {
     const maxBaseLength = 180;
     const sanitized = fileName
-      .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+      .replace(SPECIAL_CHARS_RE, "_")
       .replace(/_+/g, "_")
       .trim();
 
@@ -247,8 +237,7 @@ export class IPSWHardLinkManager {
     version: string;
     build: string;
   } | null {
-    const regex = /^(?<id>.+?)_(?<version>\d+(?:\.\d+){1,3})_(?<build>[A-Za-z0-9]+)_Restore\.ipsw$/;
-    const match = filename.match(regex);
+    const match = filename.match(IPSW_PARSE_RE);
     if (!match?.groups) return null;
     return {
       id: match.groups.id,
@@ -258,8 +247,24 @@ export class IPSWHardLinkManager {
   }
 
   private async getMatchedDevicesForFile(fileId: string, fileBuild: string): Promise<MatchedDeviceInfo[]> {
+    const cacheKey = `${fileId}_${fileBuild}`;
+    const cached = this.deviceFirmwareCache.get(cacheKey);
+    if (cached) return cached;
+
+    await this.ensureFirmwareCacheBuilt();
+
+    return this.deviceFirmwareCache.get(cacheKey) ?? [];
+  }
+
+  private async ensureFirmwareCacheBuilt(): Promise<void> {
+    if (this.firmwareCachePromise) return this.firmwareCachePromise;
+
+    this.firmwareCachePromise = this.buildFirmwareCache();
+    return this.firmwareCachePromise;
+  }
+
+  private async buildFirmwareCache(): Promise<void> {
     const devices = this.dataHandle.getDevices();
-    const matched = new Map<string, MatchedDeviceInfo>();
 
     for (const device of devices) {
       const modelData = await this.dataHandle.getModelData(device.identifier, true);
@@ -269,17 +274,22 @@ export class IPSWHardLinkManager {
         const parsed = this.parseIPSW(firmware.url.split("/").pop() ?? "");
         if (!parsed) continue;
 
-        if (parsed.id === fileId && parsed.build === fileBuild) {
-          matched.set(device.identifier, {
-            deviceName: device.name,
-            firmwareId: parsed.id,
-            buildId: parsed.build,
-          });
-          break;
+        const cacheKey = `${parsed.id}_${parsed.build}`;
+        const entry: MatchedDeviceInfo = {
+          deviceName: device.name,
+          firmwareId: parsed.id,
+          buildId: parsed.build,
+        };
+
+        const existing = this.deviceFirmwareCache.get(cacheKey);
+        if (existing) {
+          if (!existing.some((e) => e.deviceName === entry.deviceName)) {
+            existing.push(entry);
+          }
+        } else {
+          this.deviceFirmwareCache.set(cacheKey, [entry]);
         }
       }
     }
-
-    return [...matched.values()];
   }
 }

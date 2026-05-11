@@ -1,4 +1,9 @@
-import { useState, useEffect, CSSProperties, ReactNode, JSX } from "react";
+import { useState, useEffect, useCallback, ReactNode, JSX } from "react";
+import { useTranslation } from "react-i18next";
+import { state } from "../data";
+
+const SETTING_VERSION = "2.0.0";
+export { SETTING_VERSION };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -11,6 +16,7 @@ interface ToggleProps {
 interface DirPickerProps {
     value: string;
     onChange: (v: string) => void;
+    onBrowse?: () => void;
 }
 
 interface SettingRowProps {
@@ -115,6 +121,11 @@ const Ico = {
             <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.2" />
         </svg>
     ),
+    ChevronLeft: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+        </svg>
+    ),
 };
 
 // ─── Toggle ──────────────────────────────────────────────────────────────────
@@ -148,7 +159,7 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false }) 
 
 // ─── DirPicker ───────────────────────────────────────────────────────────────
 
-const DirPicker: React.FC<DirPickerProps> = ({ value, onChange }) => (
+const DirPicker: React.FC<DirPickerProps> = ({ value, onChange, onBrowse }) => (
     <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%", marginTop: 8 }}>
         <div style={{
             flex: 1, background: "#1a1a1a", border: "1px solid #3a3a3a",
@@ -161,7 +172,7 @@ const DirPicker: React.FC<DirPickerProps> = ({ value, onChange }) => (
             {value || "C:\\Users\\User\\Downloads\\IPSW"}
         </div>
         <button
-            onClick={() => onChange(`C:\\Users\\User\\Downloads\\IPSW_${Math.floor(Math.random() * 1000)}`)}
+            onClick={onBrowse || (() => onChange(""))}
             style={{
                 background: "#2d2d2d", border: "1px solid #3a3a3a",
                 borderRadius: 4, padding: "6px 12px", color: "#ccc",
@@ -250,9 +261,9 @@ const Section: React.FC<SectionProps> = ({ icon, title, accent, children }) => (
 // ─── Nav Sidebar ──────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-    { id: "welcome", label: "Welcome", icon: <Ico.Sparkle /> },
-    { id: "download", label: "Download", icon: <Ico.Download /> },
-    { id: "firmware", label: "Firmware", icon: <Ico.Firmware /> },
+    { id: "welcome", label: "Chào mừng", icon: <Ico.Sparkle /> },
+    { id: "download", label: "Tải xuống", icon: <Ico.Download /> },
+    { id: "firmware", label: "Phần mềm", icon: <Ico.Firmware /> },
 ];
 
 interface NavItemProps {
@@ -269,7 +280,7 @@ const NavItem: React.FC<NavItemProps> = ({ label, icon, active, done, locked, on
     <button
         onClick={onClick}
         disabled={locked}
-        title={locked ? "Complete the previous step first" : undefined}
+        title={locked ? "Hoàn thành bước trước" : undefined}
         style={{
             width: "100%", display: "flex", alignItems: "center", gap: 10,
             padding: "8px 12px", borderRadius: 5, border: "none",
@@ -304,7 +315,9 @@ const NavItem: React.FC<NavItemProps> = ({ label, icon, active, done, locked, on
 
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
-const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => (
+const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => {
+    const { t } = useTranslation();
+    return (
     <div style={{ padding: "32px 36px", flex: 1, overflowY: "auto" }}>
         {/* Hero */}
         <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 28 }}>
@@ -331,16 +344,14 @@ const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => (
                     IPSW Manager
                 </h1>
                 <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>
-                    Version 4.0.0 · Setup Wizard
+                    {t('wizard.welcome.version', { version: window.api.getVersion })}
                 </div>
             </div>
         </div>
 
         {/* Welcome text */}
         <p style={{ fontSize: 13.5, color: "#aaa", lineHeight: 1.7, marginBottom: 28, maxWidth: 480 }}>
-            Welcome to IPSW Manager 4.0. This wizard will guide you through
-            the initial configuration. You can change any of these settings
-            later from the app's Settings page.
+            {t('wizard.welcome.text', { version: window.api.getVersion })}
         </p>
 
         {/* What's New */}
@@ -357,15 +368,17 @@ const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => (
             }}>
                 <Ico.Sparkle />
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", letterSpacing: "0.1em", textTransform: "uppercase" as const }}>
-                    What's New in 4.0
+                    {t('wizard.welcome.whatsnew')}
                 </span>
             </div>
             <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
                 {([
-                    { text: "Parallel chunk downloader with resume support — up to 16 threads", tag: "Download" },
-                    { text: "SSD-aware I/O scheduling and direct offset-based chunk merging", tag: "Download" },
-                    { text: "Parse firmware file names — extract device, version & build info", tag: "Firmware" },
-                    { text: "Auto-cleanup: remove duplicate, outdated and corrupted firmware files", tag: "Firmware" },
+                    { text: t('wizard.welcome.feature1') },
+                    { text: t('wizard.welcome.feature2') },
+                    { text: t('wizard.welcome.feature3') },
+                    { text: t('wizard.welcome.feature4') },
+                    { text: t('wizard.welcome.feature5') },
+                    { text: t('wizard.welcome.feature6') },
                 ] as WhatsNewItem[]).map((item, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                         <div style={{
@@ -404,58 +417,77 @@ const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => (
             onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "#1a86d8"}
             onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "#0078d4"}
         >
-            Get Started <Ico.Arrow />
+            {t('wizard.getStarted')} <Ico.Arrow />
         </button>
     </div>
 );
+};
 
 interface DownloadPageProps {
     saveDir: string;
     setSaveDir: (v: string) => void;
+    onBrowseSaveDir: () => void;
     skipVerify: boolean;
     setSkipVerify: (v: boolean) => void;
     turboMode: boolean;
     setTurboMode: (v: boolean) => void;
     onNext: () => void;
+    onBack: () => void;
 }
 
 const PageDownload: React.FC<DownloadPageProps> = ({
-    saveDir, setSaveDir, skipVerify, setSkipVerify, turboMode, setTurboMode, onNext,
-}) => (
+    saveDir, setSaveDir, onBrowseSaveDir, skipVerify, setSkipVerify, turboMode, setTurboMode, onNext, onBack,
+}) => {
+    const { t } = useTranslation();
+    return (
     <div style={{ padding: "28px 36px", flex: 1, overflowY: "auto" }}>
         <div style={{ marginBottom: 22 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", margin: 0, marginBottom: 5 }}>Download Settings</h2>
-            <p style={{ fontSize: 12.5, color: "#666", margin: 0 }}>Configure how IPSW files are downloaded and stored.</p>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", margin: 0, marginBottom: 5 }}>{t('wizard.download.title')}</h2>
+            <p style={{ fontSize: 12.5, color: "#666", margin: 0 }}>{t('wizard.download.subtitle')}</p>
         </div>
 
-        <Section icon={<Ico.Download />} title="Storage" accent="#0078d4">
-            <SettingRow icon={<Ico.Folder />} label="Save Directory" desc="Destination folder for all downloaded IPSW files">
-                <DirPicker value={saveDir} onChange={setSaveDir} />
+        <Section icon={<Ico.Download />} title={t('wizard.download.section.storage')} accent="#0078d4">
+            <SettingRow icon={<Ico.Folder />} label={t('wizard.download.saveDir.label')} desc={t('wizard.download.saveDir.desc')}>
+                <DirPicker value={saveDir} onChange={setSaveDir} onBrowse={onBrowseSaveDir} />
             </SettingRow>
         </Section>
 
-        <Section icon={<Ico.Zap />} title="Performance" accent="#f59e0b">
+        <Section icon={<Ico.Zap />} title={t('wizard.download.section.performance')} accent="#f59e0b">
             <SettingRow
                 icon={<Ico.Zap />}
-                label="Turbo Mode"
-                badge="new"
-                desc="Maximize parallel download chunks (up to 16). Recommended for 100Mbps+ connections."
+                label={t('wizard.download.turbo.label')}
+                badge={t('wizard.badge.new')}
+                desc={t('wizard.download.turbo.desc')}
             >
                 <Toggle checked={turboMode} onChange={setTurboMode} />
             </SettingRow>
         </Section>
 
-        <Section icon={<Ico.Shield />} title="Integrity" accent="#888">
+        <Section icon={<Ico.Shield />} title={t('wizard.download.section.integrity')} accent="#888">
             <SettingRow
                 icon={<Ico.Shield />}
-                label="Skip Verification"
-                desc="Bypass SHA-256 checksum check after download completes. Not recommended."
+                label={t('wizard.download.skipVerify.label')}
+                desc={t('wizard.download.skipVerify.desc')}
             >
                 <Toggle checked={skipVerify} onChange={setSkipVerify} />
             </SettingRow>
         </Section>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+            <button
+                onClick={onBack}
+                style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "8px 18px", borderRadius: 4,
+                    background: "transparent", border: "1px solid #3a3a3a",
+                    color: "#aaa", cursor: "pointer",
+                    fontSize: 13, fontWeight: 500, transition: "all 0.12s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#1e1e1e"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#555"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#3a3a3a"; }}
+            >
+                <Ico.ChevronLeft /> {t('wizard.btn.back')}
+            </button>
             <button
                 onClick={onNext}
                 style={{
@@ -468,72 +500,116 @@ const PageDownload: React.FC<DownloadPageProps> = ({
                 onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "#1a86d8"}
                 onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "#0078d4"}
             >
-                Next: Firmware <Ico.Arrow />
+                {t('wizard.download.btn.next')} <Ico.Arrow />
             </button>
         </div>
     </div>
 );
+};
 
 interface FirmwarePageProps {
     parseFileName: boolean; setParseFileName: (v: boolean) => void;
+    linkOutDir: string; setLinkOutDir: (v: string) => void;
     autoRemoveOld: boolean; setAutoRemoveOld: (v: boolean) => void;
     autoRemoveDupe: boolean; setAutoRemoveDupe: (v: boolean) => void;
     autoRemoveInvalid: boolean; setAutoRemoveInvalid: (v: boolean) => void;
     onFinish: () => void;
+    onBack: () => void;
 }
 
 const PageFirmware: React.FC<FirmwarePageProps> = ({
     parseFileName, setParseFileName,
+    linkOutDir, setLinkOutDir,
     autoRemoveOld, setAutoRemoveOld,
     autoRemoveDupe, setAutoRemoveDupe,
     autoRemoveInvalid, setAutoRemoveInvalid,
-    onFinish,
-}) => (
+    onFinish, onBack,
+}) => {
+    const { t } = useTranslation();
+    return (
     <div style={{ padding: "28px 36px", flex: 1, overflowY: "auto" }}>
         <div style={{ marginBottom: 22 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", margin: 0, marginBottom: 5 }}>Firmware Settings</h2>
-            <p style={{ fontSize: 12.5, color: "#666", margin: 0 }}>Manage how firmware files are parsed and maintained.</p>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", margin: 0, marginBottom: 5 }}>{t('wizard.firmware.title')}</h2>
+            <p style={{ fontSize: 12.5, color: "#666", margin: 0 }}>{t('wizard.firmware.subtitle')}</p>
         </div>
 
-        <Section icon={<Ico.File />} title="Parsing" accent="#0078d4">
+        <Section icon={<Ico.File />} title={t('wizard.firmware.section.parsing')} accent="#0078d4">
             <SettingRow
                 icon={<Ico.File />}
-                label="Parse File Name"
-                badge="new"
-                desc="Extract device model, iOS version and build identifier from IPSW filenames automatically."
+                label={t('wizard.firmware.parse.label')}
+                badge={t('wizard.badge.new')}
+                desc={t('wizard.firmware.parse.desc')}
             >
                 <Toggle checked={parseFileName} onChange={setParseFileName} />
             </SettingRow>
+            {parseFileName && (
+                <div style={{ padding: "10px 20px 16px 52px", borderBottom: "1px solid #222" }}>
+                    <div style={{ fontSize: 12, color: "#aaa", marginBottom: 6 }}>
+                        {t('wizard.firmware.linkOutDir.label')}
+                    </div>
+                    <input
+                        type="text"
+                        value={linkOutDir}
+                        onChange={e => setLinkOutDir(e.target.value)}
+                        placeholder="IPSW_FILES"
+                        style={{
+                            width: "100%", background: "#1a1a1a", border: "1px solid #3a3a3a",
+                            borderRadius: 4, padding: "6px 10px", outline: "none",
+                            fontFamily: "'Cascadia Code', 'Consolas', monospace",
+                            fontSize: 12, color: "#e8e8e8", boxSizing: "border-box",
+                        }}
+                        onFocus={e => e.currentTarget.style.borderColor = "#0078d4"}
+                        onBlur={e => e.currentTarget.style.borderColor = "#3a3a3a"}
+                    />
+                    <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+                        {t('wizard.firmware.linkOutDir.desc')}
+                    </div>
+                </div>
+            )}
         </Section>
 
-        <Section icon={<Ico.Trash />} title="Auto Cleanup" accent="#22c55e">
+        <Section icon={<Ico.Trash />} title={t('wizard.firmware.section.cleanup')} accent="#22c55e">
             <SettingRow
                 icon={<Ico.Trash />}
-                label="Auto Remove Old Firmware"
-                badge="new"
-                desc="Keep only the latest build per device. Older versions will be removed on startup."
+                label={t('wizard.firmware.removeOld.label')}
+                badge={t('wizard.badge.new')}
+                desc={t('wizard.firmware.removeOld.desc')}
             >
                 <Toggle checked={autoRemoveOld} onChange={setAutoRemoveOld} />
             </SettingRow>
             <SettingRow
                 icon={<Ico.Copy />}
-                label="Auto Remove Duplicate Firmware"
-                badge="new"
-                desc="Find and remove duplicate IPSW files using SHA-256 hash comparison."
+                label={t('wizard.firmware.removeDupe.label')}
+                badge={t('wizard.badge.new')}
+                desc={t('wizard.firmware.removeDupe.desc')}
             >
                 <Toggle checked={autoRemoveDupe} onChange={setAutoRemoveDupe} />
             </SettingRow>
             <SettingRow
                 icon={<Ico.Shield />}
-                label="Auto Remove Invalid Firmware"
-                badge="new"
-                desc="Delete corrupted or incomplete IPSW files detected during startup scan."
+                label={t('wizard.firmware.removeInvalid.label')}
+                badge={t('wizard.badge.new')}
+                desc={t('wizard.firmware.removeInvalid.desc')}
             >
                 <Toggle checked={autoRemoveInvalid} onChange={setAutoRemoveInvalid} />
             </SettingRow>
         </Section>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+            <button
+                onClick={onBack}
+                style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "8px 18px", borderRadius: 4,
+                    background: "transparent", border: "1px solid #3a3a3a",
+                    color: "#aaa", cursor: "pointer",
+                    fontSize: 13, fontWeight: 500, transition: "all 0.12s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#1e1e1e"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#555"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#3a3a3a"; }}
+            >
+                <Ico.ChevronLeft /> {t('wizard.btn.back')}
+            </button>
             <button
                 onClick={onFinish}
                 style={{
@@ -547,15 +623,18 @@ const PageFirmware: React.FC<FirmwarePageProps> = ({
                 onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "#1a86d8"}
                 onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "#0078d4"}
             >
-                Finish Setup <Ico.Check />
+                {t('wizard.firmware.btn.finish')} <Ico.Check />
             </button>
         </div>
     </div>
 );
+};
 
 // ─── Done Screen ──────────────────────────────────────────────────────────────
 
-const PageDone: React.FC = () => (
+const PageDone: React.FC = () => {
+    const { t } = useTranslation();
+    return (
     <div style={{
         flex: 1, display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center", gap: 16,
@@ -572,11 +651,12 @@ const PageDone: React.FC = () => (
             </svg>
         </div>
         <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", marginBottom: 6 }}>All set!</div>
-            <div style={{ fontSize: 12.5, color: "#666" }}>Launching IPSW Manager…</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", marginBottom: 6 }}>{t('wizard.done.title')}</div>
+            <div style={{ fontSize: 12.5, color: "#666" }}>{t('wizard.done.subtitle')}</div>
         </div>
     </div>
 );
+};
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
@@ -585,16 +665,80 @@ const PAGE_ORDER: Page[] = ["welcome", "download", "firmware", "done"];
 
 export default function App(): JSX.Element {
     const [page, setPage] = useState<Page>("welcome");
-    // Track the furthest page ever visited — never goes backwards
     const [maxReached, setMaxReached] = useState<number>(0);
 
     const [saveDir, setSaveDir] = useState<string>("");
     const [skipVerify, setSkipVerify] = useState<boolean>(false);
     const [turboMode, setTurboMode] = useState<boolean>(false);
     const [parseFileName, setParseFileName] = useState<boolean>(true);
+    const [linkOutDir, setLinkOutDir] = useState<string>("IPSW_FILES");
     const [autoRemoveOld, setAutoRemoveOld] = useState<boolean>(false);
     const [autoRemoveDupe, setAutoRemoveDupe] = useState<boolean>(false);
     const [autoRemoveInvalid, setAutoRemoveInvalid] = useState<boolean>(true);
+
+    // Load persisted settings on mount
+    useEffect(() => {
+        Promise.all([
+            window.store.get('ipswFolder'),
+            window.store.get('turboMode'),
+            window.store.get('skipVerify'),
+            window.store.get('link_enabled'),
+            window.store.get('link_out_dir'),
+            window.store.get('cleanup_remove_old'),
+            window.store.get('cleanup_remove_duplicate'),
+            window.store.get('cleanup_remove_invalid'),
+        ]).then(([
+            savedFolder,
+            savedTurboMode,
+            savedSkipVerify,
+            savedLinkEnabled,
+            savedLinkOutDir,
+            savedCleanOld,
+            savedCleanDupe,
+            savedCleanInvalid,
+        ]) => {
+            if (savedFolder) setSaveDir(savedFolder);
+            if (savedTurboMode != null) setTurboMode(savedTurboMode);
+            if (savedSkipVerify != null) setSkipVerify(savedSkipVerify);
+            if (savedLinkEnabled != null) setParseFileName(savedLinkEnabled);
+            if (savedLinkOutDir) setLinkOutDir(savedLinkOutDir);
+            if (savedCleanOld != null) setAutoRemoveOld(savedCleanOld);
+            if (savedCleanDupe != null) setAutoRemoveDupe(savedCleanDupe);
+            if (savedCleanInvalid != null) setAutoRemoveInvalid(savedCleanInvalid);
+        });
+    }, []);
+
+    const handleBrowseSaveDir = useCallback(async () => {
+        const path = await window.api.selectFolder?.();
+        if (path) setSaveDir(path);
+    }, []);
+
+    const finishSetup = useCallback(async () => {
+        // Sync renderer state
+        state.currentFolder = saveDir;
+        state.turboMode = turboMode;
+        state.normalizeName = parseFileName;
+        state.autoRemoveOldFiles = autoRemoveOld;
+        state.autoRemoveDuplicateFiles = autoRemoveDupe;
+
+        // Persist all settings + mark wizard as completed
+        await Promise.all([
+            window.store.set('ipswFolder', saveDir),
+            window.store.set('turboMode', turboMode),
+            window.store.set('skipVerify', skipVerify),
+            window.store.set('link_enabled', parseFileName),
+            window.store.set('link_out_dir', linkOutDir),
+            window.store.set('cleanup_remove_old', autoRemoveOld),
+            window.store.set('cleanup_remove_duplicate', autoRemoveDupe),
+            window.store.set('cleanup_remove_invalid', autoRemoveInvalid),
+            window.store.set('settingVersion', SETTING_VERSION),
+        ]);
+
+        // Show "All set!" briefly, then relaunch to apply
+        setPage("done");
+        await new Promise(r => setTimeout(r, 1500));
+        window.api.relaunch();
+    }, [saveDir, turboMode, skipVerify, parseFileName, linkOutDir, autoRemoveOld, autoRemoveDupe, autoRemoveInvalid]);
 
     const navigate = (target: Page) => {
         const idx = PAGE_ORDER.indexOf(target);
@@ -658,18 +802,22 @@ export default function App(): JSX.Element {
                             {page === "download" && (
                                 <PageDownload
                                     saveDir={saveDir} setSaveDir={setSaveDir}
+                                    onBrowseSaveDir={handleBrowseSaveDir}
                                     skipVerify={skipVerify} setSkipVerify={setSkipVerify}
                                     turboMode={turboMode} setTurboMode={setTurboMode}
                                     onNext={() => navigate("firmware")}
+                                    onBack={() => navigate("welcome")}
                                 />
                             )}
                             {page === "firmware" && (
                                 <PageFirmware
                                     parseFileName={parseFileName} setParseFileName={setParseFileName}
+                                    linkOutDir={linkOutDir} setLinkOutDir={setLinkOutDir}
                                     autoRemoveOld={autoRemoveOld} setAutoRemoveOld={setAutoRemoveOld}
                                     autoRemoveDupe={autoRemoveDupe} setAutoRemoveDupe={setAutoRemoveDupe}
                                     autoRemoveInvalid={autoRemoveInvalid} setAutoRemoveInvalid={setAutoRemoveInvalid}
-                                    onFinish={() => navigate("done")}
+                                    onFinish={finishSetup}
+                                    onBack={() => navigate("download")}
                                 />
                             )}
                             {page === "done" && <PageDone />}

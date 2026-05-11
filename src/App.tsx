@@ -1,5 +1,6 @@
-import { lazy, memo, Suspense } from "react";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { lazy, memo, Suspense, useState, useEffect } from "react";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { SETTING_VERSION } from "./ui/welcome";
 
 const Home = lazy(() => import("./ui/home"));
 const Settings = lazy(() => import("./ui/setting"));
@@ -59,11 +60,30 @@ const LoadingScreen = memo(() => (
 ));
 
 export default function App() {
+    const [checking, setChecking] = useState(true);
+    const [needSetup, setNeedSetup] = useState(false);
+
+    useEffect(() => {
+        window.store.get('settingVersion').then((storedVersion: string) => {
+            if (storedVersion !== SETTING_VERSION) {
+                setNeedSetup(true);
+            }
+            setChecking(false);
+
+            console.log('storedVersion', storedVersion);
+            console.log('SETTING_VERSION', SETTING_VERSION);
+        }).catch(() => {
+            setChecking(false);
+        });
+    }, []);
+
+    if (checking) return <LoadingScreen />;
+
     return (
         <HashRouter>
             <Suspense fallback={<LoadingScreen />}>
                 <Routes>
-                    <Route path="/" element={<Home />} />
+                    <Route path="/" element={needSetup ? <Navigate to="/welcome" replace /> : <Home />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/downloads" element={<Downloads />} />
                     <Route path="/selectDevice" element={<SelectDevice />} />

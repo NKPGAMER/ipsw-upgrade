@@ -5,27 +5,25 @@ import {
   OpenDialogOptions, FileFilter, IpcMainInvokeEvent, screen
 } from "electron";
 import Store from "electron-store";
-import { autoUpdater, UpdateInfo } from "electron-updater";
+import { autoUpdater } from "electron-updater";
 // System
 import { join } from "path";
 // Modules
-import { read, write, deleteFile as userDataDeleteFile } from "./modules/userData";
 import { getDiskSpace, formatBytes } from "./modules/disk";
 import { DataHandle } from "./modules/dataHandle";
 import { IPSWWatcher } from "./modules/ipswWatcher";
 import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
+import { IPSWCleanupManager } from "./modules/ipsw/cleanup";
 import { DownloaderMain } from "./modules/downloader";
 // Config
 import config from "./config";
 import { setWin } from "./utils/system";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type IpcHandler = [string, (event: IpcMainInvokeEvent, ...args: any[]) => any];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const STORE_METHODS = new Set(["get", "set", "has", "delete"] as const);
-type StoreMethod = "get" | "set" | "has" | "delete";
 
 const SPLASH_TIMEOUT_MS = 10_000;
 const UPDATER_INIT_DELAY = 2_000;
@@ -35,17 +33,18 @@ const UPDATER_CHECK_DELAY = 6_000;
 
 export const store = new Store({ defaults: config.defaultAppSettings });
 
+const s = store as unknown as Record<string, any> & { get: (k: string) => any; set: (k: string, v: any) => void; has: (k: string) => boolean; delete: (k: string) => void };
+
 let dl: DownloaderMain | undefined;
 let dh: DataHandle | undefined;
 let watcher: IPSWWatcher | null = null;
 let linkManager: IPSWHardLinkManager | null = null;
+let cleanupManager: IPSWCleanupManager | null = null;
 let splash: BrowserWindow | undefined;
 let mainWindow: BrowserWindow | undefined;
 let isReady = false;
 
-const storeGet = (key: string, fallback?: any) => {
-  return (store as any).get(key) ?? fallback;
-}
+const storeGet = (key: string, fallback?: any) => s.get(key) ?? fallback;
 
 // ─── Window Factory ───────────────────────────────────────────────────────────
 
@@ -92,7 +91,8 @@ async function init(): Promise<void> {
   setWin(mainWindow);
 
   dl = new DownloaderMain(mainWindow, {
-    turboMode: storeGet("turboMode", false)
+    turboMode: storeGet("turboMode", false),
+    skipVerify: storeGet("skipVerify", false)
   });
 
   dh = new DataHandle(mainWindow);
@@ -100,8 +100,15 @@ async function init(): Promise<void> {
   watcher = new IPSWWatcher(mainWindow, ipswFolder);
   linkManager = new IPSWHardLinkManager(mainWindow, watcher, dh, {
     watchDir: ipswFolder,
-    enabled: storeGet("link_enabled", true),
-    outDir: storeGet("link_out_dir", "IPSW_FILES_NAME")
+    enabled: storeGet("link_enabled", false),
+    outDir: storeGet("link_out_dir", "IPSW_FILES")
+  });
+
+  cleanupManager = new IPSWCleanupManager(dl, dh, {
+    saveDir: ipswFolder,
+    removeInvalidFile: storeGet("cleanup_remove_invalid", false),
+    removeOldFile: storeGet("cleanup_remove_old", false),
+    removeDuplicateFile: storeGet("cleanup_remove_duplicate", false),
   });
 
   loadRenderer(mainWindow);
@@ -112,6 +119,7 @@ async function init(): Promise<void> {
       await dh.loadDevices();
       await watcher.start();
       await linkManager.start();
+      await cleanupManager?.start();
     } catch (error) {
       console.error("[main] Failed to initialize IPSW background services:", error);
     }
@@ -136,11 +144,11 @@ function registerMainWindowEvents(win: BrowserWindow): void {
     isReady = true;
   });
 }
+
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
   await init();
-  // new AppleDevice(mainWindow);
 
   // Fallback: show main window if `ready-to-show` never fires
   setTimeout(() => {
@@ -191,7 +199,7 @@ function initAutoUpdater(): void {
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
 const handlers: IpcHandler[] = [
-  ["app:relaunch", async () => {
+  ["app:relaunch", () => {
     app.relaunch();
     app.exit(0);
     return { success: true };
@@ -203,7 +211,7 @@ const handlers: IpcHandler[] = [
     return canceled ? null : filePaths[0];
   }],
 
-  ["select-file", async (_: IpcMainInvokeEvent, filters?: FileFilter[]) => {
+  ["select-file", async (_, filters?: FileFilter[]) => {
     const options: OpenDialogOptions = { properties: ["openFile"] };
     if (filters?.length) options.filters = filters;
     const { canceled, filePaths } = await dialog.showOpenDialog(options);
@@ -211,20 +219,24 @@ const handlers: IpcHandler[] = [
   }],
 
   // Persistent store
-  ["store", (_: IpcMainInvokeEvent, method: string, key: string, value?: any) => {
-    if (!STORE_METHODS.has(method as StoreMethod)) return;
-    return method === "set"
-      ? (store as any).set(key, value)
-      : (store as any)[method](key);
+  ["store", (_, method: string, key: string, value?: any) => {
+    switch (method) {
+      case "get":    return s.get(key);
+      case "set":    return s.set(key, value);
+      case "has":    return s.has(key);
+      case "delete": return s.delete(key);
+    }
   }],
-  // Disk
-  ["getDiskSpace", (_: IpcMainInvokeEvent, targetPath?: string) => getDiskSpace(targetPath)],
-  ["formatBytes", (_: IpcMainInvokeEvent, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
 
+  // Disk
+  ["getDiskSpace", (_, targetPath?: string) => getDiskSpace(targetPath)],
+  ["formatBytes", (_, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
+
+  // DataHandle
   ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
-  ["dh:getDeviceModelData", async (_, identifier) => dh?.get(identifier)],
+  ["dh:getDeviceModelData", (_, identifier) => dh?.get(identifier)],
   ["dh:getDevices", (_, product) => dh?.getDevices(product)],
-  ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)]
+  ["dh:getModelData", (_, identifier) => dh?.getModelData(identifier)],
 ];
 
-handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler))
+handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler));

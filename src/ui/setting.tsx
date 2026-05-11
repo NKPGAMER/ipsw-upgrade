@@ -1,7 +1,8 @@
-import { useState, type FC, type ReactNode, type JSX, useEffect } from "react";
+import { useState, type FC, type ReactNode, type JSX, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { state } from "../data";
+import utils from "../core/utils";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -177,55 +178,52 @@ const PathRow: FC<PathRowProps> = ({ label, desc, value, onChange, onBrowse, dis
 type Language = "en" | "vi";
 
 const defaultSettings = {
-  downloadPath: "C:\\Downloads",
-  IDMPath: "C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe"
+  downloadPath: "C:\\Downloads"
 }
 
 export default function SettingsApp(): JSX.Element {
   const [language, setLanguage] = useState<Language>("vi");
+
   const [downloadPath, setDownloadPath] = useState<string>(defaultSettings.downloadPath);
+  const [turboMode, setTurboMode] = useState<boolean>(false);
+
+  const [normalizeName, setNormalizeName] = useState<boolean>(false);
+  const [linkOutDir, setLinkOutDir] = useState<string>("IPSW_FILES");
   const [deleteOld, setDeleteOld] = useState<boolean>(false);
   const [deleteDuplicate, setDeleteDuplicate] = useState<boolean>(false);
+
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   useEffect(() => {
-  if (state.__init) {
-    setDownloadPath(state.currentFolder);
-    setDeleteOld(state.autoRemoveOldFiles);
-    setDeleteDuplicate(state.autoRemoveDuplicateFiles);
+    if (state.__init) {
+      setDownloadPath(state.currentFolder);
+      setNormalizeName(state.normalizeName);
+      setDeleteOld(state.autoRemoveOldFiles);
+      setDeleteDuplicate(state.autoRemoveDuplicateFiles);
+      setTurboMode(state.turboMode);
 
-    window.store.get('language').then((lang) => {
-      if (lang) setLanguage(lang);
-    });
+      window.store.get('language').then((lang) => {
+        if (lang) setLanguage(lang);
+      });
+      window.store.get('link_out_dir').then((dir) => {
+        if (dir) setLinkOutDir(dir);
+      });
 
-    return;
-  }
+      return;
+    }
+  }, []);
 
-  Promise.all([
-    window.store.get('ipswFolder'),
-    window.store.get('autoRemoveOldFiles'),
-    window.store.get('autoRemoveDuplicateFiles'),
-    window.store.get('language'),
-  ]).then(([savedFolder, savedDeleteOld, savedDeleteDuplicate, savedLanguage]) => {
-    if (savedFolder) {
-      state.currentFolder = savedFolder;
-      setDownloadPath(savedFolder);
-    }
-    if (savedDeleteOld !== undefined && savedDeleteOld !== null) {
-      state.autoRemoveOldFiles = savedDeleteOld;
-      setDeleteOld(savedDeleteOld);
-    }
-    if (savedDeleteDuplicate !== undefined && savedDeleteDuplicate !== null) {
-      state.autoRemoveDuplicateFiles = savedDeleteDuplicate;
-      setDeleteDuplicate(savedDeleteDuplicate);
-    }
-    if (savedLanguage) {
-      setLanguage(savedLanguage);
-      i18n.changeLanguage(savedLanguage);
-    }
-  });
-}, []);
+  const restartAppConfirm = useCallback(async () => {
+    const warning = await utils.customConfirm("Chức năng này cần khởi động lại ứng dụng để áp dụng.\nBạn có muốn tiếp tục?", {
+      confirmText: "Khởi động lại",
+      cancelText: "Để sau",
+      variant: "warning"
+    })
+    if (!warning) return;
+    
+    window.api.relaunch();
+  }, []);
 
   const handleSetDownloadPath = (path: string) => {
     if (!path) {
@@ -236,23 +234,55 @@ export default function SettingsApp(): JSX.Element {
     window.store.set('ipswFolder', path);
   };
 
-  const handleSetDeleteOld = (value: boolean) => {
-    setDeleteOld(value);
-    state.autoRemoveOldFiles = value;
-    window.store.set('autoRemoveOldFiles', value);
-  };
+  const handleSaveLinkConfig = useCallback(async () => {
+    state.normalizeName = normalizeName;
+    await Promise.all([
+      window.store.set('link_enabled', normalizeName),
+      window.store.set('link_out_dir', linkOutDir),
+    ]);
+    await restartAppConfirm();
+  }, [normalizeName, linkOutDir]);
 
-  const handleSetDeleteDuplicate = (value: boolean) => {
-    setDeleteDuplicate(value);
+  const handleSetDeleteOld = useCallback(async (value: boolean) => {
+    state.autoRemoveOldFiles = value;
+    window.store.set('cleanup_remove_old', value);
+
+    await restartAppConfirm();
+    setDeleteOld(value);
+  }, []);
+
+  const handleSetDeleteDuplicate = useCallback(async (value: boolean) => {
     state.autoRemoveDuplicateFiles = value;
-    window.store.set('autoRemoveDuplicateFiles', value);
-  };
+    window.store.set('cleanup_remove_duplicate', value);
+
+    await restartAppConfirm();
+    setDeleteDuplicate(value);
+  }, []);
 
   const handleSetLanguage = (lang: Language) => {
     setLanguage(lang);
     i18n.changeLanguage(lang);
     window.store.set('language', lang);
   };
+
+  const handleSetTurboMode = useCallback(async (value: boolean) => {
+    if (value) {
+      const warning = await utils.customConfirm("Chức năng này sẽ sử dụng tối đa phần cứng để tải xuống nhanh hơn.\n> Có thể gây nóng máy.\nBạn có chắc chắn muốn tiếp tục?", {
+        title: "Cảnh báo",
+        confirmText: "Đồng ý",
+        cancelText: "Hủy",
+        variant: "danger"
+      })
+      if (!warning) return;
+    }
+
+    state.turboMode = value;
+    window.store.set('turboMode', value);
+
+    await restartAppConfirm();
+
+    setTurboMode(value);
+  }, []);
 
   return (
     <div className="w-full h-full overflow-y-auto bg-[#0d0d0d] text-[#e5e5e5]">
@@ -264,13 +294,13 @@ export default function SettingsApp(): JSX.Element {
             <h1 className="text-[22px] font-bold text-[#e5e5e5] tracking-tight">{t('setting.title')}</h1>
           </div>
           <button
-              onClick={() => navigate("/")}
-              className="w-10 h-10 flex items-center justify-center rounded-lg border border-white/[0.07] bg-[#1e1e1e] text-[#5a6a7a] transition-all duration-150 hover:bg-[#223040] hover:border-white/15 hover:text-[#e8edf2] cursor-pointer shrink-0"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+            onClick={() => navigate("/")}
+            className="w-10 h-10 flex items-center justify-center rounded-lg border border-white/[0.07] bg-[#1e1e1e] text-[#5a6a7a] transition-all duration-150 hover:bg-[#223040] hover:border-white/15 hover:text-[#e8edf2] cursor-pointer shrink-0"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
         {/* ABOUT */}
@@ -338,10 +368,37 @@ export default function SettingsApp(): JSX.Element {
             onChange={handleSetDownloadPath}
             placeholder="C:\Downloads"
           />
+          <Row
+            label={t("app.download.turboMode.label")}
+            desc={t("app.download.turboMode.desc")}
+            right={<Toggle on={turboMode} onChange={handleSetTurboMode} />}
+          />
         </Section>
 
         {/* SOFTWARE */}
         <Section icon={IconSoftware} title={t("setting.firmware")}>
+          <Row
+            label={t("app.firmware.normalizeName.label")}
+            desc={t("app.firmware.normalizeName.desc")}
+            right={<Toggle on={normalizeName} onChange={setNormalizeName} />}
+          />
+          {normalizeName && (
+            <div className="flex items-center gap-3! px-6! pb-5! pt-3!">
+              <input
+                type="text"
+                value={linkOutDir}
+                onChange={e => setLinkOutDir(e.target.value)}
+                placeholder="IPSW_FILES"
+                className="flex-1 min-w-0 bg-[#292a2b] border border-white/[0.07] rounded-lg px-3! py-2! text-[13px] font-mono text-[#8a9ab0] outline-none caret-[#137fec] transition-all duration-150 focus:border-[#137fec] focus:text-[#e8edf2] focus:bg-[#223040]"
+              />
+              <button
+                onClick={handleSaveLinkConfig}
+                className="px-4! py-2! rounded-lg bg-[#137fec] text-white text-[13px] font-medium border-none cursor-pointer whitespace-nowrap transition-all duration-150 hover:bg-[#1a86d8] shrink-0"
+              >
+                {t("app.firmware.linkOutDir.save")}
+              </button>
+            </div>
+          )}
           <Row
             label={t("app.autoDeleteOld.label")}
             desc={t("app.autoDeleteOld.desc")}

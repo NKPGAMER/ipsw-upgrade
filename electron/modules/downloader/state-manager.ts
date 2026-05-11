@@ -17,7 +17,10 @@ export class StateManager {
 
   save(state: DownloadState): void {
     const updated = { ...state, updatedAt: Date.now() };
-    fs.writeFileSync(this.statePath(state.id), JSON.stringify(updated, null, 2), "utf8");
+    const target = this.statePath(state.id);
+    const tmp = target + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(updated, null, 2), "utf8");
+    fs.renameSync(tmp, target);
   }
 
   load(id: string): DownloadState | null {

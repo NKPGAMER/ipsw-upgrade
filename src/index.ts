@@ -1,5 +1,5 @@
 import { IPSWClient } from "./core/ipswClient.js";
-import { data, state } from "./data.js";
+import { state } from "./data.js";
 
 import i18n from './i18n.js';
 
@@ -8,13 +8,18 @@ export const ipswClient = new IPSWClient();
 async function init() {
     Promise.all([
         window.store.get('ipswFolder'),
-        window.store.get('autoRemoveOldFiles'),
-        window.store.get('autoRemoveDuplicateFiles'),
+        window.store.get('link_enabled'),
+        window.store.get('cleanup_remove_old'),
+        window.store.get('cleanup_remove_duplicate'),
         window.store.get('language'),
-    ]).then(([savedFolder, savedDeleteOld, savedDeleteDuplicate, savedLanguage]) => {
+        window.store.get('turboMode')
+    ]).then(([savedFolder, savedNormalizeName, savedDeleteOld, savedDeleteDuplicate, savedLanguage, savedTurboMode]) => {
         if (savedFolder) {
             state.currentFolder = savedFolder;
             ipswClient.changeDir(savedFolder)
+        }
+        if (savedNormalizeName !== undefined && savedNormalizeName !== null) {
+            state.normalizeName = savedNormalizeName;
         }
         if (savedDeleteOld !== undefined && savedDeleteOld !== null) {
             state.autoRemoveOldFiles = savedDeleteOld;
@@ -24,6 +29,9 @@ async function init() {
         }
         if (savedLanguage) {
             i18n.changeLanguage(savedLanguage);
+        }
+        if (savedTurboMode !== undefined && savedTurboMode !== null) {
+            state.turboMode = savedTurboMode;
         }
     });
 

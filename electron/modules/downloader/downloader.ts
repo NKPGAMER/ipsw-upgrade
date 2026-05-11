@@ -31,8 +31,10 @@ const DEFAULT_CHUNK_SIZE = 32 * 1024 * 1024; // 32 MB
 class MoveQueue {
   private queues = new Map<string, Promise<void>>();
   private concurrency = new Map<string, number>();
-  private readonly hddLimit = 2;
+  private hddLimit = 2;
   private readonly ssdLimit = 3;
+
+  setHddLimit(n: number): void { this.hddLimit = n; }
 
   async enqueue(
     src: string,
@@ -254,9 +256,11 @@ export class IPSWDownloader extends EventEmitter {
 
     this.envDetected = true;
 
-    // Configure scheduler limits based on environment
-    if (this.config.turboMode) {
-      this.scheduler.setTurboMode(true, this.environment);
+    this.scheduler.setTurboMode(this.config.turboMode, this.environment);
+
+    // On pure HDD, throttle move concurrency to avoid saturating IO
+    if (this.environment === "hdd_only") {
+      this.moveQueue.setHddLimit(1);
     }
 
     console.log(`[INFO] Environment: ${this.environment}`);
@@ -696,7 +700,7 @@ export class IPSWDownloader extends EventEmitter {
   }
   private async promoteTask(id: string): Promise<void> {
     const task = this.tasks.get(id);
-    if (!task) return;
+    if (!task || task.status !== "downloading") return;
 
     const cm = this.chunkManagers.get(id);
     if (!cm) return;
@@ -1018,7 +1022,7 @@ export class IPSWDownloader extends EventEmitter {
   }
 
   private buildFinalPath(firmware: Firmware, savePath: string): string {
-    const filename = firmware.url.split("/").pop() || `${firmware.identifier}_${firmware.buildid}.ipsw`;
+    const filename = this.extractFilename(firmware);
     if (fs.existsSync(savePath) && fs.statSync(savePath).isDirectory()) {
       return path.join(savePath, filename);
     }
@@ -1026,11 +1030,21 @@ export class IPSWDownloader extends EventEmitter {
   }
 
   private buildTurboPath(firmware: Firmware, savePath: string): string {
-    const filename = firmware.url.split("/").pop() || `${firmware.identifier}_${firmware.buildid}.ipsw`;
+    const filename = this.extractFilename(firmware);
     const dir = fs.existsSync(savePath) && fs.statSync(savePath).isDirectory()
       ? savePath
       : path.dirname(savePath);
     return path.join(dir, `${filename}.turbo`);
+  }
+
+
+  private extractFilename(firmware: Firmware): string {
+    try {
+      const pathname = new URL(firmware.url).pathname;
+      const name = pathname.split('/').pop();
+      if (name) return name;
+    } catch {}
+    return `${firmware.identifier}_${firmware.buildid}.ipsw`;
   }
 
   private updateTaskStatus(id: string, status: TaskStatus): void {
