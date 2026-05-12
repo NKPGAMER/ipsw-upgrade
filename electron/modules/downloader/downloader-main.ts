@@ -3,7 +3,7 @@ import { Worker } from "worker_threads";
 import { randomUUID } from "crypto";
 
 import type { MainToWorker, WorkerToMain } from "./worker-messages";
-import type { DownloaderConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
+import type { DownloaderConfig, DownloadRequestConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
 import { app } from "electron";
 
 interface BrowserWindow {
@@ -18,9 +18,9 @@ export class DownloaderMain {
   private worker: Worker | null = null;
   private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
 
-  constructor(win: BrowserWindow, opts?: DownloaderConfig) {
+  constructor(win: BrowserWindow, opts: DownloaderConfig) {
     this.win = win;
-    this.config = opts ?? {};
+    this.config = opts;
 
     this.registerIPC();
   }
@@ -76,8 +76,8 @@ export class DownloaderMain {
 
   // ─── Public API ───────────────────────────────────────────────────────────
 
-  add(firmware: Firmware, savePath: string, config: { deleteFiles?: IPSWFile[] } = {}): Promise<AddResult> {
-    return this.call<AddResult>({ type: "add", reqId: randomUUID(), firmware, savePath, config });
+  add(firmware: Firmware, config: DownloadRequestConfig = {}): Promise<AddResult> {
+    return this.call<AddResult>({ type: "add", reqId: randomUUID(), firmware, config });
   }
 
   pause(id: string): void { this.ensureWorker().postMessage({ type: "pause", id } satisfies MainToWorker); }
@@ -153,7 +153,7 @@ export class DownloaderMain {
     }
 
     const handlers: Array<[string, (...args: any[]) => any]> = [
-      ["dm:add", (_e: any, firmware: Firmware, savePath: string) => this.add(firmware, savePath)],
+      ["dm:add", (_e: any, firmware: Firmware, config: DownloadRequestConfig) => this.add(firmware, config)],
       ["dm:pause", (_e: any, id: string) => { this.pause(id); }],
       ["dm:resume", (_e: any, id: string) => { this.resume(id); }],
       ["dm:cancel", (_e: any, id: string) => { this.cancel(id); }],

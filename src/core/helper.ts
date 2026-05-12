@@ -121,7 +121,7 @@ export async function getRedundantFilesFromProduct(
 export async function download(firmware: Firmware): Promise<{ success: boolean }> {
   try {
     utils.showSuccessMessage(t("message.downloader.sendRequest"));
-    const result = await window.downloader.add(firmware, state.currentFolder);
+    const result = await window.downloader.add(firmware, { savePath: state.currentFolder });
     if (!result.success) {
       utils.showErrorMessage(
         t(`message.downloader.error.${result.error || "UNKNOWN"}`)

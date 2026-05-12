@@ -10,7 +10,7 @@ import type { Task, TaskStatus, AddResult, IncompleteTask, DownloaderConfig, Dow
 
 export type MainToWorker =
   | { type: "init";               config: DownloaderConfig; stateDir: string }
-  | { type: "add";                reqId: string; firmware: Firmware; savePath: string; config?: DownloadRequestConfig }
+  | { type: "add";                reqId: string; firmware: Firmware; config: DownloadRequestConfig }
   | { type: "pause";              id: string }
   | { type: "resume";             id: string }
   | { type: "cancel";             id: string }

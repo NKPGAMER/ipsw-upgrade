@@ -75,7 +75,7 @@ const updaterApi: ElectronUpdaterApi = {
 }
 
 const downloaderAPI: DownloaderAPI = {
-  add: (fw, sp) => ipcRenderer.invoke('dm:add', fw, sp),
+  add: (fw, config) => ipcRenderer.invoke('dm:add', fw, config),
   pause: (id) => ipcRenderer.invoke("dm:pause", id),
   resume: (id) => ipcRenderer.invoke("dm:resume", id),
   cancel: (id) => ipcRenderer.invoke("dm:cancel", id),

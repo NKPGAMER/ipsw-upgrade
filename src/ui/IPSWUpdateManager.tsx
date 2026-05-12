@@ -621,7 +621,7 @@ export default function IPSWUpdateManager() {
     for (const entry of pendingEntries) {
       updateState(entry.firmware.url, { status: "queued", progress: 0 });
       try {
-        const result = await d.add(entry.firmware, savePath, { deleteFiles: entry.oldFiles });
+        const result = await d.add(entry.firmware, { savePath, deleteFiles: entry.oldFiles });
         if (!result.success) {
           updateState(entry.firmware.url, {
             status: "error",

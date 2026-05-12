@@ -46,6 +46,7 @@ export interface AddResult {
 
 export interface DownloadRequestConfig {
   deleteFiles?: IPSWFile[];
+  taskId?: string;
 }
 
 export interface DiskInfo {
@@ -83,6 +84,7 @@ export interface IncompleteTask {
 }
 
 export interface DownloaderConfig {
+  saveDir: string;
   maxConcurrentTasks?: number;
   maxConnectionsPerTask?: number;
   initialConnectionsPerTask?: number;

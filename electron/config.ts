@@ -5,7 +5,6 @@ export default {
         autoRemoveOldFiles: true,
         autoRemoveDuplicateFiles: true,
         language: 'vi',
-        ipswFolder: app.getPath('downloads')
     },
 
     DataVersion: "2.2.0",

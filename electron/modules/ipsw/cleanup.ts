@@ -61,7 +61,29 @@ export class IPSWCleanupManager {
     if (!tmpDrivePath) return [];
 
     const tmpDir = join(tmpDrivePath, "ipswManagerTmp");
-    return this.cleanPartialFiles(tmpDir, ".ipsw.tmp", ".tmp");
+    const allFiles = await this.getFiles(tmpDir, ".ipsw.tmp");
+    if (allFiles.length === 0) return [];
+
+    const [allTasks, incompleteTasks] = await Promise.all([
+      this.downloader.getAllTask(),
+      this.downloader.getIncompleteTasks(),
+    ]);
+
+    const activeIds = new Set<string>();
+    for (const t of [...allTasks, ...incompleteTasks]) {
+      activeIds.add(t.id);
+    }
+
+    // Tmp files are named {taskId}.ipsw.tmp — match by task ID
+    const toDelete = (activeIds.size === 0)
+      ? allFiles
+      : allFiles.filter(f => {
+          const taskId = f.name.slice(0, -".ipsw.tmp".length);
+          return !activeIds.has(taskId);
+        });
+
+    await Promise.all(toDelete.map(f => unlink(f.path)));
+    return toDelete;
   }
 
   /**
@@ -177,11 +199,10 @@ export class IPSWCleanupManager {
 
   private async getRedundantFiles(
     identifier: Device["identifier"],
-    files?: IPSWFile[],
   ): Promise<RedundantFileResponse> {
     const [modelData, modelFiles] = await Promise.all([
       this.dataHandle.getModelData(identifier),
-      files ? Promise.resolve(files) : this.getIPSWFiles(identifier),
+      this.getIPSWFiles(identifier),
     ]);
 
     if (modelFiles.length === 0) return { oldFiles: [], duplicateFiles: [] };
@@ -193,7 +214,35 @@ export class IPSWCleanupManager {
     const oldFiles = modelFiles.filter(({ name }) => !name.includes(latestBuildId));
     const latestFiles = modelFiles.filter(({ name }) => name.includes(latestBuildId));
 
-    if (latestFiles.length <= 1) {
+    if (latestFiles.length === 0) {
+      if (modelData) {
+        const firmwareMap = new Map<string, Firmware>();
+        for (const fw of modelData.firmwares) {
+          firmwareMap.set(fw.buildid, fw);
+        }
+
+        const signed: IPSWFile[] = [];
+        const notSigned: IPSWFile[] = [];
+
+        for (const file of oldFiles) {
+          const parsed = this.parseIPSW(file.name) || this.parseIPSW_Manual(file.name);
+          if (parsed) {
+            const fw = firmwareMap.get(parsed.build);
+            (fw?.signed ? signed : notSigned).push(file);
+          } else {
+            notSigned.push(file);
+          }
+        }
+
+        if (signed.length > 0) {
+          const [, ...restSigned] = signed;
+          return { oldFiles: [...restSigned, ...notSigned], duplicateFiles: [] };
+        }
+      }
+      return { oldFiles, duplicateFiles: [] };
+    }
+
+    if (latestFiles.length === 1) {
       return { oldFiles, duplicateFiles: [] };
     }
 

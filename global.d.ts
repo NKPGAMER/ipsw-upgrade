@@ -46,6 +46,8 @@ export interface AddResult {
 
 export interface DownloadRequestConfig {
   deleteFiles?: IPSWFile[];
+  taskId?: string;
+  savePath?: string;
 }
 
 export interface DiskInfo {

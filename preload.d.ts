@@ -3,7 +3,7 @@ import type { UpdateInfo } from "electron-updater";
 import type { FSWatcher, WriteStream } from 'fs';
 import type { ChildProcess } from 'child_process';
 import type { ClientRequest } from "http";
-import type { Task, AddResult, IncompleteTask, EventChannel, DiskEnvironmentInfo } from "./global"
+import type { Task, AddResult, IncompleteTask, DownloadRequestConfig, EventChannel, DiskEnvironmentInfo } from "./global"
 
 /* ---------- Common types ---------- */
 
@@ -71,7 +71,7 @@ interface ElectronUpdaterApi {
 }
 
 interface DownloaderAPI {
-  add: (firmware: Firmware, savePath: string, config?: { deleteFiles?: IPSWFile[] }) => Promise<AddResult>;
+  add: (firmware: Firmware, config?: DownloadRequestConfig) => Promise<AddResult>;
   pause: (id: string) => Promise<void>;
   resume: (id: string) => Promise<void>;
   cancel: (id: string) => Promise<void>;

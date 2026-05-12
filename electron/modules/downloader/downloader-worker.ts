@@ -39,7 +39,7 @@ parentPort.on("message", async (msg: MainToWorker) => {
       break;
 
     case "add": {
-      const result = await dl.add(msg.firmware, msg.savePath, msg.config).catch(e => ({ success: false, error: e.message }));
+      const result = await dl.add(msg.firmware, msg.config).catch(e => ({ success: false, error: e.message }));
       reply(msg.reqId, result);
       break;
     }

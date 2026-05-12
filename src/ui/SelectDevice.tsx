@@ -1728,12 +1728,10 @@ export default function IPSWManager() {
             break;
           }
 
-          const result = await d.resumeIncomplete(incompTask.id);
+          const result = await d.add(incompTask.firmware, { taskId: incompTask.id })
           if (result.success) {
-            // Remove from local incomplete list — the "added" event will confirm
             ipswClient.removeIncompleteTask(incompTask.id);
             setIncompleteTasks(ipswClient.getIncompleteTasks());
-            // Delete corrupted file if there was one on disk
             await deleteFile({ identifier: deviceIdentifier }).catch(() => { });
           } else {
             setPending(deviceIdentifier, null);

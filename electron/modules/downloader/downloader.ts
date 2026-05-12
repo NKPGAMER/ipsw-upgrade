@@ -202,9 +202,10 @@ export class IPSWDownloader extends EventEmitter {
   private environment: DownloadEnvironment = "ssd_save";
   private envDetected = false;
 
-  constructor(stateDir: string, config: DownloaderConfig = {}) {
+  constructor(stateDir: string, config: DownloaderConfig) {
     super();
     this.config = {
+      saveDir: config.saveDir,
       maxConcurrentTasks: config.maxConcurrentTasks ?? 3,
       maxConnectionsPerTask: config.maxConnectionsPerTask ?? 16,
       initialConnectionsPerTask: config.initialConnectionsPerTask ?? 4,
@@ -270,9 +271,114 @@ export class IPSWDownloader extends EventEmitter {
 
   // ─── PUBLIC API ──────────────────────────────────────────────────────────────
 
-  async add(firmware: Firmware, savePath: string, config: DownloadRequestConfig = {}): Promise<AddResult> {
-    if (!savePath || savePath.trim() === "") return { success: false, error: "INVALID_SAVE_PATH" };
+  async add(firmware: Firmware, config: DownloadRequestConfig = {}): Promise<AddResult> {
+    const saveDir = this.config.saveDir;
+    if (!saveDir || !fs.existsSync(saveDir)) return { success: false, error: "INVALID_SAVE_PATH" };
     try { new URL(firmware.url); } catch { return { success: false, error: "INVALID_URL" }; }
+
+    // ── Resume via taskId ──
+    if (config.taskId) {
+      const existingState = this.stateManager.load(config.taskId);
+      if (existingState) {
+        if (this.tasks.has(config.taskId)) {
+          return { success: false, error: "ALREADY_IN_LIST" };
+        }
+
+        if (config.deleteFiles?.length) {
+          for (const file of config.deleteFiles) {
+            if (file?.path && fs.existsSync(file.path)) {
+              try { fs.unlinkSync(file.path); } catch { }
+            }
+          }
+        }
+
+        // ── Turbo recovery: validate .turbo, keep if usable ──
+        let wasTurbo = false;
+        if ((existingState.mode ?? "normal") === "turbo" && this.config.turboMode) {
+          const turboPath = this.buildTurboPath(existingState.firmware, existingState.savePath);
+          if (fs.existsSync(turboPath)) {
+            const turboStat = fs.statSync(turboPath);
+            const completedChunks = existingState.chunks.filter(c => c.completed);
+            const lastCompleted = completedChunks.length > 0
+              ? completedChunks[completedChunks.length - 1]
+              : null;
+            if (lastCompleted && turboStat.size >= lastCompleted.end + 1) {
+              wasTurbo = true;
+            } else if (!lastCompleted && turboStat.size >= existingState.totalSize) {
+              wasTurbo = true;
+            } else {
+              try { fs.unlinkSync(turboPath); } catch { }
+              existingState.mode = "normal";
+              existingState.movedChunks = [];
+              this.stateManager.save(existingState);
+            }
+          } else {
+            existingState.mode = "normal";
+            existingState.movedChunks = [];
+            this.stateManager.save(existingState);
+          }
+        }
+
+        // Check tmp still exists — reset chunks if missing
+        const tmpExists = !!(existingState.tmpPath && fs.existsSync(existingState.tmpPath));
+        if (!tmpExists) {
+          for (const chunk of existingState.chunks) {
+            chunk.downloaded = 0;
+            chunk.completed = false;
+          }
+          existingState.movedChunks = [];
+          this.stateManager.save(existingState);
+        }
+
+        await this.ensureEnvironment(existingState.savePath);
+
+        // If resuming a turbo task and all turbo slots are full, preempt
+        if (wasTurbo && !this.scheduler.hasFreeTurboSlot()) {
+          this.preemptForTurboSlot();
+        }
+
+        this.diskManager.reserveSpace(config.taskId, existingState.firmware.filesize);
+
+        const downloadedBytes = existingState.chunks.reduce((s, c) => s + c.downloaded, 0);
+        const resumeTask: Task = {
+          id: config.taskId,
+          firmware: existingState.firmware,
+          progress: existingState.totalSize > 0
+            ? Math.floor(downloadedBytes / existingState.totalSize * 100)
+            : 0,
+          speed: 0,
+          status: "queued",
+          savePath: existingState.savePath,
+          mode: "normal",
+        };
+
+        this.tasks.set(config.taskId, resumeTask);
+        this.states.set(config.taskId, existingState);
+
+        this.scheduler.enqueue({
+          id: config.taskId,
+          turboPriority: wasTurbo,
+          run: () => this.runDownload(config.taskId!),
+          onSlotOpen: (slotType: DownloadMode) => {
+            const t = this.tasks.get(config.taskId!);
+            if (t) {
+              t.mode = slotType;
+              this.emit("progress", config.taskId!, t);
+            }
+          },
+        });
+
+        this.emit("added", config.taskId, resumeTask);
+
+        // Rebalance — added turbo task may need a slot
+        if (this.config.turboMode) {
+          setImmediate(() => this.refreshSlots());
+        }
+
+        return { success: true, id: config.taskId };
+      }
+      // State not found → fall through to normal add
+    }
 
     for (const task of this.tasks.values()) {
       if (
@@ -291,18 +397,18 @@ export class IPSWDownloader extends EventEmitter {
     }
 
     const spaceCheck = await this.diskManager.hasEnoughSpace(
-      savePath, firmware.filesize, this.config.diskBufferGB * GB
+      saveDir, firmware.filesize, this.config.diskBufferGB * GB
     );
     if (!spaceCheck.ok) return { success: false, error: "DISK_FULL" };
 
     // Detect environment on first add
-    await this.ensureEnvironment(savePath);
+    await this.ensureEnvironment(saveDir);
 
     const id = randomUUID();
     this.diskManager.reserveSpace(id, firmware.filesize);
 
     // All tasks start as "normal" — scheduler assigns turbo when draining
-    const task: Task = { id, firmware, progress: 0, speed: 0, status: "queued", savePath, mode: "normal" };
+    const task: Task = { id, firmware, progress: 0, speed: 0, status: "queued", savePath: saveDir, mode: "normal" };
     this.tasks.set(id, task);
 
     this.scheduler.enqueue({
@@ -498,76 +604,29 @@ export class IPSWDownloader extends EventEmitter {
     const state = this.stateManager.load(id);
     if (!state) return { success: false, error: "STATE_NOT_FOUND" };
 
-    const mode: DownloadMode = state.mode ?? "normal";
-    const movedChunks = state.movedChunks ?? [];
-
-    // ── Crash recovery: reconcile .turbo file if this was a turbo task on HDD+SSD ──
-    if (mode === "turbo" && this.environment === "hdd_ssd_tmp") {
+    // ── Turbo crash recovery: validate .turbo, keep if usable ──
+    let wasTurbo = false;
+    if ((state.mode ?? "normal") === "turbo" && this.config.turboMode) {
       const turboPath = this.buildTurboPath(state.firmware, state.savePath);
-
       if (fs.existsSync(turboPath)) {
-        // Verify consistency between .turbo and state.movedChunks
         const turboStat = fs.statSync(turboPath);
-        let turboOk = true;
-
-        // Last-chunk validation: check if last completed chunk is in movedChunks
         const completedChunks = state.chunks.filter(c => c.completed);
-        if (completedChunks.length > 0) {
-          const lastCompleted = completedChunks[completedChunks.length - 1];
-          if (!movedChunks.includes(lastCompleted.index)) {
-            // Downloaded to tmp but never moved to HDD — needs re-queue
-            turboOk = false;
-          }
-        }
-
-        // Size check for moved chunks
-        if (turboOk) {
-          for (const idx of movedChunks) {
-            const chunk = state.chunks[idx];
-            if (chunk && turboStat.size < chunk.end + 1) {
-              turboOk = false;
-              break;
-            }
-          }
-        }
-
-        if (!turboOk) {
-          // Stale .turbo — delete and recreate from tmp
+        const lastCompleted = completedChunks.length > 0
+          ? completedChunks[completedChunks.length - 1]
+          : null;
+        if (lastCompleted && turboStat.size >= lastCompleted.end + 1) {
+          wasTurbo = true;
+        } else if (!lastCompleted && turboStat.size >= state.totalSize) {
+          wasTurbo = true;
+        } else {
           try { fs.unlinkSync(turboPath); } catch { }
+          state.mode = "normal";
+          state.movedChunks = [];
+          this.stateManager.save(state);
         }
-      }
-
-      // If .turbo doesn't exist but SSD tmp does, re-create from movedChunks
-      if (!fs.existsSync(turboPath) && state.tmpPath && fs.existsSync(state.tmpPath)) {
-        const turboFd = fs.openSync(turboPath, "w");
-        if (state.totalSize > 0) {
-          fs.ftruncateSync(turboFd, state.totalSize);
-        }
-        fs.closeSync(turboFd);
-
-        // Stream moved chunks from tmp to .turbo
-        for (const idx of movedChunks) {
-          const chunk = state.chunks[idx];
-          if (chunk && chunk.downloaded > 0) {
-            try {
-              const buf = Buffer.alloc(chunk.downloaded);
-              const fd = fs.openSync(state.tmpPath, "r");
-              fs.readSync(fd, buf, 0, chunk.downloaded, chunk.start);
-              fs.closeSync(fd);
-              fs.writeFileSync(turboPath, buf, { flag: "r+" });
-            } catch { }
-          }
-        }
-      }
-
-      // If neither .turbo nor tmp exist, reset and fall back to hdd_only
-      if (!fs.existsSync(state.tmpPath) && !fs.existsSync(turboPath)) {
-        for (const chunk of state.chunks) {
-          chunk.downloaded = 0;
-          chunk.completed = false;
-        }
-        state.movedChunks = [];
+      } else {
         state.mode = "normal";
+        state.movedChunks = [];
         this.stateManager.save(state);
       }
     }
@@ -588,14 +647,12 @@ export class IPSWDownloader extends EventEmitter {
       this.stateManager.save(state);
     }
 
-    const downloadedBytes = state.chunks.reduce((s, c) => s + c.downloaded, 0);
-    const wasTurbo = (state.mode ?? "normal") === "turbo" && this.config.turboMode;
-
-    // If resuming a turbo incomplete task and all turbo slots are full,
-    // preempt to make room.
+    // If resuming a turbo incomplete task and all turbo slots are full, preempt
     if (wasTurbo && !this.scheduler.hasFreeTurboSlot()) {
       this.preemptForTurboSlot();
     }
+
+    const downloadedBytes = state.chunks.reduce((s, c) => s + c.downloaded, 0);
 
     const task: Task = {
       id,
@@ -615,6 +672,7 @@ export class IPSWDownloader extends EventEmitter {
 
     this.scheduler.enqueue({
       id,
+      turboPriority: wasTurbo,
       run: () => this.runDownload(id),
       onSlotOpen: (slotType: DownloadMode) => {
         const t = this.tasks.get(id);
@@ -623,7 +681,6 @@ export class IPSWDownloader extends EventEmitter {
           this.emit("progress", id, t);
         }
       },
-      turboPriority: wasTurbo,
     });
     this.emit("added", id, task);
 

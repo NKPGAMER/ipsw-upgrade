@@ -84,13 +84,14 @@ function createMainWindow(width: number, height: number): BrowserWindow {
 
 async function init(): Promise<void> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const ipswFolder = storeGet("ipswFolder", config.defaultAppSettings.ipswFolder);
+  const ipswFolder = storeGet("ipswFolder") || app.getPath('downloads');
   splash = createSplashWindow(width, height);
   mainWindow = createMainWindow(width, height);
 
   setWin(mainWindow);
 
   dl = new DownloaderMain(mainWindow, {
+    saveDir: ipswFolder,
     turboMode: storeGet("turboMode", false),
     skipVerify: storeGet("skipVerify", false)
   });
