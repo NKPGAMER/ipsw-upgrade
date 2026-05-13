@@ -110,15 +110,24 @@ interface Stats {
 
 // ── Static data — ngoài module, không re-allocate ─────────────────────────────
 
+import iphoneIcon from "../assets/icon/iphone.png";
+import ipadIcon from "../assets/icon/ipad.png";
+import watchIcon from "../assets/icon/watch.png";
+import macIcon from "../assets/icon/mac.png";
+import visionIcon from "../assets/icon/vision.png";
+import tvIcon from "../assets/icon/tv.png";
+import homepodIcon from "../assets/icon/homepod.png";
+import ipodIcon from "../assets/icon/ipod.png";
+
 const PRODUCTS: Product[] = [
-  { id: "iphone", name: "iPhone", img: "assets/icon/iphone.png" },
-  { id: "ipad", name: "iPad", img: "assets/icon/ipad.png" },
-  { id: "watch", name: "Apple Watch", img: "assets/icon/watch.png" },
-  { id: "mac", name: "Mac", img: "assets/icon/mac.png" },
-  { id: "realitydevice", name: "Vision Pro", img: "assets/icon/vision.png" },
-  { id: "tv", name: "Apple TV", img: "assets/icon/tv.png" },
-  { id: "homepod", name: "HomePod", img: "assets/icon/homepod.png" },
-  { id: "ipod", name: "iPod", img: "assets/icon/ipod.png" },
+  { id: "iphone", name: "iPhone", img: iphoneIcon },
+  { id: "ipad", name: "iPad", img: ipadIcon },
+  { id: "watch", name: "Apple Watch", img: watchIcon },
+  { id: "mac", name: "Mac", img: macIcon },
+  { id: "realitydevice", name: "Vision Pro", img: visionIcon },
+  { id: "tv", name: "Apple TV", img: tvIcon },
+  { id: "homepod", name: "HomePod", img: homepodIcon },
+  { id: "ipod", name: "iPod", img: ipodIcon },
 ];
 
 const ICONS = {
@@ -235,6 +244,7 @@ export default function Home() {
     saveDrive: { path: string; mediaType: string };
     tmpDrive: { path: string; mediaType: string } | null;
   } | null>(null);
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
 
@@ -281,6 +291,17 @@ export default function Home() {
     return () => {
       mountedRef.current = false;
       unsub();
+    };
+  }, []);
+
+  useEffect(() => {
+    const sub = window.updater.onUpdateAvailable(({ version }) => {
+      setUpdateVersion(version);
+      state.isNewVersion = true;
+    });
+    return () => {
+      sub.unsubscribe();
+      state.isNewVersion = false;
     };
   }, []);
 
@@ -350,19 +371,38 @@ export default function Home() {
         <h1 className="text-[17px]! font-semibold tracking-[0.01em] text-[#e5e5e5]">
           <span className="text-[#137fec]">IPSW</span> Manager
         </h1>
-        <button
-          type="button"
-          onClick={() => navigate("/settings")}
-          title="Cài đặt"
-          className="
-            w-8.5! h-8.5! rounded-lg! flex items-center justify-center
-            bg-transparent border border-[#2a2a2a] text-[#999] cursor-pointer
-            transition-all duration-150
-            hover:bg-[#1a1a1a] hover:border-[#137fec44] hover:text-[#137fec]
-          "
-        >
-          <SettingsIcon />
-        </button>
+        <div className="flex items-center gap-2!">
+          {updateVersion && state.isNewVersion && (
+            <button
+              type="button"
+              onClick={() => navigate("/appUpdate")}
+              title={`Cập nhật ${updateVersion}`}
+              className="
+                flex items-center gap-1.5! h-8.5! rounded-lg! px-2.5!
+                bg-[#137fec18] border border-[#137fec44] text-[#137fec] cursor-pointer
+                transition-all duration-150
+                hover:bg-[#137fec28] hover:border-[#137fec66]
+                active:scale-[0.97]
+              "
+            >
+              <span className="w-1.5! h-1.5! rounded-full bg-[#137fec] animate-pulse" />
+              <span className="text-[11px]! font-semibold tracking-[0.02em]">Cập nhật lên {updateVersion}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate("/settings")}
+            title="Cài đặt"
+            className="
+              w-8.5! h-8.5! rounded-lg! flex items-center justify-center
+              bg-transparent border border-[#2a2a2a] text-[#999] cursor-pointer
+              transition-all duration-150
+              hover:bg-[#1a1a1a] hover:border-[#137fec44] hover:text-[#137fec]
+            "
+          >
+            <SettingsIcon />
+          </button>
+        </div>
       </header>
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}

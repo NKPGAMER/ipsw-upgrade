@@ -7,55 +7,22 @@ const Settings = lazy(() => import("./ui/setting"));
 const Downloads = lazy(() => import("./ui/download"));
 const SelectDevice = lazy(() => import("./ui/SelectDevice"));
 const IPSWUpdateManager = lazy(() => import("./ui/IPSWUpdateManager"));
+const AppUpdate = lazy(() => import("./ui/appUpdate"));
 const Welcome = lazy(() => import("./ui/welcome"));
 
 const LoadingScreen = memo(() => (
-    <div
-        style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "linear-gradient(135deg, #0f172a 0%, #111827 50%, #1e293b 100%)",
-            color: "#e2e8f0",
-            fontFamily: "Inter, system-ui, sans-serif",
-        }}
-    >
-        <div
-            style={{
-                width: "100%",
-                maxWidth: 420,
-                padding: "32px 28px",
-                borderRadius: 24,
-                background: "rgba(15, 23, 42, 0.72)",
-                border: "1px solid rgba(148, 163, 184, 0.2)",
-                boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
-                textAlign: "center",
-                backdropFilter: "blur(14px)",
-            }}
-        >
-            <div
-                style={{
-                    width: 56,
-                    height: 56,
-                    margin: "0 auto 18px",
-                    borderRadius: "50%",
-                    border: "4px solid rgba(148, 163, 184, 0.22)",
-                    borderTopColor: "#60a5fa",
-                    animation: "ipsw-spin 1s linear infinite",
-                }}
-            />
-            <h1 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 700 }}>Đang tải giao diện</h1>
-            <p style={{ margin: 0, color: "#94a3b8", lineHeight: 1.6 }}>
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 via-gray-900 to-slate-800 text-slate-200 font-sans">
+        <div className="w-full max-w-[420px] rounded-3xl border border-slate-400/20 bg-slate-900/70 px-7! py-8! text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-[14px]">
+            <div className="mx-auto! mb-[18px]! h-14 w-14 animate-spin rounded-full border-4 border-slate-400/20 border-t-blue-400" />
+
+            <h1 className="mb-2! text-[22px] font-bold">
+                Đang tải giao diện
+            </h1>
+
+            <p className="m-0! leading-relaxed text-slate-400">
                 Vui lòng chờ trong giây lát để ứng dụng khởi động.
             </p>
         </div>
-        <style>{`
-            @keyframes ipsw-spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-            }
-        `}</style>
     </div>
 ));
 
@@ -69,9 +36,6 @@ export default function App() {
                 setNeedSetup(true);
             }
             setChecking(false);
-
-            console.log('storedVersion', storedVersion);
-            console.log('SETTING_VERSION', SETTING_VERSION);
         }).catch(() => {
             setChecking(false);
         });
@@ -88,6 +52,7 @@ export default function App() {
                     <Route path="/downloads" element={<Downloads />} />
                     <Route path="/selectDevice" element={<SelectDevice />} />
                     <Route path="/ipswUpdate" element={<IPSWUpdateManager />} />
+                    <Route path="/appUpdate" element={<AppUpdate />} />
                     <Route path="/welcome" element={<Welcome />} />
                 </Routes>
             </Suspense>

@@ -151,18 +151,32 @@ electron_1.app.on("activate", () => {
     if (electron_1.BrowserWindow.getAllWindows().length === 0)
         void init();
 });
-// ─── Auto Updater ─────────────────────────────────────────────────────────────
+let updateStatus = { phase: "idle" };
 function initAutoUpdater() {
     electron_updater_1.autoUpdater.autoDownload = true;
     electron_updater_1.autoUpdater.autoInstallOnAppQuit = true;
     const send = (channel, payload) => mainWindow?.webContents.send(channel, payload);
-    electron_updater_1.autoUpdater.on("update-available", ({ version, releaseNotes }) => send("update-available", { version, notes: releaseNotes }));
-    electron_updater_1.autoUpdater.on("update-downloaded", () => send("update-ready"));
-    electron_updater_1.autoUpdater.on("download-progress", ({ percent, transferred, total }) => send("update-progress", {
-        percent: Math.round(percent),
-        transferred: (transferred / 1048576).toFixed(2),
-        total: (total / 1048576).toFixed(2),
-    }));
+    electron_updater_1.autoUpdater.on("update-available", ({ version, releaseNotes }) => {
+        updateStatus = { ...updateStatus, phase: "downloading", version, notes: releaseNotes };
+        send("update-available", { version, notes: releaseNotes });
+    });
+    electron_updater_1.autoUpdater.on("update-not-available", () => {
+        updateStatus = { ...updateStatus, phase: "no-update" };
+        send("update-not-available");
+    });
+    electron_updater_1.autoUpdater.on("update-downloaded", () => {
+        updateStatus = { ...updateStatus, phase: "ready" };
+        send("update-ready");
+    });
+    electron_updater_1.autoUpdater.on("download-progress", ({ percent, transferred, total }) => {
+        const progress = {
+            percent: Math.round(percent),
+            transferred: (transferred / 1048576).toFixed(2),
+            total: (total / 1048576).toFixed(2),
+        };
+        updateStatus = { ...updateStatus, progress };
+        send("update-progress", progress);
+    });
     setTimeout(() => electron_updater_1.autoUpdater.checkForUpdates(), UPDATER_CHECK_DELAY);
 }
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
@@ -173,17 +187,8 @@ const handlers = [
             return { success: true };
         }],
     // Dialogs
-    ["select-folder", async () => {
-            const { canceled, filePaths } = await electron_1.dialog.showOpenDialog({ properties: ["openDirectory"] });
-            return canceled ? null : filePaths[0];
-        }],
-    ["select-file", async (_, filters) => {
-            const options = { properties: ["openFile"] };
-            if (filters?.length)
-                options.filters = filters;
-            const { canceled, filePaths } = await electron_1.dialog.showOpenDialog(options);
-            return canceled ? null : filePaths[0];
-        }],
+    ["select-folder", () => (0, system_1.selectFolder)()],
+    ["select-file", (_, options) => (0, system_1.selectFile)(options)],
     // Persistent store
     ["store", (_, method, key, value) => {
             switch (method) {
@@ -196,6 +201,8 @@ const handlers = [
     // Disk
     ["getDiskSpace", (_, targetPath) => (0, disk_1.getDiskSpace)(targetPath)],
     ["formatBytes", (_, bytes, decimals) => (0, disk_1.formatBytes)(bytes, decimals)],
+    // Updater
+    ["updater:getStatus", () => updateStatus],
     // DataHandle
     ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],
     ["dh:getDeviceModelData", (_, identifier) => dh?.get(identifier)],

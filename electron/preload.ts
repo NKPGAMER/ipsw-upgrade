@@ -37,7 +37,7 @@ const api: ElectronApi = {
   getDeviceModelData: (identifier: string) =>
     ipcRenderer.invoke("dh:getDeviceModelData", identifier),
 
-  onDeviceDataUpdated: (cb) => {
+  onDeviceDataUpdated: (cb) =>{
     const handler = (_event: any, payload: DeviceDataUpdatedPayload) => cb(payload);
     ipcRenderer.on("dh:deviceDataUpdated", handler);
     return () => {
@@ -66,13 +66,12 @@ const storeApi: ElectronStoreApi = {
 };
 
 const updaterApi: ElectronUpdaterApi = {
-  onUpdateAvailable: (cb: (data: any) => void) => ipcRenderer.on('update-available', (_, d) => cb(d)),
-  onUpdateReady: (cb: () => void) => ipcRenderer.on('update-ready', () => cb()),
-  onUpdateProgress: (cb: (data: any) => void) => ipcRenderer.on('update-progress', (_, data) => cb(data)),
-  check: () => ipcRenderer.invoke('updater:check'),
-  start: () => ipcRenderer.send('updater:start'),
-  install: () => ipcRenderer.send('updater:install')
-}
+  getStatus: () => ipcRenderer.invoke("updater:getStatus"),
+  onUpdateAvailable: (cb) => listen("update-available", cb),
+  onUpdateReady: (cb) => listen("update-ready", cb),
+  onUpdateProgress: (cb) => listen("update-progress", cb),
+  onUpdateNotAvailable: (cb) => listen("update-not-available", cb)
+};
 
 const downloaderAPI: DownloaderAPI = {
   add: (fw, config) => ipcRenderer.invoke('dm:add', fw, config),

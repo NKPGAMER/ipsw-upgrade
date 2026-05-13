@@ -17,7 +17,7 @@ import { IPSWCleanupManager } from "./modules/ipsw/cleanup";
 import { DownloaderMain } from "./modules/downloader";
 // Config
 import config from "./config";
-import { setWin } from "./utils/system";
+import { setWin, selectFolder, selectFile } from "./utils/system";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -175,6 +175,15 @@ app.on("activate", () => {
 
 // ─── Auto Updater ─────────────────────────────────────────────────────────────
 
+interface UpdateStatus {
+  phase: "idle" | "downloading" | "ready" | "no-update";
+  version?: string;
+  notes?: any;
+  progress?: { percent: number; transferred: string; total: string };
+}
+
+let updateStatus: UpdateStatus = { phase: "idle" };
+
 function initAutoUpdater(): void {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
@@ -182,17 +191,30 @@ function initAutoUpdater(): void {
   const send = (channel: string, payload?: unknown) =>
     mainWindow?.webContents.send(channel, payload);
 
-  autoUpdater.on("update-available", ({ version, releaseNotes }) =>
-    send("update-available", { version, notes: releaseNotes }));
+  autoUpdater.on("update-available", ({ version, releaseNotes }) => {
+    updateStatus = { ...updateStatus, phase: "downloading", version, notes: releaseNotes };
+    send("update-available", { version, notes: releaseNotes });
+  });
 
-  autoUpdater.on("update-downloaded", () => send("update-ready"));
+  autoUpdater.on("update-not-available", () => {
+    updateStatus = { ...updateStatus, phase: "no-update" };
+    send("update-not-available");
+  });
 
-  autoUpdater.on("download-progress", ({ percent, transferred, total }) =>
-    send("update-progress", {
+  autoUpdater.on("update-downloaded", () => {
+    updateStatus = { ...updateStatus, phase: "ready" };
+    send("update-ready");
+  });
+
+  autoUpdater.on("download-progress", ({ percent, transferred, total }) => {
+    const progress = {
       percent: Math.round(percent),
       transferred: (transferred / 1048576).toFixed(2),
       total: (total / 1048576).toFixed(2),
-    }));
+    };
+    updateStatus = { ...updateStatus, progress };
+    send("update-progress", progress);
+  });
 
   setTimeout(() => autoUpdater.checkForUpdates(), UPDATER_CHECK_DELAY);
 }
@@ -207,17 +229,9 @@ const handlers: IpcHandler[] = [
   }],
 
   // Dialogs
-  ["select-folder", async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-    return canceled ? null : filePaths[0];
-  }],
+  ["select-folder", () => selectFolder()],
 
-  ["select-file", async (_, filters?: FileFilter[]) => {
-    const options: OpenDialogOptions = { properties: ["openFile"] };
-    if (filters?.length) options.filters = filters;
-    const { canceled, filePaths } = await dialog.showOpenDialog(options);
-    return canceled ? null : filePaths[0];
-  }],
+  ["select-file", (_, options?: OpenDialogOptions) => selectFile(options)],
 
   // Persistent store
   ["store", (_, method: string, key: string, value?: any) => {
@@ -232,6 +246,9 @@ const handlers: IpcHandler[] = [
   // Disk
   ["getDiskSpace", (_, targetPath?: string) => getDiskSpace(targetPath)],
   ["formatBytes", (_, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
+
+  // Updater
+  ["updater:getStatus", () => updateStatus],
 
   // DataHandle
   ["dh:requestModelData", (_, identifier) => dh?.getModelDataForReact(identifier)],

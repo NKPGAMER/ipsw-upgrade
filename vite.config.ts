@@ -7,3 +7,5 @@ export default defineConfig({
         tailwindcss()
     ]
 })
+
+/// <reference types="vite/client" />

@@ -11,6 +11,6 @@
         "jsx": "react-jsx",
         "resolveJsonModule": true
     },
-    "include": ["src", "preload.d.ts", "global.d.ts"],
+    "include": ["src", "preload.d.ts", "global.d.ts", "vite-env.d.ts"],
     "exclude": ["node_modules", "**/*.spec.ts"]
 }

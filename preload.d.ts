@@ -14,8 +14,8 @@ interface UpdateAvailableData {
 
 interface UpdateProgressData {
   percent: number;
-  transferred: number;
-  total: number;
+  transferred: string;
+  total: string;
 }
 
 interface UpdateInfoResult {
@@ -60,14 +60,19 @@ interface ElectronStoreApi {
   delete: (key: string) => Promise<void>;
 }
 
-interface ElectronUpdaterApi {
-  onUpdateAvailable: (cb: (data: UpdateAvailableData) => void) => void;
-  onUpdateReady: (cb: () => void) => void;
-  onUpdateProgress: (cb: (data: UpdateProgressData) => void) => void;
+interface UpdateStatus {
+  phase: "idle" | "downloading" | "ready" | "no-update";
+  version?: string;
+  notes?: string | string[] | null;
+  progress?: { percent: number; transferred: string; total: string };
+}
 
-  check: () => Promise<UpdateInfoResult>;
-  start: () => void;
-  install: () => void;
+interface ElectronUpdaterApi {
+  getStatus: () => Promise<UpdateStatus>;
+  onUpdateAvailable: (cb: (data: UpdateAvailableData) => void) => EventResponse;
+  onUpdateReady: (cb: () => void) => EventResponse;
+  onUpdateProgress: (cb: (data: UpdateProgressData) => void) => EventResponse;
+  onUpdateNotAvailable: (cb: () => void) => EventResponse;
 }
 
 interface DownloaderAPI {

@@ -8,5 +8,7 @@ export const state = {
   autoRemoveDuplicateFiles: false,
   turboMode: false,
 
+  isNewVersion: false,
+
   __init: false
 }

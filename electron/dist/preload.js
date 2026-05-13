@@ -49,12 +49,11 @@ const storeApi = {
     delete: (key) => electron_1.ipcRenderer.invoke('store', 'delete', key)
 };
 const updaterApi = {
-    onUpdateAvailable: (cb) => electron_1.ipcRenderer.on('update-available', (_, d) => cb(d)),
-    onUpdateReady: (cb) => electron_1.ipcRenderer.on('update-ready', () => cb()),
-    onUpdateProgress: (cb) => electron_1.ipcRenderer.on('update-progress', (_, data) => cb(data)),
-    check: () => electron_1.ipcRenderer.invoke('updater:check'),
-    start: () => electron_1.ipcRenderer.send('updater:start'),
-    install: () => electron_1.ipcRenderer.send('updater:install')
+    getStatus: () => electron_1.ipcRenderer.invoke("updater:getStatus"),
+    onUpdateAvailable: (cb) => listen("update-available", cb),
+    onUpdateReady: (cb) => listen("update-ready", cb),
+    onUpdateProgress: (cb) => listen("update-progress", cb),
+    onUpdateNotAvailable: (cb) => listen("update-not-available", cb)
 };
 const downloaderAPI = {
     add: (fw, config) => electron_1.ipcRenderer.invoke('dm:add', fw, config),
