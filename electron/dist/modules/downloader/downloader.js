@@ -360,6 +360,9 @@ class IPSWDownloader extends events_1.EventEmitter {
                 (task.status === 'downloading' || task.status === 'moving' || task.status === 'verifying' || task.status === 'queued' || task.status === 'paused'))
                 return { success: false, error: "ALREADY_IN_LIST" };
         }
+        const spaceCheck = await this.diskManager.hasEnoughSpace(saveDir, firmware.filesize, this.config.diskBufferGB * GB, config.deleteFiles ?? []);
+        if (!spaceCheck.ok)
+            return { success: false, error: "DISK_FULL" };
         if (config.deleteFiles?.length) {
             for (const file of config.deleteFiles) {
                 if (file?.path && fs.existsSync(file.path)) {
@@ -370,9 +373,6 @@ class IPSWDownloader extends events_1.EventEmitter {
                 }
             }
         }
-        const spaceCheck = await this.diskManager.hasEnoughSpace(saveDir, firmware.filesize, this.config.diskBufferGB * GB);
-        if (!spaceCheck.ok)
-            return { success: false, error: "DISK_FULL" };
         // Detect environment on first add
         await this.ensureEnvironment(saveDir);
         const id = (0, crypto_1.randomUUID)();

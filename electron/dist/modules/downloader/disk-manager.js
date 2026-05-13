@@ -109,9 +109,13 @@ class DiskManager {
         scored.sort((a, b) => b.score - a.score);
         return scored[0].dir;
     }
-    async hasEnoughSpace(savePath, firmwareSize, bufferBytes = 5 * GB) {
+    async hasEnoughSpace(savePath, firmwareSize, bufferBytes = 5 * GB, deleteOnRun = []) {
+        let freeAfterDelete = 0;
+        if (deleteOnRun) {
+            freeAfterDelete = deleteOnRun.reduce((a, b) => a + b.size, 0);
+        }
         const currentUsage = Array.from(this.usageTracker.values()).reduce((a, b) => a + b, 0);
-        const required = firmwareSize + currentUsage + bufferBytes;
+        const required = Math.max(0, firmwareSize + currentUsage + bufferBytes - freeAfterDelete);
         const info = await this.getDiskInfo(savePath);
         return { ok: info.available >= required, available: info.available, required };
     }

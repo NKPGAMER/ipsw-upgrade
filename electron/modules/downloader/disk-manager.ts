@@ -92,10 +92,15 @@ export class DiskManager {
   async hasEnoughSpace(
     savePath: string,
     firmwareSize: number,
-    bufferBytes: number = 5 * GB
+    bufferBytes: number = 5 * GB,
+    deleteOnRun: IPSWFile[] = []
   ): Promise<{ ok: boolean; available: number; required: number }> {
+    let freeAfterDelete = 0;
+    if (deleteOnRun) {
+      freeAfterDelete = deleteOnRun.reduce((a, b) => a + b.size, 0);
+    }
     const currentUsage = Array.from(this.usageTracker.values()).reduce((a, b) => a + b, 0);
-    const required = firmwareSize + currentUsage + bufferBytes;
+    const required = Math.max(0, firmwareSize + currentUsage + bufferBytes - freeAfterDelete);
     const info = await this.getDiskInfo(savePath);
     return { ok: info.available >= required, available: info.available, required };
   }

@@ -388,6 +388,11 @@ export class IPSWDownloader extends EventEmitter {
       ) return { success: false, error: "ALREADY_IN_LIST" };
     }
 
+    const spaceCheck = await this.diskManager.hasEnoughSpace(
+      saveDir, firmware.filesize, this.config.diskBufferGB * GB, config.deleteFiles ?? []
+    );
+    if (!spaceCheck.ok) return { success: false, error: "DISK_FULL" };
+
     if (config.deleteFiles?.length) {
       for (const file of config.deleteFiles) {
         if (file?.path && fs.existsSync(file.path)) {
@@ -395,11 +400,6 @@ export class IPSWDownloader extends EventEmitter {
         }
       }
     }
-
-    const spaceCheck = await this.diskManager.hasEnoughSpace(
-      saveDir, firmware.filesize, this.config.diskBufferGB * GB
-    );
-    if (!spaceCheck.ok) return { success: false, error: "DISK_FULL" };
 
     // Detect environment on first add
     await this.ensureEnvironment(saveDir);
