@@ -56,6 +56,17 @@ class IPSWHardLinkManager {
             const batch = files.slice(i, i + MAX_CONCURRENT_LINKS);
             await Promise.all(batch.map((file) => this.createLinkForFile(file)));
         }
+        await this.cleanupStaleLinks();
+    }
+    async cleanupStaleLinks() {
+        const expectedNames = new Set();
+        for (const record of this.records.values()) {
+            expectedNames.add(record.fileName);
+        }
+        const entries = await fs_extra_1.default.readdir(this.folderPath).catch(() => []);
+        await Promise.all(entries
+            .filter((entry) => !expectedNames.has(entry))
+            .map((entry) => fs_extra_1.default.unlink(path_1.default.join(this.folderPath, entry)).catch(() => { })));
     }
     async handleAdded(files) {
         if (!this.config.enabled)

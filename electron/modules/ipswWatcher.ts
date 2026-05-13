@@ -1,5 +1,6 @@
 import chokidar, { FSWatcher } from "chokidar";
 import fs from "fs/promises";
+import { Stats } from "fs";
 import path from "path";
 import { BrowserWindow, ipcMain } from "electron";
 
@@ -36,7 +37,7 @@ export class IPSWWatcher {
 
   constructor(win: BrowserWindow, watchDir: string) {
     this.win = win;
-    this.watchDir = watchDir;
+    this.watchDir = path.resolve(watchDir);
     this.registerIpcHandlers();
   }
 
@@ -124,7 +125,7 @@ export class IPSWWatcher {
 
     await this.watcher?.close();
     this.watcher = null;
-    this.watchDir = newDir;
+    this.watchDir = path.resolve(newDir);
 
     await this.scanExisting();
     this.beginWatch();
@@ -137,7 +138,8 @@ export class IPSWWatcher {
     let entries: string[];
     try {
       entries = await fs.readdir(this.watchDir);
-    } catch {
+    } catch (err) {
+      console.error(`[IPSWWatcher] Failed to readdir ${this.watchDir}:`, err);
       return;
     }
 
@@ -153,14 +155,22 @@ export class IPSWWatcher {
   }
 
   private beginWatch(): void {
-    this.watcher = chokidar.watch(this.watchDir, {
+    const watchDir = path.resolve(this.watchDir);
+    const watchDirClean = watchDir.replace(/[\\/]+$/, "").toLowerCase();
+
+    this.watcher = chokidar.watch(watchDir, {
       ignored: (filePath: string) => {
-        const isDir = !path.extname(filePath);
-        return !isDir && !filePath.toLowerCase().endsWith(".ipsw");
+        const resolved = path.resolve(filePath);
+
+        // Luôn watch chính watchDir
+        if (resolved.replace(/[\\/]+$/, "").toLowerCase() === watchDirClean) return false;
+        // Chỉ giữ lại .ipsw, bỏ hết còn lại
+        return !resolved.toLowerCase().endsWith(".ipsw");
       },
       persistent: true,
       ignoreInitial: true,
       depth: 0,
+      followSymlinks: false,
       awaitWriteFinish: {
         stabilityThreshold: 3000,
         pollInterval: 500,
@@ -169,9 +179,13 @@ export class IPSWWatcher {
 
     this.watcher.on("add", (filePath) => void this.onAdded(filePath));
     this.watcher.on("unlink", (filePath) => void this.onRemoved(filePath));
-    this.watcher.on("error", (err) =>
-      console.error("[IPSWWatcher] watcher error:", err)
-    );
+    this.watcher.on("error", (err: any) => {
+      if (err.code === "EPERM" || err.code === "EACCES") {
+        console.warn(`[IPSWWatcher] Permission denied (skipped): ${err.path}`);
+        return;
+      }
+      console.error("[IPSWWatcher] watcher error:", err);
+    });
   }
 
   private async onAdded(filePath: string): Promise<void> {
@@ -192,6 +206,14 @@ export class IPSWWatcher {
     const file = this.files.get(filePath);
     if (!file) return;
 
+    try {
+      await fs.access(filePath);
+      // File still exists — chokidar emitted a spurious unlink (common on Windows root dirs)
+      return;
+    } catch {
+      // File is truly gone
+    }
+
     this.files.delete(filePath);
     this.sendReload([]);
     await Promise.all([...this.removedCallbacks].map((callback) => Promise.resolve(callback([file]))));
@@ -205,11 +227,13 @@ export class IPSWWatcher {
   private async buildIPSWFile(filePath: string): Promise<IPSWFile | null> {
     try {
       const stat = await fs.stat(filePath);
-      return {
+      const r = {
         name: path.basename(filePath),
         path: filePath,
         size: stat.size,
       };
+
+      return r;
     } catch {
       return null;
     }

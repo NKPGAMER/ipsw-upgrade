@@ -16,7 +16,7 @@ async function init() {
     ]).then(([savedFolder, savedNormalizeName, savedDeleteOld, savedDeleteDuplicate, savedLanguage, savedTurboMode]) => {
         if (savedFolder) {
             state.currentFolder = savedFolder;
-            ipswClient.changeDir(savedFolder)
+            // ipswClient.changeDir(savedFolder)
         }
         if (savedNormalizeName !== undefined && savedNormalizeName !== null) {
             state.normalizeName = savedNormalizeName;
