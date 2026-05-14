@@ -34,6 +34,7 @@ const UPDATER_CHECK_DELAY = 6_000;
 export const store = new Store({ defaults: config.defaultAppSettings });
 
 const s = store as unknown as Record<string, any> & { get: (k: string) => any; set: (k: string, v: any) => void; has: (k: string) => boolean; delete: (k: string) => void };
+const gotTheLock = app.requestSingleInstanceLock();
 
 let dl: DownloaderMain | undefined;
 let dh: DataHandle | undefined;
@@ -43,6 +44,24 @@ let cleanupManager: IPSWCleanupManager | null = null;
 let splash: BrowserWindow | undefined;
 let mainWindow: BrowserWindow | undefined;
 let isReady = false;
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimizable()) {
+        mainWindow.restore();
+      }
+
+      if (!mainWindow.isVisible()) {
+        mainWindow.show()
+      };
+
+      mainWindow.focus()
+    }
+  })
+}
 
 const storeGet = (key: string, fallback?: any) => s.get(key) ?? fallback;
 

@@ -248,17 +248,12 @@ export default function Home() {
   const navigate = useNavigate();
   const mountedRef = useRef(true);
 
-  const reloadStats = useCallback(async () => {
-    // Phase 1: Fast — files (in-memory) + free space (async, single-drive query)
-    // Renders the top stat row immediately without waiting for environment info
-    try {
-      const [freeSpace, allFiles] = await Promise.all([
-        window.api.getDiskSpace(state.currentFolder),
-        Promise.resolve(ipswClient.getFiles()),
-      ]);
-
+  const reloadStats = useCallback(() => {
+    Promise.all([
+      window.api.getDiskSpace(state.currentFolder),
+      Promise.resolve(ipswClient.getFiles()),
+    ]).then(([freeSpace, allFiles]) => {
       if (!mountedRef.current) return;
-
       const pct = freeSpace.percentage;
       setStats({
         fileCount: allFiles.length,
@@ -268,19 +263,17 @@ export default function Home() {
           color: pct >= 90 ? "text-red-600" : pct >= 60 ? "text-yellow-500" : "text-green-600",
         },
       });
-    } catch (err) {
+    }).catch((err) => {
       console.error("[Home] reloadStats phase1 failed:", err);
-    }
+    });
 
-    // Phase 2: Slow — environment info goes through worker thread + may scan all drives
-    try {
-      const env = await window.downloader.getEnvironmentInfo(state.currentFolder).catch(() => null);
+    window.downloader.getEnvironmentInfo(state.currentFolder).then((env) => {
       if (!mountedRef.current) return;
       setEnvInfo(env);
-    } catch (err) {
+    }).catch((err) => {
       console.error("[Home] reloadStats phase2 failed:", err);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    });
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;

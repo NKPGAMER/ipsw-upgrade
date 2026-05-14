@@ -1,14 +1,12 @@
 import * as fs from "fs";
 import * as path from "path";
 import { DownloadState, ChunkState } from "./types";
-import { ensureDir } from "../../utils/fs-utils";
-
 export class StateManager {
   private stateDir: string;
 
   constructor(stateDir: string) {
     this.stateDir = stateDir;
-    ensureDir(this.stateDir);
+    fs.mkdirSync(this.stateDir, { recursive: true });
   }
 
   private statePath(id: string): string {
@@ -18,9 +16,9 @@ export class StateManager {
   save(state: DownloadState): void {
     const updated = { ...state, updatedAt: Date.now() };
     const target = this.statePath(state.id);
-    const tmp = target + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(updated, null, 2), "utf8");
-    fs.renameSync(tmp, target);
+    const dir = path.dirname(target);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(target, JSON.stringify(updated, null, 2), "utf8");
   }
 
   load(id: string): DownloadState | null {

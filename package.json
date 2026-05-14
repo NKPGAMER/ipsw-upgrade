@@ -1,6 +1,6 @@
 {
   "name": "ipsw-manager",
-  "version": "3.3.0",
+  "version": "3.3.2",
   "description": "",
   "main": "electron/dist/main.js",
   "scripts": {
