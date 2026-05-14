@@ -43,6 +43,9 @@ export class IPSWCleanupManager {
       this.config.removeOldFile || this.config.removeDuplicateFile
         ? this.cleanIPSWFiles()
         : Promise.resolve([] as FileInfo[]),
+      this.config.removeInvalidFile
+        ? this.cleanFileInvalid()
+        : Promise.resolve([] as FileInfo[]),
     ]);
     return results.flat();
   }

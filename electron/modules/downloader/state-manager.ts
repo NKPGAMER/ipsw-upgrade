@@ -3,6 +3,7 @@ import * as path from "path";
 import { DownloadState, ChunkState } from "./types";
 export class StateManager {
   private stateDir: string;
+  private lock: Promise<void> = Promise.resolve();
 
   constructor(stateDir: string) {
     this.stateDir = stateDir;
@@ -13,12 +14,26 @@ export class StateManager {
     return path.join(this.stateDir, `${id}.json`);
   }
 
-  save(state: DownloadState): void {
-    const updated = { ...state, updatedAt: Date.now() };
-    const target = this.statePath(state.id);
-    const dir = path.dirname(target);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(target, JSON.stringify(updated, null, 2), "utf8");
+  private withLock<T>(fn: () => T): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.lock = this.lock.then(() => {
+        try {
+          resolve(fn());
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+  }
+
+  save(state: DownloadState): Promise<void> {
+    return this.withLock(() => {
+      const updated = { ...state, updatedAt: Date.now() };
+      const target = this.statePath(state.id);
+      const dir = path.dirname(target);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(target, JSON.stringify(updated, null, 2), "utf8");
+    });
   }
 
   load(id: string): DownloadState | null {
@@ -54,31 +69,35 @@ export class StateManager {
     }
   }
 
-  updateChunk(id: string, chunkIndex: number, downloaded: number, completed: boolean): void {
-    const state = this.load(id);
-    if (!state) return;
-    const chunk = state.chunks[chunkIndex];
-    if (chunk) {
-      chunk.downloaded = downloaded;
-      chunk.completed = completed;
-    }
-    this.save(state);
+  async updateChunk(id: string, chunkIndex: number, downloaded: number, completed: boolean): Promise<void> {
+    return this.withLock(() => {
+      const state = this.load(id);
+      if (!state) return;
+      const chunk = state.chunks[chunkIndex];
+      if (chunk) {
+        chunk.downloaded = downloaded;
+        chunk.completed = completed;
+        this.saveSync(state);
+      }
+    });
   }
 
   /**
    * Batch-update chunks — use this for performance (group writes)
    */
-  batchUpdateChunks(id: string, updates: { index: number; downloaded: number; completed: boolean }[]): void {
-    const state = this.load(id);
-    if (!state) return;
-    for (const u of updates) {
-      const chunk = state.chunks[u.index];
-      if (chunk) {
-        chunk.downloaded = u.downloaded;
-        chunk.completed = u.completed;
+  async batchUpdateChunks(id: string, updates: { index: number; downloaded: number; completed: boolean }[]): Promise<void> {
+    return this.withLock(() => {
+      const state = this.load(id);
+      if (!state) return;
+      for (const u of updates) {
+        const chunk = state.chunks[u.index];
+        if (chunk) {
+          chunk.downloaded = u.downloaded;
+          chunk.completed = u.completed;
+        }
       }
-    }
-    this.save(state);
+      this.saveSync(state);
+    });
   }
 
   getIncompleteChunks(id: string): ChunkState[] {
@@ -87,20 +106,32 @@ export class StateManager {
     return state.chunks.filter(c => !c.completed);
   }
 
-  addMovedChunk(id: string, chunkIndex: number): void {
-    const state = this.load(id);
-    if (!state) return;
-    if (!state.movedChunks) state.movedChunks = [];
-    if (!state.movedChunks.includes(chunkIndex)) {
-      state.movedChunks.push(chunkIndex);
-      this.save(state);
-    }
+  async addMovedChunk(id: string, chunkIndex: number): Promise<void> {
+    return this.withLock(() => {
+      const state = this.load(id);
+      if (!state) return;
+      if (!state.movedChunks) state.movedChunks = [];
+      if (!state.movedChunks.includes(chunkIndex)) {
+        state.movedChunks.push(chunkIndex);
+        this.saveSync(state);
+      }
+    });
   }
 
-  setMovedChunks(id: string, indices: number[]): void {
-    const state = this.load(id);
-    if (!state) return;
-    state.movedChunks = indices;
-    this.save(state);
+  async setMovedChunks(id: string, indices: number[]): Promise<void> {
+    return this.withLock(() => {
+      const state = this.load(id);
+      if (!state) return;
+      state.movedChunks = indices;
+      this.saveSync(state);
+    });
+  }
+
+  private saveSync(state: DownloadState): void {
+    const updated = { ...state, updatedAt: Date.now() };
+    const target = this.statePath(state.id);
+    const dir = path.dirname(target);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(target, JSON.stringify(updated, null, 2), "utf8");
   }
 }

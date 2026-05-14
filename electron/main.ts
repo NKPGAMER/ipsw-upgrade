@@ -167,6 +167,10 @@ function registerMainWindowEvents(win: BrowserWindow): void {
 
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 
+process.on("unhandledRejection", (reason: Error) => {
+  console.error("[main] unhandledRejection:", reason);
+});
+
 app.whenReady().then(async () => {
   await init();
 
@@ -235,6 +239,12 @@ function initAutoUpdater(): void {
     send("update-progress", progress);
   });
 
+  autoUpdater.on("error", (err) => {
+    console.error("[autoUpdater] error:", err);
+    updateStatus = { ...updateStatus, phase: "idle" };
+    send("update-error", { message: err.message });
+  });
+
   setTimeout(() => autoUpdater.checkForUpdates(), UPDATER_CHECK_DELAY);
 }
 
@@ -259,6 +269,9 @@ const handlers: IpcHandler[] = [
       case "set":    return s.set(key, value);
       case "has":    return s.has(key);
       case "delete": return s.delete(key);
+      default:
+        console.warn("[store] unknown method:", method);
+        return undefined;
     }
   }],
 

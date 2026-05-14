@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, ReactNode, JSX } from "react";
+import { useState, useEffect, useCallback, useRef, ReactNode, JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { state } from "../data";
 
@@ -676,6 +676,11 @@ export default function App(): JSX.Element {
     const [autoRemoveDupe, setAutoRemoveDupe] = useState<boolean>(false);
     const [autoRemoveInvalid, setAutoRemoveInvalid] = useState<boolean>(true);
 
+    const mountedRef = useRef(true);
+    useEffect(() => {
+        return () => { mountedRef.current = false; };
+    }, []);
+
     // Load persisted settings on mount
     useEffect(() => {
         Promise.all([
@@ -737,7 +742,7 @@ export default function App(): JSX.Element {
         // Show "All set!" briefly, then relaunch to apply
         setPage("done");
         await new Promise(r => setTimeout(r, 1500));
-        window.api.relaunch();
+        if (mountedRef.current) window.api.relaunch();
     }, [saveDir, turboMode, skipVerify, parseFileName, linkOutDir, autoRemoveOld, autoRemoveDupe, autoRemoveInvalid]);
 
     const navigate = (target: Page) => {

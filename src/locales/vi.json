@@ -238,5 +238,12 @@
             "title": "Sẵn sàng!",
             "subtitle": "Đang khởi động IPSW Manager…"
         }
-    }
+    },
+    "setting.restartWarning": "Chức năng này cần khởi động lại ứng dụng để áp dụng.\nBạn có muốn tiếp tục?",
+    "setting.restartConfirm": "Khởi động lại",
+    "setting.restartCancel": "Để sau",
+    "setting.turboWarning": "Chức năng này sẽ sử dụng tối đa phần cứng để tải xuống nhanh hơn.\n> Có thể gây nóng máy.\nBạn có chắc chắn muốn tiếp tục?",
+    "setting.turboWarningTitle": "Cảnh báo",
+    "setting.turboConfirm": "Đồng ý",
+    "setting.turboCancel": "Hủy"
 }

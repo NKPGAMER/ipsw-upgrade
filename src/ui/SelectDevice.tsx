@@ -1298,9 +1298,10 @@ export default function IPSWManager() {
 
   // ── Sync allFiles ────────────────────────────────────────────────────────
   useEffect(() => {
-    ipswClient.onReload(() => {
+    const unsub = ipswClient.onReload(() => {
       setAllFiles(ipswClient.getFiles());
     });
+    return () => unsub();
   }, []);
 
   const setPending = useCallback((identifier: string, action: ControlAction | null) => {

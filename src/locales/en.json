@@ -138,5 +138,12 @@
             "title": "All set!",
             "subtitle": "Launching IPSW Manager…"
         }
-    }
+    },
+    "setting.restartWarning": "This feature requires restarting the application to apply.\nDo you want to continue?",
+    "setting.restartConfirm": "Restart",
+    "setting.restartCancel": "Later",
+    "setting.turboWarning": "This feature will maximize hardware usage for faster downloads.\n> May cause device heating.\nAre you sure you want to continue?",
+    "setting.turboWarningTitle": "Warning",
+    "setting.turboConfirm": "Agree",
+    "setting.turboCancel": "Cancel"
 }

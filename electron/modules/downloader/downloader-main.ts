@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 
 import type { MainToWorker, WorkerToMain } from "./worker-messages";
 import type { DownloaderConfig, DownloadRequestConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
-import { app } from "electron";
+import { app, ipcMain } from "electron";
 
 interface BrowserWindow {
   isDestroyed(): boolean;
@@ -37,9 +37,15 @@ export class DownloaderMain {
     });
 
     this.worker.on("message", (msg: WorkerToMain) => this.handleWorkerMessage(msg));
-    this.worker.on("error", (err: Error) => console.error("[DownloaderMain] worker error:", err));
+    this.worker.on("error", (err: Error) => {
+      console.error("[DownloaderMain] worker error:", err);
+      this.rejectAllPending(new Error("Worker thread error: " + err.message));
+    });
     this.worker.on("exit", (code: number) => {
-      if (code !== 0) console.error(`[DownloaderMain] worker exited with code ${code}`);
+      if (code !== 0) {
+        console.error(`[DownloaderMain] worker exited with code ${code}`);
+        this.rejectAllPending(new Error(`Worker thread exited with code ${code}`));
+      }
       this.worker = null;
     });
 
@@ -65,6 +71,13 @@ export class DownloaderMain {
   }
 
   // ─── Request / reply helper ───────────────────────────────────────────────
+
+  private rejectAllPending(error: Error): void {
+    for (const [id, pending] of this.pending) {
+      pending.reject(error);
+      this.pending.delete(id);
+    }
+  }
 
   private call<T>(msg: MainToWorker): Promise<T> {
     return new Promise<T>((resolve, reject) => {
@@ -137,21 +150,15 @@ export class DownloaderMain {
       case "incomplete_deleted":
         this.win.webContents.send(`dm:${channel}`, taskId);
         break;
+      default:
+        console.warn("[DownloaderMain] unknown event channel:", channel);
+        break;
     }
   }
 
   // ─── IPC registration ─────────────────────────────────────────────────────
 
   private registerIPC(): void {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let ipcMain: { handle(channel: string, listener: (...args: any[]) => any): void; removeHandler(channel: string): void };
-    try {
-      ipcMain = require("electron").ipcMain;
-    } catch {
-      console.warn("[DownloaderMain] electron not available — IPC not registered");
-      return;
-    }
-
     const handlers: Array<[string, (...args: any[]) => any]> = [
       ["dm:add", (_e: any, firmware: Firmware, config: DownloadRequestConfig) => this.add(firmware, config)],
       ["dm:pause", (_e: any, id: string) => { this.pause(id); }],

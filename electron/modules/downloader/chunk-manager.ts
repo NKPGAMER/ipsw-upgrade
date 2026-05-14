@@ -322,7 +322,8 @@ export class ChunkManager {
     const flags = fs.existsSync(tmpFilePath) ? "r+" : "w";
     this.fd = fs.openSync(tmpFilePath, flags);
 
-    // Pre-allocate to avoid fragmentation
+    try {
+      // Pre-allocate to avoid fragmentation
     if (flags === "w" && this.state.totalSize > 0) {
       await this.fallocate(this.fd, this.state.totalSize);
     }
@@ -380,6 +381,12 @@ export class ChunkManager {
       if (preMovedBytes > 0) {
         this.ioWriteQueue.setTotalMovedBytes(preMovedBytes);
       }
+    }
+
+    } catch (err) {
+      try { fs.closeSync(this.fd); } catch { }
+      this.fd = -1;
+      throw err;
     }
 
     try {

@@ -589,7 +589,7 @@ export class IPSWDownloader extends EventEmitter {
           totalSize: s.totalSize,
           downloadedBytes,
           progress,
-          tmpExists: fs.existsSync(s.tmpPath),
+          tmpExists: s.tmpPath ? fs.existsSync(s.tmpPath) : false,
           savedAt: s.updatedAt,
           mode: s.mode ?? "normal",
           movedChunks: s.movedChunks ?? [],

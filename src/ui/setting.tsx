@@ -2,6 +2,7 @@ import { useState, type FC, type ReactNode, type JSX, useEffect, useCallback } f
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { state } from "../data";
+import { useAppStore } from "../stores/app-store";
 import utils from "../core/utils";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -196,12 +197,14 @@ export default function SettingsApp(): JSX.Element {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (state.__init) {
-      setDownloadPath(state.currentFolder);
-      setNormalizeName(state.normalizeName);
-      setDeleteOld(state.autoRemoveOldFiles);
-      setDeleteDuplicate(state.autoRemoveDuplicateFiles);
-      setTurboMode(state.turboMode);
+    const syncState = () => {
+      const s = useAppStore.getState();
+      if (!s.__init) return;
+      setDownloadPath(s.currentFolder);
+      setNormalizeName(s.normalizeName);
+      setDeleteOld(s.autoRemoveOldFiles);
+      setDeleteDuplicate(s.autoRemoveDuplicateFiles);
+      setTurboMode(s.turboMode);
 
       window.store.get('language').then((lang) => {
         if (lang) setLanguage(lang);
@@ -209,15 +212,18 @@ export default function SettingsApp(): JSX.Element {
       window.store.get('link_out_dir').then((dir) => {
         if (dir) setLinkOutDir(dir);
       });
-
-      return;
-    }
+    };
+    syncState();
+    const unsub = useAppStore.subscribe((s) => {
+      if (s.__init) syncState();
+    });
+    return unsub;
   }, []);
 
   const restartAppConfirm = useCallback(async () => {
-    const warning = await utils.customConfirm("Chức năng này cần khởi động lại ứng dụng để áp dụng.\nBạn có muốn tiếp tục?", {
-      confirmText: "Khởi động lại",
-      cancelText: "Để sau",
+    const warning = await utils.customConfirm(t("setting.restartWarning"), {
+      confirmText: t("setting.restartConfirm"),
+      cancelText: t("setting.restartCancel"),
       variant: "warning"
     })
     if (!warning) return;
@@ -267,10 +273,10 @@ export default function SettingsApp(): JSX.Element {
 
   const handleSetTurboMode = useCallback(async (value: boolean) => {
     if (value) {
-      const warning = await utils.customConfirm("Chức năng này sẽ sử dụng tối đa phần cứng để tải xuống nhanh hơn.\n> Có thể gây nóng máy.\nBạn có chắc chắn muốn tiếp tục?", {
-        title: "Cảnh báo",
-        confirmText: "Đồng ý",
-        cancelText: "Hủy",
+      const warning = await utils.customConfirm(t("setting.turboWarning"), {
+        title: t("setting.turboWarningTitle"),
+        confirmText: t("setting.turboConfirm"),
+        cancelText: t("setting.turboCancel"),
         variant: "danger"
       })
       if (!warning) return;

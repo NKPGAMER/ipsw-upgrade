@@ -1,4 +1,4 @@
-import { JSX, useState, useEffect } from "react";
+import { JSX, useState, useEffect, useRef } from "react";
 // ─── Toast System ─────────────────────────────────────────────────────────────
 type ToastType = "success" | "error" | "info" | "warning";
 interface Toast {
@@ -53,9 +53,15 @@ const TOAST_BG: Record<ToastType, string> = {
 
 export function ToastContainer() {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const mountedRef = useRef(true);
   useEffect(() => {
-    toastListeners.add(setToasts);
-    return () => { toastListeners.delete(setToasts); };
+    mountedRef.current = true;
+    const listener = (t: Toast[]) => { if (mountedRef.current) setToasts(t); };
+    toastListeners.add(listener);
+    return () => {
+      mountedRef.current = false;
+      toastListeners.delete(listener);
+    };
   }, []);
 
   return (

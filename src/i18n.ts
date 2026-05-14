@@ -22,32 +22,4 @@ i18next
     }
   });
 
-function applyLang(): void {
-  const elements = document.querySelectorAll('[data-t]');
-  elements.forEach(el => {
-    const rawKey = el.getAttribute('data-t') as string;
-    const parts = rawKey.split(';');
-
-    parts?.forEach(part => {
-      if (part.startsWith('[')) {
-        const match = part.match(/\[(.*)\](.*)/);
-        if (match) {
-          const [_, attr, key] = match;
-          el.setAttribute(attr, i18next.t(key as any));
-        }
-      } else {
-        el.textContent = i18next.t(part as any);
-      }
-    })
-  });
-}
-
-i18next.on('initialized', () => {
-  applyLang();
-});
-
-i18next.on('languageChanged', () => {
-  applyLang();
-})
-
 export default i18next;

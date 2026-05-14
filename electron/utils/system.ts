@@ -29,7 +29,10 @@ export function setWin(window: BrowserWindow) {
 }
 
 export function sendMessage(message: string, options: { type: 'success' | 'error' | 'warning' | 'info' } = { type: 'success' }) {
-  if (!win) return;
+  if (!win) {
+    console.warn("[system] sendMessage dropped — no window:", message);
+    return;
+  }
 
   win.webContents.send('message', message, options);
 }

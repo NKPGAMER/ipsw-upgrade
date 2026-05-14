@@ -1,18 +1,30 @@
-import path, { join } from "path";
-import { readdirSync, statSync, createReadStream, stat, promises, existsSync } from "fs";
+import { join } from "path";
+import { createReadStream, stat, promises } from "fs";
 import { createHash } from 'crypto';
 
-function scanFolder(folder: string): IPSWFile[] {
-  if (!existsSync(folder)) return [];
-  const files = readdirSync(folder)
-    .filter(f => f.endsWith(".ipsw"))
-    .map(f => ({
-      name: f,
-      path: join(folder, f),
-      size: statSync(join(folder, f)).size
-    }));
+async function scanFolder(folder: string): Promise<IPSWFile[]> {
+  let entries: string[];
+  try {
+    entries = await promises.readdir(folder);
+  } catch {
+    return [];
+  }
 
-  return files;
+  const ipswEntries = entries.filter(f => f.endsWith(".ipsw"));
+
+  const files = await Promise.all(
+    ipswEntries.map(async (f) => {
+      const filePath = join(folder, f);
+      try {
+        const { size } = await promises.stat(filePath);
+        return { name: f, path: filePath, size };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return files.filter((f): f is IPSWFile => f !== null);
 }
 
 async function createMd5(

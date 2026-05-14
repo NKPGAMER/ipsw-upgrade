@@ -283,30 +283,35 @@ export class IPSWHardLinkManager {
   private async buildFirmwareCache(): Promise<void> {
     const devices = this.dataHandle.getDevices();
 
-    for (const device of devices) {
-      const modelData = await this.dataHandle.getModelData(device.identifier, true);
-      if (!modelData) continue;
+    for (let i = 0; i < devices.length; i += MAX_CONCURRENT_LINKS) {
+      const chunk = devices.slice(i, i + MAX_CONCURRENT_LINKS);
+      await Promise.all(
+        chunk.map(async (device) => {
+          const modelData = await this.dataHandle.getModelData(device.identifier, true);
+          if (!modelData) return;
 
-      for (const firmware of modelData.firmwares) {
-        const parsed = this.parseIPSW(firmware.url.split("/").pop() ?? "");
-        if (!parsed) continue;
+          for (const firmware of modelData.firmwares) {
+            const parsed = this.parseIPSW(firmware.url.split("/").pop() ?? "");
+            if (!parsed) continue;
 
-        const cacheKey = `${parsed.id}_${parsed.build}`;
-        const entry: MatchedDeviceInfo = {
-          deviceName: device.name,
-          firmwareId: parsed.id,
-          buildId: parsed.build,
-        };
+            const cacheKey = `${parsed.id}_${parsed.build}`;
+            const entry: MatchedDeviceInfo = {
+              deviceName: device.name,
+              firmwareId: parsed.id,
+              buildId: parsed.build,
+            };
 
-        const existing = this.deviceFirmwareCache.get(cacheKey);
-        if (existing) {
-          if (!existing.some((e) => e.deviceName === entry.deviceName)) {
-            existing.push(entry);
+            const existing = this.deviceFirmwareCache.get(cacheKey);
+            if (existing) {
+              if (!existing.some((e) => e.deviceName === entry.deviceName)) {
+                existing.push(entry);
+              }
+            } else {
+              this.deviceFirmwareCache.set(cacheKey, [entry]);
+            }
           }
-        } else {
-          this.deviceFirmwareCache.set(cacheKey, [entry]);
-        }
-      }
+        })
+      );
     }
   }
 }

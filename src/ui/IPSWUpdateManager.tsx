@@ -615,6 +615,7 @@ export default function IPSWUpdateManager() {
       }),
     ];
 
+    subsRef.current.forEach((s) => s.unsubscribe());
     subsRef.current = subs;
 
     const savePath = globalState.currentFolder;

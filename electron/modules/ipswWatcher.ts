@@ -1,6 +1,5 @@
 import chokidar, { FSWatcher } from "chokidar";
 import fs from "fs/promises";
-import { Stats } from "fs";
 import path from "path";
 import { BrowserWindow, ipcMain } from "electron";
 
@@ -177,8 +176,12 @@ export class IPSWWatcher {
       },
     });
 
-    this.watcher.on("add", (filePath) => void this.onAdded(filePath));
-    this.watcher.on("unlink", (filePath) => void this.onRemoved(filePath));
+    this.watcher.on("add", (filePath) => {
+      this.onAdded(filePath).catch((err) => console.error("[IPSWWatcher] onAdded error:", err));
+    });
+    this.watcher.on("unlink", (filePath) => {
+      this.onRemoved(filePath).catch((err) => console.error("[IPSWWatcher] onRemoved error:", err));
+    });
     this.watcher.on("error", (err: any) => {
       if (err.code === "EPERM" || err.code === "EACCES") {
         console.warn(`[IPSWWatcher] Permission denied (skipped): ${err.path}`);
@@ -189,10 +192,7 @@ export class IPSWWatcher {
   }
 
   private async onAdded(filePath: string): Promise<void> {
-    const ready = await this.waitForStableFile(filePath);
-    if (!ready) return;
-
-    console.log(`[IPSWWatcher] File write finished: ${filePath}`);
+    console.log(`[IPSWWatcher] File added: ${filePath}`);
 
     const file = await this.buildIPSWFile(filePath);
     if (!file) return;
@@ -239,38 +239,4 @@ export class IPSWWatcher {
     }
   }
 
-  private async waitForStableFile(filePath: string): Promise<boolean> {
-    const timeoutMs = 15_000;
-    const stableChecksRequired = 3;
-    const pollIntervalMs = 1000;
-
-    let lastSize = -1;
-    let stableChecks = 0;
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < timeoutMs) {
-      try {
-        const stat = await fs.stat(filePath);
-        if (!stat.isFile()) return false;
-
-        if (stat.size > 0 && stat.size === lastSize) {
-          stableChecks += 1;
-          if (stableChecks >= stableChecksRequired) return true;
-        } else {
-          stableChecks = 0;
-          lastSize = stat.size;
-        }
-      } catch {
-        return false;
-      }
-
-      await this.sleep(pollIntervalMs);
-    }
-
-    return false;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }
