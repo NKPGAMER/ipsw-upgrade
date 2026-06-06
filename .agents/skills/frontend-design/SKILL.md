@@ -40,3 +40,35 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 **IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
 
 Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+
+## Tailwind Spacing Important Rule
+
+When writing Tailwind CSS classes in JSX/TSX/HTML files, **every** margin and padding utility class **must** include the important modifier (`!`).
+
+### Affected Classes
+
+All variants of margin and padding utilities:
+
+- **Margin**: `m-`, `mt-`, `mb-`, `ml-`, `mr-`, `mx-`, `my-`, `ms-`, `me-`
+- **Padding**: `p-`, `pt-`, `pb-`, `pl-`, `pr-`, `px-`, `py-`, `ps-`, `pe-`
+
+### Rule
+
+Append `!` to the end of every margin/padding utility class.
+
+**✅ Correct:**
+```
+mt-1! mb-2! px-4! py-2! mr-3! ml-auto! p-0! m-0!
+```
+
+**❌ Wrong:**
+```
+mt-1 mb-2 px-4 py-2 mr-3 ml-auto p-0 m-0
+```
+
+### Notes
+
+- The `!` modifier comes **after** the value, not before: `mt-4!` not `!mt-4`
+- Arbitrary values also need `!`: `mt-[12px]!`, `px-[5%]!`
+- This rule applies to ALL margin/padding classes, no exceptions
+- Other utility classes (flex, grid, colors, typography, etc.) do NOT need the `!` modifier

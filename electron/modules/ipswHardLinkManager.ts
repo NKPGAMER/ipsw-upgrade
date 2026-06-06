@@ -40,6 +40,10 @@ export class IPSWHardLinkManager {
   private readonly records = new Map<string, HardLinkRecord>();
   private readonly deviceFirmwareCache = new Map<string, MatchedDeviceInfo[]>();
   private firmwareCachePromise: Promise<void> | null = null;
+  private isRunning = false;
+  private pendingFileNames = new Set<string>();
+  private addedDisposer: (() => void) | null = null;
+  private removedDisposer: (() => void) | null = null;
 
   constructor(_win: BrowserWindow, watcher: IPSWWatcher, dataHandle: DataHandle, config: HardLinkManagerConfig) {
     this.watcher = watcher;
@@ -48,14 +52,16 @@ export class IPSWHardLinkManager {
   }
 
   async start(): Promise<void> {
+    if (this.isRunning) return;
     await this.syncFolder();
+    this.isRunning = true;
     if (!this.config.enabled) {
       await this.stop();
       return;
     }
 
-    this.watcher.onFilesAdded((files) => void this.handleAdded(files));
-    this.watcher.onFilesRemoved((files) => void this.handleRemoved(files));
+    this.addedDisposer = this.watcher.onFilesAdded((files) => void this.handleAdded(files));
+    this.removedDisposer = this.watcher.onFilesRemoved((files) => void this.handleRemoved(files));
     await this.checkAndCreateHardLinks();
   }
 
@@ -66,7 +72,18 @@ export class IPSWHardLinkManager {
   }
 
   async stop(): Promise<void> {
+    if (!this.isRunning) return;
+    this.isRunning = false;
+    this.addedDisposer?.();
+    this.addedDisposer = null;
+    this.removedDisposer?.();
+    this.removedDisposer = null;
     await this.cleanupFolder();
+  }
+
+  invalidateDeviceCache(): void {
+    this.deviceFirmwareCache.clear();
+    this.firmwareCachePromise = null;
   }
 
   private async syncFolder(): Promise<void> {
@@ -95,7 +112,7 @@ export class IPSWHardLinkManager {
     const entries = await fs.readdir(this.folderPath).catch(() => [] as string[]);
     await Promise.all(
       entries
-        .filter((entry) => !expectedNames.has(entry))
+        .filter((entry) => !expectedNames.has(entry) && !this.pendingFileNames.has(entry))
         .map((entry) =>
           fs.unlink(path.join(this.folderPath, entry)).catch(() => {})
         )
@@ -122,6 +139,10 @@ export class IPSWHardLinkManager {
     const sourceExists = await fs.access(file.path).then(() => true).catch(() => false);
     if (!sourceExists) return;
 
+    const stableSize = await this.waitForStableSize(file.path);
+    if (stableSize === null) return;
+    const stableFile: IPSWFile = { ...file, size: stableSize };
+
     const matched = await this.getMatchedDevicesForFile(parsed.id, parsed.build);
     const deviceNames = [...new Set(matched.map((item) => item.deviceName))];
     if (!deviceNames.length) return;
@@ -129,29 +150,59 @@ export class IPSWHardLinkManager {
     const fileName = this.formatLinkFileName(deviceNames, parsed.version);
     const linkPath = path.join(this.folderPath, fileName);
 
-    if (this.records.get(file.path)?.linkPath === linkPath) return;
+    if (this.records.get(stableFile.path)?.linkPath === linkPath) return;
 
     await fs.mkdir(this.folderPath, { recursive: true });
 
+    this.pendingFileNames.add(fileName);
     try {
-      await fs.link(file.path, linkPath);
-    } catch (error: any) {
-      if (error?.code === "ENOENT") return;
-      if (error?.code === "EEXIST") {
-        // link already exists from another process — adopt it
-      } else {
-        console.error("[IPSWHardLinkManager] Failed to create hard link:", error?.code, error?.message);
-        return;
+      try {
+        await fs.link(stableFile.path, linkPath);
+      } catch (error: any) {
+        if (error?.code === "ENOENT") return;
+        if (error?.code === "EXDEV") {
+          await fs.copyFile(stableFile.path, linkPath);
+        } else if (error?.code === "EEXIST") {
+          const [linkStat, sourceStat] = await Promise.all([
+            fs.stat(linkPath).catch(() => null),
+            fs.stat(stableFile.path).catch(() => null),
+          ]);
+          if (linkStat && sourceStat && (linkStat.ino !== sourceStat.ino || linkStat.size !== sourceStat.size)) {
+            await fs.unlink(linkPath);
+            await fs.link(stableFile.path, linkPath);
+          }
+        } else {
+          console.error("[IPSWHardLinkManager] Failed to create hard link:", error?.code, error?.message);
+          return;
+        }
       }
+
+      this.records.set(stableFile.path, {
+        sourcePath: stableFile.path,
+        linkPath,
+        deviceNames,
+        version: parsed.version,
+        fileName,
+      });
+    } finally {
+      this.pendingFileNames.delete(fileName);
+    }
+  }
+
+  private async waitForStableSize(filePath: string): Promise<number | null> {
+    const first = await fs.stat(filePath).catch(() => null);
+    if (!first) return null;
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const second = await fs.stat(filePath).catch(() => null);
+    if (!second) return null;
+
+    if (first.size === second.size && first.mtimeMs === second.mtimeMs) {
+      return first.size;
     }
 
-    this.records.set(file.path, {
-      sourcePath: file.path,
-      linkPath,
-      deviceNames,
-      version: parsed.version,
-      fileName,
-    });
+    return null;
   }
 
   private async removeLinkForFile(sourcePath: string): Promise<void> {
@@ -276,7 +327,10 @@ export class IPSWHardLinkManager {
   private async ensureFirmwareCacheBuilt(): Promise<void> {
     if (this.firmwareCachePromise) return this.firmwareCachePromise;
 
-    this.firmwareCachePromise = this.buildFirmwareCache();
+    this.firmwareCachePromise = this.buildFirmwareCache().catch((err) => {
+      this.firmwareCachePromise = null;
+      throw err;
+    });
     return this.firmwareCachePromise;
   }
 

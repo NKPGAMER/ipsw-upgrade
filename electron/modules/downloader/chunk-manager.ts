@@ -458,6 +458,8 @@ export class ChunkManager {
     const start = chunk.start + chunk.downloaded;
     const end   = chunk.end;
 
+    if (start >= end && chunk.completed) return;
+
     if (start > end) {
       chunk.completed = true;
       this.queueStateUpdate(chunk.index, chunk.downloaded, true);
@@ -638,9 +640,19 @@ export class ChunkManager {
   async promote(tmpPath: string, turboPath: string): Promise<void> {
     this.promoting = true;
 
-    // Wait for in-flight chunk downloads to finish
+    // Wait for in-flight chunk downloads to finish (with 30s timeout)
+    const promStart = Date.now();
     while (this.activeCount > 0) {
+      if (Date.now() - promStart > 30_000) {
+        this.promoting = false;
+        throw new Error("Promote timed out waiting for in-flight chunks");
+      }
       await new Promise(r => setTimeout(r, 100));
+    }
+
+    if (this.aborted) {
+      this.promoting = false;
+      return;
     }
 
     // Stop existing IOWriteQueue if any

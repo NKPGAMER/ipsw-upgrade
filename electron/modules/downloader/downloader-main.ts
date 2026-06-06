@@ -16,7 +16,8 @@ export class DownloaderMain {
   private readonly stateDir: string = path.join(app.getPath("userData"), "ipsw-state");
   private readonly config: DownloaderConfig;
   private worker: Worker | null = null;
-  private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
+  private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void; timer: NodeJS.Timeout }>();
+  private readonly callTimeoutMs = 30_000;
 
   constructor(win: BrowserWindow, opts: DownloaderConfig) {
     this.win = win;
@@ -45,6 +46,9 @@ export class DownloaderMain {
       if (code !== 0) {
         console.error(`[DownloaderMain] worker exited with code ${code}`);
         this.rejectAllPending(new Error(`Worker thread exited with code ${code}`));
+        if (!this.win.isDestroyed()) {
+          this.win.webContents.send("dm:worker-crashed");
+        }
       }
       this.worker = null;
     });
@@ -58,6 +62,7 @@ export class DownloaderMain {
     if (msg.type === "reply") {
       const pending = this.pending.get(msg.reqId);
       if (pending) {
+        clearTimeout(pending.timer);
         this.pending.delete(msg.reqId);
         msg.error ? pending.reject(new Error(msg.error)) : pending.resolve(msg.result);
       }
@@ -74,6 +79,7 @@ export class DownloaderMain {
 
   private rejectAllPending(error: Error): void {
     for (const [id, pending] of this.pending) {
+      clearTimeout(pending.timer);
       pending.reject(error);
       this.pending.delete(id);
     }
@@ -82,7 +88,11 @@ export class DownloaderMain {
   private call<T>(msg: MainToWorker): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const reqId = randomUUID();
-      this.pending.set(reqId, { resolve, reject });
+      const timer = setTimeout(() => {
+        this.pending.delete(reqId);
+        reject(new Error(`Worker request timed out: ${msg.type}`));
+      }, this.callTimeoutMs);
+      this.pending.set(reqId, { resolve, reject, timer });
       this.ensureWorker().postMessage({ ...msg, reqId });
     });
   }

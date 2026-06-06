@@ -72,7 +72,7 @@ class MoveQueue {
     try {
       await this.doMove(src, dest, onProgress);
     } finally {
-      this.concurrency.set(key, (this.concurrency.get(key) ?? 1) - 1);
+      this.concurrency.set(key, Math.max(0, (this.concurrency.get(key) ?? 0) - 1));
     }
   }
 
@@ -103,10 +103,13 @@ class MoveQueue {
     const startedAt = Date.now();
     const bufferSize = this.getMoveBufferSize(totalSize, this.getAvailableMemoryBytes());
 
-    const srcHandle = await fs.promises.open(src, "r");
-    const destHandle = await fs.promises.open(dest, "w");
+    let srcHandle: fs.promises.FileHandle | null = null;
+    let destHandle: fs.promises.FileHandle | null = null;
 
     try {
+      srcHandle = await fs.promises.open(src, "r");
+      destHandle = await fs.promises.open(dest, "w");
+
       const buffer = Buffer.allocUnsafe(bufferSize);
       let copied = 0;
       let lastEmitAt = 0;
@@ -137,8 +140,8 @@ class MoveQueue {
       await destHandle.sync().catch(() => { });
       if (onProgress) onProgress({ pct: 100, speed: totalSize, eta: 0 });
     } finally {
-      await destHandle.close().catch(() => { });
-      await srcHandle.close().catch(() => { });
+      await destHandle?.close().catch(() => { });
+      await srcHandle?.close().catch(() => { });
     }
   }
 
@@ -1056,9 +1059,21 @@ export class IPSWDownloader extends EventEmitter {
   ): DownloadState {
     const totalSize = meta.contentLength || firmware.filesize;
     const supportsRanges = meta.acceptsRanges;
+    if (totalSize <= 0) {
+      return {
+        id, firmware, savePath, tmpPath,
+        totalSize: 0,
+        chunks: [{ index: 0, start: 0, end: 0, downloaded: 0, completed: true }],
+        supportsRanges,
+        createdAt: Date.now(), updatedAt: Date.now(),
+        mode,
+        movedChunks: [],
+      };
+    }
+
     const chunks: ChunkState[] = [];
 
-    if (supportsRanges && totalSize > 0) {
+    if (supportsRanges) {
       let offset = 0, index = 0;
       while (offset < totalSize) {
         const end = Math.min(offset + this.config.chunkSize - 1, totalSize - 1);

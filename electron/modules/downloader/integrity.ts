@@ -18,7 +18,7 @@ export class IntegrityChecker {
   }
 
   /**
-   * Verify firmware integrity — tries sha256 → sha1 → md5 in order
+   * Verify firmware integrity — tries md5 → sha1 → sha256 in order
    */
   async verify(
     filePath: string,
@@ -39,35 +39,51 @@ export class IntegrityChecker {
     // Use best available hash
     const { algo, expected } = checks[0];
 
-    const fileSize = fs.statSync(filePath).size;
-    let processed = 0;
-    const startedAt = Date.now();
+    const fileSize = (() => { try { return fs.statSync(filePath).size; } catch { return 0; } })();
 
-    const actual = await new Promise<string>((resolve, reject) => {
-      const hash = crypto.createHash(algo);
-      const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 * 1024 });
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 1000;
+    let lastError: Error | null = null;
 
-      stream.on("data", (chunk: string | Buffer) => {
-        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        hash.update(buf);
-        processed += buf.length;
-        if (onProgress && fileSize > 0) {
-          const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
-          const speed = processed / elapsedSec;
-          const eta = speed > 0 ? Math.round((fileSize - processed) / speed) : undefined;
-          onProgress({ pct: Math.floor((processed / fileSize) * 100), speed, eta });
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      let processed = 0;
+      const startedAt = Date.now();
+
+      try {
+        const actual = await new Promise<string>((resolve, reject) => {
+          const hash = crypto.createHash(algo);
+          const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 * 1024 });
+
+          stream.on("data", (chunk: string | Buffer) => {
+            const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+            hash.update(buf);
+            processed += buf.length;
+            if (onProgress && fileSize > 0) {
+              const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+              const speed = processed / elapsedSec;
+              const eta = speed > 0 ? Math.round((fileSize - processed) / speed) : undefined;
+              onProgress({ pct: Math.floor((processed / fileSize) * 100), speed, eta });
+            }
+          });
+
+          stream.on("end", () => resolve(hash.digest("hex")));
+          stream.on("error", reject);
+        });
+
+        return {
+          ok: actual.toLowerCase() === expected.toLowerCase(),
+          algo,
+          expected: expected.toLowerCase(),
+          actual: actual.toLowerCase(),
+        };
+      } catch (err: any) {
+        lastError = err;
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
         }
-      });
+      }
+    }
 
-      stream.on("end", () => resolve(hash.digest("hex")));
-      stream.on("error", reject);
-    });
-
-    return {
-      ok: actual.toLowerCase() === expected.toLowerCase(),
-      algo,
-      expected: expected.toLowerCase(),
-      actual: actual.toLowerCase(),
-    };
+    throw lastError ?? new Error("Hash verification failed after retries");
   }
 }
