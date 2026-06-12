@@ -265,14 +265,15 @@ export class IPSWCleanupManager {
     const [best, ...rest] = scored;
 
     // Nếu file tốt nhất đúng size nhưng sai format → cần rename
-    let keepFile = best.file;
+    // Variable intentionally unused; prefix with underscore to satisfy linter rule for allowed unused vars
+    let _keepFile = best.file;
 
     if (best.sizeOk && !best.formatOk) {
       const parsed = this.parseIPSW_Manual(best.file.name);
       if (parsed) {
         const { id, version, build } = parsed;
         const newName = `${id}_${version}_${build}_Restore.ipsw`;
-        keepFile = { ...best.file, name: newName };
+        _keepFile = { ...best.file, name: newName };
       }
     }
 

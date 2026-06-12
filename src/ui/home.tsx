@@ -285,7 +285,7 @@ export default function Home() {
       mountedRef.current = false;
       unsub();
     };
-  }, []);
+  }, [reloadStats]);
 
   useEffect(() => {
     const sub = window.updater.onUpdateAvailable(({ version }) => {

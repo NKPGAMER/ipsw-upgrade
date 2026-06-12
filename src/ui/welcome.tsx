@@ -258,61 +258,6 @@ const Section: React.FC<SectionProps> = ({ icon, title, accent, children }) => (
     </div>
 );
 
-// ─── Nav Sidebar ──────────────────────────────────────────────────────────────
-
-const NAV_ITEMS = [
-    { id: "welcome", label: "Chào mừng", icon: <Ico.Sparkle /> },
-    { id: "download", label: "Tải xuống", icon: <Ico.Download /> },
-    { id: "firmware", label: "Phần mềm", icon: <Ico.Firmware /> },
-];
-
-interface NavItemProps {
-    id: string;
-    label: string;
-    icon: ReactNode;
-    active: boolean;
-    done: boolean;
-    locked: boolean;
-    onClick: () => void;
-}
-
-const NavItem: React.FC<NavItemProps> = ({ label, icon, active, done, locked, onClick }) => (
-    <button
-        onClick={onClick}
-        disabled={locked}
-        title={locked ? "Hoàn thành bước trước" : undefined}
-        style={{
-            width: "100%", display: "flex", alignItems: "center", gap: 10,
-            padding: "8px 12px", borderRadius: 5, border: "none",
-            background: active ? "#0078d418" : "transparent",
-            color: locked ? "#383838" : active ? "#60a8f0" : done ? "#8a8a8a" : "#6a6a6a",
-            cursor: locked ? "not-allowed" : "pointer", textAlign: "left" as const,
-            fontSize: 12.5,
-            transition: "background 0.12s, color 0.12s",
-            borderLeft: active ? "2px solid #0078d4" : "2px solid transparent",
-            opacity: locked ? 0.45 : 1,
-        }}
-        onMouseEnter={e => { if (!active && !locked) (e.currentTarget as HTMLButtonElement).style.background = "#1e1e1e"; }}
-        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = active ? "#0078d418" : "transparent"; }}
-    >
-        <span style={{ flexShrink: 0 }}>{icon}</span>
-        <span style={{ flex: 1 }}>{label}</span>
-        {done && !active && (
-            <span style={{
-                width: 16, height: 16, borderRadius: "50%",
-                background: "#0078d4", display: "flex", alignItems: "center",
-                justifyContent: "center", color: "#fff", flexShrink: 0,
-            }}><Ico.Check /></span>
-        )}
-        {locked && (
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.5 }}>
-                <rect x="3" y="11" width="18" height="11" rx="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-        )}
-    </button>
-);
-
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
 const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => {
@@ -661,12 +606,9 @@ const PageDone: React.FC = () => {
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
 type Page = "welcome" | "download" | "firmware" | "done";
-const PAGE_ORDER: Page[] = ["welcome", "download", "firmware", "done"];
 
 export default function App(): JSX.Element {
     const [page, setPage] = useState<Page>("welcome");
-    const [maxReached, setMaxReached] = useState<number>(0);
-
     const [saveDir, setSaveDir] = useState<string>("");
     const [skipVerify, setSkipVerify] = useState<boolean>(false);
     const [turboMode, setTurboMode] = useState<boolean>(false);
@@ -746,23 +688,7 @@ export default function App(): JSX.Element {
     }, [saveDir, turboMode, skipVerify, parseFileName, linkOutDir, autoRemoveOld, autoRemoveDupe, autoRemoveInvalid]);
 
     const navigate = (target: Page) => {
-        const idx = PAGE_ORDER.indexOf(target);
         setPage(target);
-        setMaxReached(prev => Math.max(prev, idx));
-    };
-
-    // A nav item is clickable if its index <= maxReached + 1
-    // (can always go back, and can go one step ahead if unlocked)
-    const isUnlocked = (id: string): boolean => {
-        const idx = PAGE_ORDER.indexOf(id as Page);
-        return idx <= maxReached + 1;
-    };
-
-    const activeNav = page === "done" ? "firmware" : page;
-    // "done" checkmark: page has been visited (index <= maxReached)
-    const isDone = (id: string): boolean => {
-        const idx = PAGE_ORDER.indexOf(id as Page);
-        return idx < maxReached || (idx <= maxReached && page !== id);
     };
 
     const css = `

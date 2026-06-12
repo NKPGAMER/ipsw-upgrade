@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@types/*": ["@types/*"]
+        }
+    },
+    "include": ["preload.d.ts", "global.d.ts", "vite-env.d.ts"]
+}

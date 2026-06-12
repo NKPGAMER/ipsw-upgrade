@@ -190,14 +190,14 @@ const UpdateRow = memo(function UpdateRow({
         {/* Drag handle */}
         {!running && (
           <div
-            className="flex flex-col gap-[3px] shrink-0 cursor-grab active:cursor-grabbing"
+            className="flex flex-col gap-0.75 shrink-0 cursor-grab active:cursor-grabbing"
             style={{ opacity: isDragging ? 1 : 0.2 }}
             title="Kéo để sắp xếp"
           >
             {[0, 1, 2].map((i) => (
-              <div key={i} className="flex gap-[3px]">
-                <div className="w-[3px] h-[3px] rounded-full" style={{ background: "rgba(255,255,255,0.7)" }} />
-                <div className="w-[3px] h-[3px] rounded-full" style={{ background: "rgba(255,255,255,0.7)" }} />
+              <div key={i} className="flex gap-0.75">
+                <div className="w-0.75 h-0.75 rounded-full" style={{ background: "rgba(255,255,255,0.7)" }} />
+                <div className="w-0.75 h-0.75 rounded-full" style={{ background: "rgba(255,255,255,0.7)" }} />
               </div>
             ))}
           </div>
@@ -206,7 +206,7 @@ const UpdateRow = memo(function UpdateRow({
         {/* Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[13px] font-semibold text-white truncate max-w-[200px]">
+            <span className="text-[13px] font-semibold text-white truncate max-w-50">
               {entry.deviceName}
             </span>
             <span className="text-[10px] font-mono px-1.5! py-0.5! rounded-md" style={{ background: "rgba(33,150,243,0.12)", color: "#64b5f6" }}>
@@ -241,7 +241,7 @@ const UpdateRow = memo(function UpdateRow({
 
             {/* Error */}
             {entryState.status === "error" && entryState.error && (
-              <span className="text-[10px] text-red-400 truncate max-w-[200px]" title={entryState.error}>
+              <span className="text-[10px] text-red-400 truncate max-w-50" title={entryState.error}>
                 {entryState.error}
               </span>
             )}
@@ -371,12 +371,10 @@ export default function IPSWUpdateManager() {
 
   // Running state
   const [running, setRunning] = useState(false);
-  const [currentIdx, setCurrentIdx] = useState(-1);
   const subsRef = useRef<{ unsubscribe: () => void }[]>([]);
   const abortRef = useRef(false);
   const entriesRef = useRef<UpdateEntry[]>([]);
   const entryStatesRef = useRef<Map<string, EntryState>>(new Map());
-  const currentIdxRef = useRef(-1);
 
   useEffect(() => { entriesRef.current = entries; }, [entries]);
   useEffect(() => { entryStatesRef.current = entryStates; }, [entryStates]);
@@ -526,11 +524,14 @@ export default function IPSWUpdateManager() {
       scanned: devices.length,
       total: devices.length,
     });
-  }, []);
+  }, [getActiveDownloadUrls]);
 
   // Scan khi product thay đổi
   useEffect(() => {
-    scanProduct(product);
+    const timer = setTimeout(() => {
+      scanProduct(product);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [product, scanProduct]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -807,7 +808,6 @@ export default function IPSWUpdateManager() {
               >
                 <span>
                   {stats.done + stats.failed} / {stats.total}
-                  {currentIdx >= 0 && ` · ${entries[currentIdx]?.deviceName ?? ""}`}
                 </span>
                 <span>{Math.round(((stats.done + stats.failed) / stats.total) * 100)}%</span>
               </div>

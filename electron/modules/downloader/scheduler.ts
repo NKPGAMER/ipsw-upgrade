@@ -40,7 +40,7 @@ export class Scheduler extends EventEmitter {
     this.env = environment;
     if (enabled) {
       switch (environment) {
-        case "ssd_save": this.maxTurbo = 3; this.maxNormal = 2; break;
+        case "ssd_save": this.maxTurbo = 3; this.maxNormal = 1; break;
         case "hdd_ssd_tmp": this.maxTurbo = 1; this.maxNormal = 2; break;
         case "hdd_only": this.maxTurbo = 1; this.maxNormal = 1; break;
       }

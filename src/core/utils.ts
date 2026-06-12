@@ -1,5 +1,4 @@
 import { t } from "i18next";
-import { data } from "../data.js";
 
 function pushDownExistingNotifications(newNotification: HTMLElement) {
   const allNotifications = document.querySelectorAll('.error-message, .success-message');

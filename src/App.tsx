@@ -5,7 +5,7 @@ import { SETTING_VERSION } from "./ui/welcome";
 const Home = lazy(() => import("./ui/home"));
 const Settings = lazy(() => import("./ui/setting"));
 const Downloads = lazy(() => import("./ui/download"));
-const SelectDevice = lazy(() => import("./ui/SelectDevice"));
+const SelectDevice = lazy(() => import("@pages/SelectDevice/index"));
 const IPSWUpdateManager = lazy(() => import("./ui/IPSWUpdateManager"));
 const AppUpdate = lazy(() => import("./ui/appUpdate"));
 const Welcome = lazy(() => import("./ui/welcome"));
@@ -33,8 +33,8 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 via-gray-900 to-slate-800 text-slate-200 font-sans">
-          <div className="w-full max-w-[420px] rounded-3xl border border-slate-400/20 bg-slate-900/70 px-7! py-8! text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-[14px]">
-            <div className="mx-auto! mb-[18px]! h-14 w-14 rounded-full bg-red-500/20 flex items-center justify-center">
+          <div className="w-full max-w-105 rounded-3xl border border-slate-400/20 bg-slate-900/70 px-7! py-8! text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-[14px]">
+            <div className="mx-auto! mb-4.5! h-14 w-14 rounded-full bg-red-500/20 flex items-center justify-center">
               <span className="text-3xl">&#9888;</span>
             </div>
             <h1 className="mb-2! text-[22px] font-bold">
@@ -59,8 +59,8 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
 
 const LoadingScreen = memo(() => (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 via-gray-900 to-slate-800 text-slate-200 font-sans">
-        <div className="w-full max-w-[420px] rounded-3xl border border-slate-400/20 bg-slate-900/70 px-7! py-8! text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-[14px]">
-            <div className="mx-auto! mb-[18px]! h-14 w-14 animate-spin rounded-full border-4 border-slate-400/20 border-t-blue-400" />
+        <div className="w-full max-w-105 rounded-3xl border border-slate-400/20 bg-slate-900/70 px-7! py-8! text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-[14px]">
+            <div className="mx-auto! mb-4.5! h-14 w-14 animate-spin rounded-full border-4 border-slate-400/20 border-t-blue-400" />
 
             <h1 className="mb-2! text-[22px] font-bold">
                 Đang tải giao diện
@@ -72,6 +72,8 @@ const LoadingScreen = memo(() => (
         </div>
     </div>
 ));
+
+LoadingScreen.displayName = "LoadingScreen";
 
 export default function App() {
     const [checking, setChecking] = useState(true);

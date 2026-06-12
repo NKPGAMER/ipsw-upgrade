@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { promises as fs, existsSync } from "fs";
-import { join, extname, dirname, parse } from "path";
+import { join, extname } from "path";
+import { ensureDir } from "../utils/fs-utils";
 
 const dataDir = join(app.getPath("userData"));
 
@@ -8,16 +9,6 @@ fs.mkdir(dataDir, { recursive: true });
 
 const ensureExt = (fileName: string, ext: string = ".json") => extname(fileName) ? fileName : fileName + ext;
 const resolvePath = (fileName: string) => join(dataDir, ensureExt(fileName));
-const ensureDir = async (filePath: string) => {
-	const dir = dirname(filePath);
-	const root = parse(dir).root;
-
-	if (dir === root) {
-		return;
-	}
-
-	await fs.mkdir(dir, { recursive: true });
-};
 
 async function write(fileName: string, data: any): Promise<void> {
 	const filePath = resolvePath(fileName);
@@ -39,4 +30,4 @@ async function deleteFile(fileName: string): Promise<void> {
 	}
 }
 
-export { write, read, deleteFile, ensureDir };
+export { write, read, deleteFile };

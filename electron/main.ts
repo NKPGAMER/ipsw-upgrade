@@ -1,8 +1,8 @@
 // ─── Import ────────────────────────────────────────────────────────────────────
 // Electron
 import {
-  app, BrowserWindow, ipcMain, dialog,
-  OpenDialogOptions, FileFilter, IpcMainInvokeEvent, screen
+  app, BrowserWindow, ipcMain,
+  OpenDialogOptions, IpcMainInvokeEvent, screen
 } from "electron";
 import Store from "electron-store";
 import { autoUpdater } from "electron-updater";
@@ -48,7 +48,7 @@ let isReady = false;
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
+  app.on('second-instance', () => {
     if (mainWindow) {
       if (mainWindow.isMinimizable()) {
         mainWindow.restore();

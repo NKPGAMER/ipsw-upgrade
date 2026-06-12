@@ -229,7 +229,7 @@ export default function SettingsApp(): JSX.Element {
     if (!warning) return;
     
     window.api.relaunch();
-  }, []);
+  }, [t]);
 
   const handleSetDownloadPath = (path: string) => {
     if (!path) {
@@ -247,7 +247,7 @@ export default function SettingsApp(): JSX.Element {
       window.store.set('link_out_dir', linkOutDir),
     ]);
     await restartAppConfirm();
-  }, [normalizeName, linkOutDir]);
+  }, [normalizeName, linkOutDir, restartAppConfirm]);
 
   const handleSetDeleteOld = useCallback(async (value: boolean) => {
     state.autoRemoveOldFiles = value;
@@ -255,7 +255,7 @@ export default function SettingsApp(): JSX.Element {
 
     await restartAppConfirm();
     setDeleteOld(value);
-  }, []);
+  }, [restartAppConfirm]);
 
   const handleSetDeleteDuplicate = useCallback(async (value: boolean) => {
     state.autoRemoveDuplicateFiles = value;
@@ -263,7 +263,7 @@ export default function SettingsApp(): JSX.Element {
 
     await restartAppConfirm();
     setDeleteDuplicate(value);
-  }, []);
+  }, [restartAppConfirm]);
 
   const handleSetLanguage = (lang: Language) => {
     setLanguage(lang);
@@ -288,7 +288,7 @@ export default function SettingsApp(): JSX.Element {
     await restartAppConfirm();
 
     setTurboMode(value);
-  }, []);
+  }, [restartAppConfirm, t]);
 
   return (
     <div className="w-full h-full overflow-y-auto bg-[#0d0d0d] text-[#e5e5e5]">

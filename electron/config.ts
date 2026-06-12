@@ -1,5 +1,3 @@
-import { app } from "electron"
-
 export default {
     defaultAppSettings: {
         autoRemoveOldFiles: true,

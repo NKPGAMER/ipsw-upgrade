@@ -16,11 +16,21 @@
     "app.autoDeleteDuplicate.desc": "Tự động xóa các phiên bản trùng nhau",
     "app.download.turboMode.label": "Chế độ tăng tốc",
     "app.download.turboMode.desc": "Sử dụng tối đa tài nguyên máy để tải xuống nhanh hơn",
-    "confirm.title": "Bạn vân muốn tiếp tục?",
-    "confirm.title.exit": "Bạn chắc chắn muốn thoát?",
-    "confirm.removeRedundantFiles": "Đã tìm thấy các tệp không cần thiết\n- Tệp cũ: **$1**\n- Tệp trùng: **$2**",
-    "confirm.closeApp": "Hiện tại đang có **$1** tệp đang tải. Thoát vào lúc này có thể gây lỗi",
-    "confirm.reDownloadFile": "Tải lại tệp này?",
+
+    "confirm": {
+        "default": {
+            "title": "Bạn vẫn muốn tiếp tục?",
+            "confirm": "Tiếp tục",
+            "cancel": "Huỷ"
+        },
+        "removeRedundantFiles": {
+            "body": "Thao tác này sẽ xoá **{{old}}** tệp cũ và **{{duplicate}}** tệp trùng nhau",
+            "confirm": "Xoá",
+            "message": {
+                "notFound": "Tất cả firmware đã là phiên bản mới nhất"
+            }
+        }
+    },
     "confirm.cancelDownload": "Tệp này đang được tải. Bạn chắc chắn muốn hủy?",
     "confirm.btn.delete": "Xóa",
     "confirm.btn.ok": "Ok",
