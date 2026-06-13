@@ -1,18 +1,18 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
-        "outDir": "dist",
+        "rootDir": "./src",
+        "outDir": "./dist",
         "esModuleInterop": true,
         "strict": true,
         "skipLibCheck": true,
         "jsx": "react-jsx",
         "resolveJsonModule": true,
         "paths": {
-            "@/*": ["src/*"],
-            "@pages/*": ["src/ui/pages/*"],
-            "@global-type": ["global.d.ts"]
+            "@/*": ["./src/*"],
+            "@pages/*": ["./src/ui/pages/*"],
+            "@global-type": ["./global.d.ts"]
         }
     },
-    "include": ["src"],
-    "exclude": ["node_modules", "**/*.spec.ts"]
+    "include": ["src", "@types", "vite-env.d.ts", "preload.d.ts", "global.d.ts"]
 }

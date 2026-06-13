@@ -1,3 +1,6 @@
+// ─── Stdio guard (MUST be first import) ─────────────────────────────────────────
+import "./modules/mcp/logger";
+
 // ─── Import ────────────────────────────────────────────────────────────────────
 // Electron
 import {
@@ -10,7 +13,7 @@ import { autoUpdater } from "electron-updater";
 import { join } from "path";
 // Modules
 import { getDiskSpace, formatBytes } from "./modules/disk";
-import { DataHandle } from "./modules/dataHandle";
+import { DataHandle } from "./service/ipswData";
 import { IPSWWatcher } from "./modules/ipswWatcher";
 import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
 import { IPSWCleanupManager } from "./modules/ipsw/cleanup";

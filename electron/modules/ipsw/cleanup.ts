@@ -1,7 +1,7 @@
 import { readdir, stat, unlink } from "fs/promises";
 import path, { join } from "path";
 import { DownloaderMain } from "../downloader";
-import { DataHandle } from "../dataHandle";
+import { DataHandle } from "../../service/ipswData";
 
 interface CleanupConfig {
   saveDir: string;
