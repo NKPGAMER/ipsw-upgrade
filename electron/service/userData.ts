@@ -19,7 +19,20 @@ class UserData {
     const filePath = this.resolvePath(fileName);
 
     const readPromise = fe.readFile(filePath, "utf-8")
-      .then((raw) => JSON.parse(raw) as T)
+      .then(async (raw) => {
+        try {
+          return JSON.parse(raw) as T;
+        } catch (parseError) {
+          console.error(`[UserData] JSON parse failed for "${fileName}", renaming to .corrupted:`, parseError);
+          const corruptedPath = filePath + ".corrupted";
+          try {
+            await fe.rename(filePath, corruptedPath);
+          } catch {
+            await fe.unlink(filePath).catch(() => {});
+          }
+          return null;
+        }
+      })
       .catch((error: NodeJS.ErrnoException) => {
         if (error.code !== "ENOENT") {
           console.error(`[UserData] read failed for "${fileName}":`, error);

@@ -5,7 +5,7 @@ export default {
         language: 'vi',
     },
 
-    DataVersion: "2.2.0",
+    DataVersion: "2.2.2",
     
     appleVendorId: 1452,
 

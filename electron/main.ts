@@ -1,6 +1,3 @@
-// ─── Stdio guard (MUST be first import) ─────────────────────────────────────────
-import "./modules/mcp/logger";
-
 // ─── Import ────────────────────────────────────────────────────────────────────
 // Electron
 import {

@@ -105,22 +105,6 @@ const Ico = {
             <polyline points="12 5 19 12 12 19" />
         </svg>
     ),
-    MinBtn: () => (
-        <svg width="10" height="1" viewBox="0 0 10 1">
-            <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" strokeWidth="1" />
-        </svg>
-    ),
-    MaxBtn: () => (
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor" strokeWidth="1" />
-        </svg>
-    ),
-    CloseBtn: () => (
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.2" />
-            <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.2" />
-        </svg>
-    ),
     ChevronLeft: () => (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -135,54 +119,32 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false }) 
         role="switch"
         aria-checked={checked}
         onClick={() => !disabled && onChange(!checked)}
-        style={{
-            width: 40, height: 20, borderRadius: 10, border: "none",
-            background: checked ? "#0078d4" : "#404040",
-            cursor: disabled ? "not-allowed" : "pointer",
-            position: "relative",
-            transition: "background 0.18s",
-            flexShrink: 0,
-            opacity: disabled ? 0.38 : 1,
-            outline: "none",
-        }}
+        className={[
+            "relative h-7 w-12 rounded-full transition-colors duration-200",
+            checked ? "bg-[#0078d4]" : "bg-[#404040]",
+            disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer",
+        ].join(" ")}
     >
-        <span style={{
-            position: "absolute", top: 2,
-            left: checked ? 22 : 2,
-            width: 16, height: 16, borderRadius: "50%",
-            background: "#fff",
-            transition: "left 0.18s cubic-bezier(.4,0,.2,1)",
-            boxShadow: "0 1px 3px rgba(0,0,0,.5)",
-        }} />
+        <span
+            className={[
+                "absolute left-0.5 top-1/2 size-5 -translate-y-1/2 rounded-full bg-white shadow",
+                "transition-transform duration-200",
+                checked ? "translate-x-6" : "translate-x-0",
+            ].join(" ")}
+        />
     </button>
 );
 
 // ─── DirPicker ───────────────────────────────────────────────────────────────
 
 const DirPicker: React.FC<DirPickerProps> = ({ value, onChange, onBrowse }) => (
-    <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%", marginTop: 8 }}>
-        <div style={{
-            flex: 1, background: "#1a1a1a", border: "1px solid #3a3a3a",
-            borderRadius: 4, padding: "6px 10px",
-            fontFamily: "'Cascadia Code', 'Consolas', monospace", fontSize: 11.5,
-            color: value ? "#e8e8e8" : "#666",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            minWidth: 0,
-        }}>
-            {value || "C:\\Users\\User\\Downloads\\IPSW"}
+    <div className="mt-2! flex w-full items-center gap-1.5">
+        <div className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded bg-[#1a1a1a] border border-[#3a3a3a] px-2.5! py-1.5! font-mono text-[11.5px] text-[#e8e8e8] empty:text-[#666]">
+            {value}
         </div>
         <button
             onClick={onBrowse || (() => onChange(""))}
-            style={{
-                background: "#2d2d2d", border: "1px solid #3a3a3a",
-                borderRadius: 4, padding: "6px 12px", color: "#ccc",
-                cursor: "pointer", fontSize: 12,
-                display: "flex", alignItems: "center", gap: 5,
-                whiteSpace: "nowrap",
-                transition: "background 0.12s, border-color 0.12s",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#383838"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#0078d4"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#2d2d2d"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#3a3a3a"; }}
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded border border-[#3a3a3a] bg-[#2d2d2d] px-3! py-1.5! text-[12px] text-[#ccc] transition-colors duration-120 hover:border-[#0078d4] hover:bg-[#383838]"
         >
             <Ico.Folder /> Browse…
         </button>
@@ -191,66 +153,48 @@ const DirPicker: React.FC<DirPickerProps> = ({ value, onChange, onBrowse }) => (
 
 // ─── SettingRow ───────────────────────────────────────────────────────────────
 
-const SettingRow: React.FC<SettingRowProps> = ({ icon, label, desc, badge, children }) => (
-    <div style={{
-        display: "flex", alignItems: "flex-start", gap: 12,
-        padding: "13px 20px",
-        borderBottom: "1px solid #222",
-        transition: "background 0.1s",
-    }}
-        onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = "#1e1e1e"}
-        onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = "transparent"}
-    >
-        <div style={{ color: "#666", marginTop: 1, flexShrink: 0 }}>{icon}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 13, color: "#e8e8e8", fontWeight: 400 }}>{label}</span>
-                {badge && (
-                    <span style={{
-                        fontSize: 9, fontWeight: 600, letterSpacing: "0.07em",
-                        padding: "2px 6px", borderRadius: 2,
-                        background: "#0078d420", color: "#0078d4",
-                        textTransform: "uppercase" as const, border: "1px solid #0078d440",
-                    }}>{badge}</span>
+const SettingRow: React.FC<SettingRowProps> = ({ icon, label, desc, badge, children }) => {
+    const isDirPicker = (children as any)?.type === DirPicker;
+    return (
+        <div className="flex items-start gap-3 border-b border-[#222] px-5! py-3.25! transition-colors duration-100 hover:bg-[#1e1e1e]">
+            <div className="mt-px! shrink-0 text-[#666]">{icon}</div>
+            <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-normal text-[#e8e8e8]">{label}</span>
+                    {badge && (
+                        <span className="rounded-sm border border-[#0078d440] bg-[#0078d420] px-1.5! py-0.5! text-[9px] font-semibold uppercase tracking-[0.07em] text-[#0078d4]">
+                            {badge}
+                        </span>
+                    )}
+                </div>
+                {desc && (
+                    <div className="mt-0.75! text-[11.5px] leading-[1.45] text-[#666]">{desc}</div>
                 )}
+                {isDirPicker && <div>{children}</div>}
             </div>
-            {desc && (
-                <div style={{ fontSize: 11.5, color: "#666", marginTop: 3, lineHeight: 1.45 }}>{desc}</div>
-            )}
-            {/* DirPicker goes below label if it's a wide child */}
-            {children && (children as any)?.type === DirPicker && (
-                <div>{children}</div>
+            {!isDirPicker && children && (
+                <div className="mt-px! shrink-0">{children}</div>
             )}
         </div>
-        {children && (children as any)?.type !== DirPicker && (
-            <div style={{ flexShrink: 0, marginTop: 1 }}>{children}</div>
-        )}
-    </div>
-);
+    );
+};
 
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 const Section: React.FC<SectionProps> = ({ icon, title, accent, children }) => (
-    <div style={{
-        borderRadius: 6, overflow: "hidden",
-        border: "1px solid #2a2a2a",
-        background: "#161616",
-        marginBottom: 12,
-    }}>
-        {/* Section header */}
-        <div style={{
-            display: "flex", alignItems: "center", gap: 10,
-            padding: "10px 20px",
-            background: "#1c1c1c",
-            borderBottom: "1px solid #2a2a2a",
-        }}>
-            <div style={{
-                width: 24, height: 24, borderRadius: 3,
-                background: accent + "20", border: "1px solid " + accent + "45",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: accent,
-            }}>{icon}</div>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#c8c8c8", letterSpacing: "0.02em" }}>
+    <div className="mb-3! overflow-hidden rounded-md border border-[#2a2a2a] bg-[#161616]">
+        <div className="flex items-center gap-2.5 border-b border-[#2a2a2a] bg-[#1c1c1c] px-5! py-2.5!">
+            <div
+                className="flex size-6 shrink-0 items-center justify-center rounded-[3px] border"
+                style={{
+                    background: accent + "20",
+                    borderColor: accent + "45",
+                    color: accent,
+                }}
+            >
+                {icon}
+            </div>
+            <span className="text-[12.5px] font-semibold tracking-[0.02em] text-[#c8c8c8]">
                 {title}
             </span>
         </div>
@@ -263,110 +207,76 @@ const Section: React.FC<SectionProps> = ({ icon, title, accent, children }) => (
 const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => {
     const { t } = useTranslation();
     return (
-    <div style={{ padding: "32px 36px", flex: 1, overflowY: "auto" }}>
-        {/* Hero */}
-        <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 28 }}>
-            <div style={{
-                width: 56, height: 56, borderRadius: 8,
-                background: "linear-gradient(135deg, #0a1a30 0%, #0d2040 100%)",
-                border: "1px solid #0078d440",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 0 20px #0078d420",
-                flexShrink: 0,
-            }}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                    <path d="M2 17l10 5 10-5" />
-                    <path d="M2 12l10 5 10-5" />
-                </svg>
-            </div>
-            <div>
-                <h1 style={{
-                    fontFamily: "'Segoe UI Variable Display', 'Segoe UI', sans-serif",
-                    fontSize: 22, fontWeight: 600, color: "#f0f0f0",
-                    letterSpacing: "-0.01em", margin: 0, lineHeight: 1.15,
-                }}>
-                    IPSW Manager
-                </h1>
-                <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>
-                    {t('wizard.welcome.version', { version: window.api.getVersion })}
+        <div className="flex-1 overflow-y-auto px-9! py-8!">
+            {/* Hero */}
+            <div className="mb-7! flex items-center gap-4.5">
+                <div className="flex size-14 shrink-0 items-center justify-center rounded-lg border border-[#0078d440] bg-linear-to-br from-[#0a1a30] to-[#0d2040] shadow-[0_0_20px_#0078d420]">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                        <path d="M2 17l10 5 10-5" />
+                        <path d="M2 12l10 5 10-5" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 className="m-0! font-[\'Segoe_UI_Variable_Display\',\'Segoe_UI\',sans-serif] text-[22px] font-semibold leading-[1.15] tracking-[-0.01em] text-[#f0f0f0]">
+                        IPSW Manager
+                    </h1>
+                    <div className="mt-0.75! text-[12px] text-[#666]">
+                        {t('wizard.welcome.version', { version: window.api.getVersion })}
+                    </div>
                 </div>
             </div>
-        </div>
 
-        {/* Welcome text */}
-        <p style={{ fontSize: 13.5, color: "#aaa", lineHeight: 1.7, marginBottom: 28, maxWidth: 480 }}>
-            {t('wizard.welcome.text', { version: window.api.getVersion })}
-        </p>
+            {/* Welcome text */}
+            <p className="mb-7! max-w-120 text-[13.5px] leading-[1.7] text-[#aaa]">
+                {t('wizard.welcome.text', { version: window.api.getVersion })}
+            </p>
 
-        {/* What's New */}
-        <div style={{
-            borderRadius: 6, overflow: "hidden",
-            border: "1px solid #f59e0b28",
-            background: "#f59e0b08",
-            marginBottom: 28,
-        }}>
-            <div style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "9px 16px",
-                background: "#f59e0b10", borderBottom: "1px solid #f59e0b20",
-            }}>
-                <Ico.Sparkle />
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", letterSpacing: "0.1em", textTransform: "uppercase" as const }}>
-                    {t('wizard.welcome.whatsnew')}
-                </span>
-            </div>
-            <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-                {([
-                    { text: t('wizard.welcome.feature1') },
-                    { text: t('wizard.welcome.feature2') },
-                    { text: t('wizard.welcome.feature3') },
-                    { text: t('wizard.welcome.feature4') },
-                    { text: t('wizard.welcome.feature5') },
-                    { text: t('wizard.welcome.feature6') },
-                ] as WhatsNewItem[]).map((item, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{
-                            marginTop: 2, width: 16, height: 16, borderRadius: "50%",
-                            background: "#f59e0b20", border: "1px solid #f59e0b40",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            color: "#f59e0b", flexShrink: 0,
-                        }}><Ico.Check /></div>
-                        <div style={{ fontSize: 12.5, color: "#c0c0c0", lineHeight: 1.45, flex: 1 }}>
-                            {item.text}
-                            {item.tag && (
-                                <span style={{
-                                    marginLeft: 7, fontSize: 9.5, color: "#888",
-                                    background: "#2a2a2a", borderRadius: 2, padding: "1px 5px",
-                                    border: "1px solid #333",
-                                }}>{item.tag}</span>
-                            )}
+            {/* What's New */}
+            <div className="mb-7! overflow-hidden rounded-md border border-[#f59e0b28] bg-[#f59e0b08]">
+                <div className="flex items-center gap-2 border-b border-[#f59e0b20] bg-[#f59e0b10] px-4! py-2.25!">
+                    <Ico.Sparkle />
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-[#f59e0b]">
+                        {t('wizard.welcome.whatsnew')}
+                    </span>
+                </div>
+                <div className="flex flex-col gap-2 px-4! py-3!">
+                    {([
+                        { text: t('wizard.welcome.feature1') },
+                        { text: t('wizard.welcome.feature2') },
+                        { text: t('wizard.welcome.feature3') },
+                        { text: t('wizard.welcome.feature4') },
+                        { text: t('wizard.welcome.feature5') },
+                        { text: t('wizard.welcome.feature6') },
+                    ] as WhatsNewItem[]).map((item, i) => (
+                        <div key={i} className="flex items-start gap-2.5">
+                            <div className="mt-0.5! flex size-4 shrink-0 items-center justify-center rounded-full border border-[#f59e0b40] bg-[#f59e0b20] text-[#f59e0b]">
+                                <Ico.Check />
+                            </div>
+                            <div className="flex-1 text-[12.5px] leading-[1.45] text-[#c0c0c0]">
+                                {item.text}
+                                {item.tag && (
+                                    <span className="ml-1.75! rounded-sm border border-[#333] bg-[#2a2a2a] px-1.25! py-px! text-[9.5px] text-[#888]">
+                                        {item.tag}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
-        </div>
 
-        <button
-            onClick={onNext}
-            style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "9px 22px", borderRadius: 4,
-                background: "#0078d4", border: "none",
-                color: "#fff", cursor: "pointer",
-                fontSize: 13, fontWeight: 500,
-                fontFamily: "'Segoe UI', sans-serif",
-                transition: "background 0.12s",
-                boxShadow: "0 2px 8px #0078d440",
-            }}
-            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "#1a86d8"}
-            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "#0078d4"}
-        >
-            {t('wizard.getStarted')} <Ico.Arrow />
-        </button>
-    </div>
-);
+            <button
+                onClick={onNext}
+                className="flex cursor-pointer items-center gap-2 rounded border-none bg-[#0078d4] px-5.5! py-2.25! font-['Segoe_UI',sans-serif] text-[13px] font-medium text-white shadow-[0_2px_8px_#0078d440] transition-colors duration-120 hover:bg-[#1a86d8]"
+            >
+                {t('wizard.getStarted')} <Ico.Arrow />
+            </button>
+        </div>
+    );
 };
+
+// ─── Download Page ─────────────────────────────────────────────────────────────
 
 interface DownloadPageProps {
     saveDir: string;
@@ -385,72 +295,48 @@ const PageDownload: React.FC<DownloadPageProps> = ({
 }) => {
     const { t } = useTranslation();
     return (
-    <div style={{ padding: "28px 36px", flex: 1, overflowY: "auto" }}>
-        <div style={{ marginBottom: 22 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", margin: 0, marginBottom: 5 }}>{t('wizard.download.title')}</h2>
-            <p style={{ fontSize: 12.5, color: "#666", margin: 0 }}>{t('wizard.download.subtitle')}</p>
+        <div className="flex-1 overflow-y-auto px-9! py-7!">
+            <div className="mb-5.5!">
+                <h2 className="m-0! mb-1.25! text-[18px] font-semibold text-[#f0f0f0]">{t('wizard.download.title')}</h2>
+                <p className="m-0! text-[12.5px] text-[#666]">{t('wizard.download.subtitle')}</p>
+            </div>
+
+            <Section icon={<Ico.Download />} title={t('wizard.download.section.storage')} accent="#0078d4">
+                <SettingRow icon={<Ico.Folder />} label={t('wizard.download.saveDir.label')} desc={t('wizard.download.saveDir.desc')}>
+                    <DirPicker value={saveDir} onChange={setSaveDir} onBrowse={onBrowseSaveDir} />
+                </SettingRow>
+            </Section>
+
+            <Section icon={<Ico.Zap />} title={t('wizard.download.section.performance')} accent="#f59e0b">
+                <SettingRow
+                    icon={<Ico.Zap />}
+                    label={t('wizard.download.turbo.label')}
+                    badge={t('wizard.badge.new')}
+                    desc={t('wizard.download.turbo.desc')}
+                >
+                    <Toggle checked={turboMode} onChange={setTurboMode} />
+                </SettingRow>
+            </Section>
+
+            <Section icon={<Ico.Shield />} title={t('wizard.download.section.integrity')} accent="#888">
+                <SettingRow
+                    icon={<Ico.Shield />}
+                    label={t('wizard.download.skipVerify.label')}
+                    desc={t('wizard.download.skipVerify.desc')}
+                >
+                    <Toggle checked={skipVerify} onChange={setSkipVerify} />
+                </SettingRow>
+            </Section>
+
+            <div className="mt-4! flex justify-between">
+                <BtnBack onClick={onBack} label={t('wizard.btn.back')} />
+                <BtnNext onClick={onNext} label={t('wizard.download.btn.next')} />
+            </div>
         </div>
-
-        <Section icon={<Ico.Download />} title={t('wizard.download.section.storage')} accent="#0078d4">
-            <SettingRow icon={<Ico.Folder />} label={t('wizard.download.saveDir.label')} desc={t('wizard.download.saveDir.desc')}>
-                <DirPicker value={saveDir} onChange={setSaveDir} onBrowse={onBrowseSaveDir} />
-            </SettingRow>
-        </Section>
-
-        <Section icon={<Ico.Zap />} title={t('wizard.download.section.performance')} accent="#f59e0b">
-            <SettingRow
-                icon={<Ico.Zap />}
-                label={t('wizard.download.turbo.label')}
-                badge={t('wizard.badge.new')}
-                desc={t('wizard.download.turbo.desc')}
-            >
-                <Toggle checked={turboMode} onChange={setTurboMode} />
-            </SettingRow>
-        </Section>
-
-        <Section icon={<Ico.Shield />} title={t('wizard.download.section.integrity')} accent="#888">
-            <SettingRow
-                icon={<Ico.Shield />}
-                label={t('wizard.download.skipVerify.label')}
-                desc={t('wizard.download.skipVerify.desc')}
-            >
-                <Toggle checked={skipVerify} onChange={setSkipVerify} />
-            </SettingRow>
-        </Section>
-
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
-            <button
-                onClick={onBack}
-                style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "8px 18px", borderRadius: 4,
-                    background: "transparent", border: "1px solid #3a3a3a",
-                    color: "#aaa", cursor: "pointer",
-                    fontSize: 13, fontWeight: 500, transition: "all 0.12s",
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#1e1e1e"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#555"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#3a3a3a"; }}
-            >
-                <Ico.ChevronLeft /> {t('wizard.btn.back')}
-            </button>
-            <button
-                onClick={onNext}
-                style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    padding: "8px 20px", borderRadius: 4,
-                    background: "#0078d4", border: "none",
-                    color: "#fff", cursor: "pointer",
-                    fontSize: 13, fontWeight: 500, transition: "background 0.12s",
-                }}
-                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "#1a86d8"}
-                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "#0078d4"}
-            >
-                {t('wizard.download.btn.next')} <Ico.Arrow />
-            </button>
-        </div>
-    </div>
-);
+    );
 };
+
+// ─── Firmware Page ─────────────────────────────────────────────────────────────
 
 interface FirmwarePageProps {
     parseFileName: boolean; setParseFileName: (v: boolean) => void;
@@ -472,107 +358,78 @@ const PageFirmware: React.FC<FirmwarePageProps> = ({
 }) => {
     const { t } = useTranslation();
     return (
-    <div style={{ padding: "28px 36px", flex: 1, overflowY: "auto" }}>
-        <div style={{ marginBottom: 22 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", margin: 0, marginBottom: 5 }}>{t('wizard.firmware.title')}</h2>
-            <p style={{ fontSize: 12.5, color: "#666", margin: 0 }}>{t('wizard.firmware.subtitle')}</p>
-        </div>
+        <div className="flex-1 overflow-y-auto px-9! py-7!">
+            <div className="mb-5.5!">
+                <h2 className="m-0! mb-1.25! text-[18px] font-semibold text-[#f0f0f0]">{t('wizard.firmware.title')}</h2>
+                <p className="m-0! text-[12.5px] text-[#666]">{t('wizard.firmware.subtitle')}</p>
+            </div>
 
-        <Section icon={<Ico.File />} title={t('wizard.firmware.section.parsing')} accent="#0078d4">
-            <SettingRow
-                icon={<Ico.File />}
-                label={t('wizard.firmware.parse.label')}
-                badge={t('wizard.badge.new')}
-                desc={t('wizard.firmware.parse.desc')}
-            >
-                <Toggle checked={parseFileName} onChange={setParseFileName} />
-            </SettingRow>
-            {parseFileName && (
-                <div style={{ padding: "10px 20px 16px 52px", borderBottom: "1px solid #222" }}>
-                    <div style={{ fontSize: 12, color: "#aaa", marginBottom: 6 }}>
-                        {t('wizard.firmware.linkOutDir.label')}
+            <Section icon={<Ico.File />} title={t('wizard.firmware.section.parsing')} accent="#0078d4">
+                <SettingRow
+                    icon={<Ico.File />}
+                    label={t('wizard.firmware.parse.label')}
+                    badge={t('wizard.badge.new')}
+                    desc={t('wizard.firmware.parse.desc')}
+                >
+                    <Toggle checked={parseFileName} onChange={setParseFileName} />
+                </SettingRow>
+                {parseFileName && (
+                    <div className="border-b border-[#222] pb-4! pl-13! pr-5! pt-2.5!">
+                        <div className="mb-1.5! text-[12px] text-[#aaa]">
+                            {t('wizard.firmware.linkOutDir.label')}
+                        </div>
+                        <input
+                            type="text"
+                            value={linkOutDir}
+                            onChange={e => setLinkOutDir(e.target.value)}
+                            placeholder="IPSW_FILES"
+                            className="w-full rounded border border-[#3a3a3a] bg-[#1a1a1a] px-2.5! py-1.5! font-mono text-[12px] text-[#e8e8e8] outline-none transition-colors focus:border-[#0078d4]"
+                        />
+                        <div className="mt-1! text-[11px] text-[#666]">
+                            {t('wizard.firmware.linkOutDir.desc')}
+                        </div>
                     </div>
-                    <input
-                        type="text"
-                        value={linkOutDir}
-                        onChange={e => setLinkOutDir(e.target.value)}
-                        placeholder="IPSW_FILES"
-                        style={{
-                            width: "100%", background: "#1a1a1a", border: "1px solid #3a3a3a",
-                            borderRadius: 4, padding: "6px 10px", outline: "none",
-                            fontFamily: "'Cascadia Code', 'Consolas', monospace",
-                            fontSize: 12, color: "#e8e8e8", boxSizing: "border-box",
-                        }}
-                        onFocus={e => e.currentTarget.style.borderColor = "#0078d4"}
-                        onBlur={e => e.currentTarget.style.borderColor = "#3a3a3a"}
-                    />
-                    <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-                        {t('wizard.firmware.linkOutDir.desc')}
-                    </div>
-                </div>
-            )}
-        </Section>
+                )}
+            </Section>
 
-        <Section icon={<Ico.Trash />} title={t('wizard.firmware.section.cleanup')} accent="#22c55e">
-            <SettingRow
-                icon={<Ico.Trash />}
-                label={t('wizard.firmware.removeOld.label')}
-                badge={t('wizard.badge.new')}
-                desc={t('wizard.firmware.removeOld.desc')}
-            >
-                <Toggle checked={autoRemoveOld} onChange={setAutoRemoveOld} />
-            </SettingRow>
-            <SettingRow
-                icon={<Ico.Copy />}
-                label={t('wizard.firmware.removeDupe.label')}
-                badge={t('wizard.badge.new')}
-                desc={t('wizard.firmware.removeDupe.desc')}
-            >
-                <Toggle checked={autoRemoveDupe} onChange={setAutoRemoveDupe} />
-            </SettingRow>
-            <SettingRow
-                icon={<Ico.Shield />}
-                label={t('wizard.firmware.removeInvalid.label')}
-                badge={t('wizard.badge.new')}
-                desc={t('wizard.firmware.removeInvalid.desc')}
-            >
-                <Toggle checked={autoRemoveInvalid} onChange={setAutoRemoveInvalid} />
-            </SettingRow>
-        </Section>
+            <Section icon={<Ico.Trash />} title={t('wizard.firmware.section.cleanup')} accent="#22c55e">
+                <SettingRow
+                    icon={<Ico.Trash />}
+                    label={t('wizard.firmware.removeOld.label')}
+                    badge={t('wizard.badge.new')}
+                    desc={t('wizard.firmware.removeOld.desc')}
+                >
+                    <Toggle checked={autoRemoveOld} onChange={setAutoRemoveOld} />
+                </SettingRow>
+                <SettingRow
+                    icon={<Ico.Copy />}
+                    label={t('wizard.firmware.removeDupe.label')}
+                    badge={t('wizard.badge.new')}
+                    desc={t('wizard.firmware.removeDupe.desc')}
+                >
+                    <Toggle checked={autoRemoveDupe} onChange={setAutoRemoveDupe} />
+                </SettingRow>
+                <SettingRow
+                    icon={<Ico.Shield />}
+                    label={t('wizard.firmware.removeInvalid.label')}
+                    badge={t('wizard.badge.new')}
+                    desc={t('wizard.firmware.removeInvalid.desc')}
+                >
+                    <Toggle checked={autoRemoveInvalid} onChange={setAutoRemoveInvalid} />
+                </SettingRow>
+            </Section>
 
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
-            <button
-                onClick={onBack}
-                style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "8px 18px", borderRadius: 4,
-                    background: "transparent", border: "1px solid #3a3a3a",
-                    color: "#aaa", cursor: "pointer",
-                    fontSize: 13, fontWeight: 500, transition: "all 0.12s",
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#1e1e1e"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#555"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#3a3a3a"; }}
-            >
-                <Ico.ChevronLeft /> {t('wizard.btn.back')}
-            </button>
-            <button
-                onClick={onFinish}
-                style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    padding: "8px 22px", borderRadius: 4,
-                    background: "#0078d4", border: "none",
-                    color: "#fff", cursor: "pointer",
-                    fontSize: 13, fontWeight: 500, transition: "background 0.12s",
-                    boxShadow: "0 2px 10px #0078d440",
-                }}
-                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "#1a86d8"}
-                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "#0078d4"}
-            >
-                {t('wizard.firmware.btn.finish')} <Ico.Check />
-            </button>
+            <div className="mt-4! flex justify-between">
+                <BtnBack onClick={onBack} label={t('wizard.btn.back')} />
+                <button
+                    onClick={onFinish}
+                    className="flex cursor-pointer items-center gap-2 rounded border-none bg-[#0078d4] px-5.5! py-2! text-[13px] font-medium text-white shadow-[0_2px_10px_#0078d440] transition-colors duration-120 hover:bg-[#1a86d8]"
+                >
+                    {t('wizard.firmware.btn.finish')} <Ico.Check />
+                </button>
+            </div>
         </div>
-    </div>
-);
+    );
 };
 
 // ─── Done Screen ──────────────────────────────────────────────────────────────
@@ -580,32 +437,50 @@ const PageFirmware: React.FC<FirmwarePageProps> = ({
 const PageDone: React.FC = () => {
     const { t } = useTranslation();
     return (
-    <div style={{
-        flex: 1, display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: 16,
-        padding: 40,
-    }}>
-        <div style={{
-            width: 60, height: 60, borderRadius: "50%",
-            background: "#0078d4",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            animation: "popIn 0.4s cubic-bezier(.34,1.56,.64,1) both",
-        }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-            </svg>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-10!">
+            <div className="flex size-15 animate-[popIn_0.4s_cubic-bezier(.34,1.56,.64,1)_both] items-center justify-center rounded-full bg-[#0078d4]">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+            </div>
+            <div className="text-center">
+                <div className="mb-1.5! text-[18px] font-semibold text-[#f0f0f0]">{t('wizard.done.title')}</div>
+                <div className="text-[12.5px] text-[#666]">{t('wizard.done.subtitle')}</div>
+            </div>
         </div>
-        <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "#f0f0f0", marginBottom: 6 }}>{t('wizard.done.title')}</div>
-            <div style={{ fontSize: 12.5, color: "#666" }}>{t('wizard.done.subtitle')}</div>
-        </div>
-    </div>
-);
+    );
 };
+
+// ─── Shared Button Primitives ─────────────────────────────────────────────────
+
+const BtnBack: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
+    <button
+        onClick={onClick}
+        className="flex cursor-pointer items-center gap-1.5 rounded border border-[#3a3a3a] bg-transparent px-4.5! py-2! text-[13px] font-medium text-[#aaa] transition-all duration-120 hover:border-[#555] hover:bg-[#1e1e1e]"
+    >
+        <Ico.ChevronLeft /> {label}
+    </button>
+);
+
+const BtnNext: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
+    <button
+        onClick={onClick}
+        className="flex cursor-pointer items-center gap-2 rounded border-none bg-[#0078d4] px-5! py-2! text-[13px] font-medium text-white transition-colors duration-120 hover:bg-[#1a86d8]"
+    >
+        {label} <Ico.Arrow />
+    </button>
+);
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
 type Page = "welcome" | "download" | "firmware" | "done";
+
+const PROGRESS: Record<Page, string> = {
+    welcome: "33%",
+    download: "66%",
+    firmware: "100%",
+    done: "100%",
+};
 
 export default function App(): JSX.Element {
     const [page, setPage] = useState<Page>("welcome");
@@ -619,11 +494,8 @@ export default function App(): JSX.Element {
     const [autoRemoveInvalid, setAutoRemoveInvalid] = useState<boolean>(true);
 
     const mountedRef = useRef(true);
-    useEffect(() => {
-        return () => { mountedRef.current = false; };
-    }, []);
+    useEffect(() => () => { mountedRef.current = false; }, []);
 
-    // Load persisted settings on mount
     useEffect(() => {
         Promise.all([
             window.store.get('ipswFolder'),
@@ -634,16 +506,7 @@ export default function App(): JSX.Element {
             window.store.get('cleanup_remove_old'),
             window.store.get('cleanup_remove_duplicate'),
             window.store.get('cleanup_remove_invalid'),
-        ]).then(([
-            savedFolder,
-            savedTurboMode,
-            savedSkipVerify,
-            savedLinkEnabled,
-            savedLinkOutDir,
-            savedCleanOld,
-            savedCleanDupe,
-            savedCleanInvalid,
-        ]) => {
+        ]).then(([savedFolder, savedTurboMode, savedSkipVerify, savedLinkEnabled, savedLinkOutDir, savedCleanOld, savedCleanDupe, savedCleanInvalid]) => {
             if (savedFolder) setSaveDir(savedFolder);
             if (savedTurboMode != null) setTurboMode(savedTurboMode);
             if (savedSkipVerify != null) setSkipVerify(savedSkipVerify);
@@ -661,14 +524,12 @@ export default function App(): JSX.Element {
     }, []);
 
     const finishSetup = useCallback(async () => {
-        // Sync renderer state
         state.currentFolder = saveDir;
         state.turboMode = turboMode;
         state.normalizeName = parseFileName;
         state.autoRemoveOldFiles = autoRemoveOld;
         state.autoRemoveDuplicateFiles = autoRemoveDupe;
 
-        // Persist all settings + mark wizard as completed
         await Promise.all([
             window.store.set('ipswFolder', saveDir),
             window.store.set('turboMode', turboMode),
@@ -681,63 +542,47 @@ export default function App(): JSX.Element {
             window.store.set('settingVersion', SETTING_VERSION),
         ]);
 
-        // Show "All set!" briefly, then relaunch to apply
         setPage("done");
         await new Promise(r => setTimeout(r, 1500));
         if (mountedRef.current) window.api.relaunch();
     }, [saveDir, turboMode, skipVerify, parseFileName, linkOutDir, autoRemoveOld, autoRemoveDupe, autoRemoveInvalid]);
 
-    const navigate = (target: Page) => {
-        setPage(target);
-    };
-
-    const css = `
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #root { height: 100%; background: #111; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; color: #e0e0e0; -webkit-font-smoothing: antialiased; }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
-    ::-webkit-scrollbar-thumb:hover { background: #383838; }
-    @keyframes popIn {
-      0% { transform: scale(0); opacity: 0; }
-      70% { transform: scale(1.15); }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    @keyframes fadeSlide {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .page-enter { animation: fadeSlide 0.22s ease both; }
-  `;
-
     return (
         <>
-            <style>{css}</style>
-            {/* Window chrome */}
-            <div style={{
-                display: "flex", flexDirection: "column",
-                height: "100vh", minHeight: 560,
-                background: "#111",
-                border: "1px solid #2a2a2a",
-                overflow: "hidden",
-                borderRadius: 8,
-            }}>
-                {/* Body */}
-                <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-                    {/* Main content */}
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#111" }}>
-                        <div key={page} className="page-enter" style={{ display: "flex", flex: 1, flexDirection: "column", overflowY: "auto" }}>
-                            {page === "welcome" && <PageWelcome onNext={() => navigate("download")} />}
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+                html, body, #root { height: 100%; background: #111; }
+                ::-webkit-scrollbar { width: 4px; }
+                ::-webkit-scrollbar-track { background: transparent; }
+                ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+                ::-webkit-scrollbar-thumb:hover { background: #383838; }
+                @keyframes popIn {
+                    0% { transform: scale(0); opacity: 0; }
+                    70% { transform: scale(1.15); }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                @keyframes fadeSlide {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .page-enter { animation: fadeSlide 0.22s ease both; }
+            `}</style>
+
+            <div className="flex h-screen min-h-140 flex-col overflow-hidden rounded-lg border border-[#2a2a2a] bg-[#111]">
+                <div className="flex flex-1 overflow-hidden">
+                    <div className="flex flex-1 flex-col overflow-hidden bg-[#111]">
+                        <div key={page} className="page-enter flex flex-1 flex-col overflow-y-auto">
+                            {page === "welcome" && (
+                                <PageWelcome onNext={() => setPage("download")} />
+                            )}
                             {page === "download" && (
                                 <PageDownload
                                     saveDir={saveDir} setSaveDir={setSaveDir}
                                     onBrowseSaveDir={handleBrowseSaveDir}
                                     skipVerify={skipVerify} setSkipVerify={setSkipVerify}
                                     turboMode={turboMode} setTurboMode={setTurboMode}
-                                    onNext={() => navigate("firmware")}
-                                    onBack={() => navigate("welcome")}
+                                    onNext={() => setPage("firmware")}
+                                    onBack={() => setPage("welcome")}
                                 />
                             )}
                             {page === "firmware" && (
@@ -748,7 +593,7 @@ export default function App(): JSX.Element {
                                     autoRemoveDupe={autoRemoveDupe} setAutoRemoveDupe={setAutoRemoveDupe}
                                     autoRemoveInvalid={autoRemoveInvalid} setAutoRemoveInvalid={setAutoRemoveInvalid}
                                     onFinish={finishSetup}
-                                    onBack={() => navigate("download")}
+                                    onBack={() => setPage("download")}
                                 />
                             )}
                             {page === "done" && <PageDone />}
@@ -756,13 +601,11 @@ export default function App(): JSX.Element {
 
                         {/* Bottom progress bar */}
                         {page !== "done" && (
-                            <div style={{ height: 2, background: "#1e1e1e", flexShrink: 0 }}>
-                                <div style={{
-                                    height: "100%",
-                                    width: page === "welcome" ? "33%" : page === "download" ? "66%" : "100%",
-                                    background: "#0078d4",
-                                    transition: "width 0.35s cubic-bezier(.4,0,.2,1)",
-                                }} />
+                            <div className="h-0.5 shrink-0 bg-[#1e1e1e]">
+                                <div
+                                    className="h-full bg-[#0078d4] transition-[width] duration-350 ease-in-out"
+                                    style={{ width: PROGRESS[page] }}
+                                />
                             </div>
                         )}
                     </div>

@@ -16,7 +16,6 @@
     "app.autoDeleteDuplicate.desc": "Tự động xóa các phiên bản trùng nhau",
     "app.download.turboMode.label": "Chế độ tăng tốc",
     "app.download.turboMode.desc": "Sử dụng tối đa tài nguyên máy để tải xuống nhanh hơn",
-
     "confirm": {
         "default": {
             "title": "Bạn vẫn muốn tiếp tục?",
@@ -31,14 +30,16 @@
             }
         }
     },
+    "tooltip": {
+        "updateFirmware": "Cập nhật phần mềm",
+        "removeRedundantFiles": "Xoá tệp không cần thiết",
+        "downloads": "Tải xuống"
+    },
     "confirm.cancelDownload": "Tệp này đang được tải. Bạn chắc chắn muốn hủy?",
     "confirm.btn.delete": "Xóa",
     "confirm.btn.ok": "Ok",
     "confirm.btn.exit": "Thoát",
     "confirm.btn.cancel": "Hủy bỏ",
-    "tooltip.delete.old.duplicate": "Xóa tất cả tệp cũ / trùng lập",
-    "tooltip.refresh": "Làm mới",
-    "tooltip.updateAllFirmWare": "Cập nhật tất cả phần mềm",
     "stats.downloaded": "Đã tải xuống",
     "stats.used": "Đã sử dụng",
     "stats.freeSpace": "Dung lượng trống",
@@ -163,6 +164,42 @@
         "verifying": "Đang xác minh",
         "moving": "Đang di chuyển"
     },
+    "status_label": {
+        "none": "Chưa tải",
+        "queued": "Đang chờ",
+        "downloading": "Đang tải",
+        "downloaded": "Đã tải",
+        "paused": "Tạm dừng",
+        "completed": "Đã tải",
+        "error": "Lỗi",
+        "verifying": "Đang xác minh",
+        "moving": "Đang di chuyển",
+        "canceled": "Huỷ bỏ",
+        "old": "Có phiên bản mới",
+        "corrupted": "Không hoàn chỉnh",
+        "incompleted_dl": "Chưa tải xong"
+    },
+    "status_config": {
+        "none": "Chưa tải",
+        "queued": "Đang chờ",
+        "downloading": "Đang tải",
+        "paused": "Đã tạm dừng",
+        "completed": "Hoàn thành",
+        "downloaded": "Đã tải",
+        "error": "Lỗi",
+        "verifying": "Đang xác minh",
+        "moving": "Đang di chuyển",
+        "cancelled": "Đã huỷ",
+        "old": "Có phiên bản mới",
+        "corrupted": "Không hoàn chỉnh",
+        "incomplete_dl": "Chưa tải xong"
+    },
+    "firmware": {
+        "version": "Phiên bản",
+        "release": "Phát hành",
+        "signed": "Signed",
+        "size": "Kích thước"
+    },
     "action": {
         "pause": "Tạm dừng",
         "resume": "Tiếp tục",
@@ -195,6 +232,18 @@
     },
     "empty": {
         "message": "Không có gì ở đây"
+    },
+    "pages": {
+        "selectDevice": {
+            "detailPanel": {
+                "latestFirmwareUnsigned": "Phiên bản này đã bị thu hồi"
+            },
+            "control": {
+                "button": {
+                    "download": "Tải xuống"
+                }
+            }
+        }
     },
     "wizard": {
         "badge.new": "Mới",

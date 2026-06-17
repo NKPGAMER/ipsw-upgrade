@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { parseIPSW, getFileNameFromUrl } from "@/core/helper";
 import { formatBytes, formatDate } from "@/ui/shared";
@@ -6,7 +7,7 @@ import type { ControlAction, DeviceEntry } from "./types";
 import { computeCardStatus } from "./utils";
 import { ControlButtons } from "./ControlButtons";
 import { FirmwareTable } from "./FirmwareTable";
-import { PRODUCT_ICON } from "./icons";
+import { PRODUCT_ICON, TASKBAR_ICON } from "./icons";
 
 function latestFirmwareItem({ title, content }: { title: string, content: string }) {
   return (
@@ -32,6 +33,7 @@ export function DetailPanel({
   linkedDevices: DeviceEntry[];
   linkedGroup?: Set<string>;
 }) {
+  const { t } = useTranslation();
   const latest = entry.firmwares?.[0] ?? null;
   const status = computeCardStatus(entry, allFiles, incompleteTasks, linkedGroup);
   const isBorrowed = entry.task != null && entry.task.firmware.identifier !== entry.device.identifier;
@@ -110,15 +112,9 @@ export function DetailPanel({
                           Signed
                         </span>
                       ) : (
-                        <>
                           <span className="text-[10px] px-2! py-0.5! rounded-md bg-orange-500/15 text-orange-400 border border-orange-500/20 font-semibold">
                             Unsigned
                           </span>
-                          <p className="text-[11px] font-bold text-amber-400/80">
-                            ⚠ Phiên bản mới nhất đã bị thu hồi. Hãy tìm phiên bản phù hợp trong mục phía dưới.
-                          </p>
-                        </>
-
                       )}
                     </div>
                     <p className="text-[10px] text-gray-500 font-mono">{latest.buildid}</p>
@@ -135,6 +131,17 @@ export function DetailPanel({
                   {latestFirmwareItem({ title: "MD5", content: latest.md5sum || "-" })}
                 </div>
               </div>
+              {!latest.signed && (
+                <div className="w-full flex items-center gap-2 px-3! py-2.5! mb-2! text-left text-amber-400/80 bg-amber-400/20 rounded-xl font-bold">
+                  <p className="text-2xl">
+                    {TASKBAR_ICON.warning}
+                  </p>
+                  <p className="text-[12px] ">
+                   {t("pages.selectDevice.detailPanel.latestFirmwareUnsigned")}
+                </p>
+                </div>
+              )}
+              
               <ControlButtons
                 entry={entry}
                 status={status}

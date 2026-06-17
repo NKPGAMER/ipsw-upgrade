@@ -20,6 +20,15 @@ export const TASKBAR_ICON: Record<string, JSX.Element> = {
     </svg>
   ),
 
+  warning: (
+    <svg className="size-6"  viewBox="0 0 32 32" fill="currentColor">
+      <g fill="none" stroke="currentColor">
+        <path strokeLinecap="round" strokeWidth="2" d="M16 18v-6M6.358 27h19.284c1.516 0 2.48-1.62 1.759-2.953l-9.642-17.8c-.757-1.397-2.761-1.397-3.518 0L4.6 24.047C3.877 25.38 4.842 27 6.358 27Z"></path>
+        <path fill="#currentColor" d="M17 21.5a1 1 0 1 1-2 0a1 1 0 0 1 2 0Z"></path>
+      </g>
+    </svg>
+  ),
+
   close: (
     <svg className="size-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />

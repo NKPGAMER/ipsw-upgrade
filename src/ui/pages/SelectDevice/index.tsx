@@ -9,13 +9,15 @@ import { ipswClient } from "@/index";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { state as globalState } from "@/data";
 import utils from "@/core/utils";
-import { Spinner } from "@/ui/shared";
-
 import type { ControlAction, DeviceEntry } from "./types";
 import { DeviceCard } from "./DeviceCard";
 import { DetailPanel } from "./DetailPanel";
 import { Resizer } from "./Resizer";
 import { TASKBAR_ICON } from "./icons";
+import { Tooltip } from "./Tooltip";
+import { CardSkeleton } from "./CardSkeleton";
+
+const PENDING_TIMEOUT_MS = 15000;
 
 export default function IPSWManager() {
   const [entries, setEntries] = useState<DeviceEntry[]>([]);
@@ -35,6 +37,7 @@ export default function IPSWManager() {
   const requestedFwRef = useRef<Set<string>>(new Set());
   const urlToIdentifiersRef = useRef<Map<string, Set<string>>>(new Map());
   const identifierGroupRef = useRef<Map<string, Set<string>>>(new Map());
+  const pendingTimersRef = useRef<Map<string, number>>(new Map());
   const [identifierToGroup, setIdentifierToGroup] = useState<Map<string, Set<string>>>(new Map());
 
   const { t } = useTranslation();
@@ -61,13 +64,41 @@ export default function IPSWManager() {
   }, []);
 
   const setPending = useCallback((identifier: string, action: ControlAction | null) => {
+    const existing = pendingTimersRef.current.get(identifier);
+    if (existing) {
+      window.clearTimeout(existing);
+      pendingTimersRef.current.delete(identifier);
+    }
+
     setPendingActions(prev => {
       const next = new Map(prev);
       if (action === null) next.delete(identifier);
       else next.set(identifier, action);
       return next;
     });
+
+    if (action !== null) {
+      const timer = window.setTimeout(() => {
+        setPendingActions(prev => {
+          const next = new Map(prev);
+          next.delete(identifier);
+          return next;
+        });
+        pendingTimersRef.current.delete(identifier);
+      }, PENDING_TIMEOUT_MS);
+      pendingTimersRef.current.set(identifier, timer);
+    }
   }, []);
+
+  const clearPendingForGroup = useCallback((identifier: string) => {
+    setPending(identifier, null);
+    const group = identifierGroupRef.current.get(identifier);
+    if (group) {
+      for (const id of group) {
+        if (id !== identifier) setPending(id, null);
+      }
+    }
+  }, [setPending]);
 
   const applyTaskMap = useCallback((next: Map<string, Task>) => {
     taskMapRef.current = next;
@@ -81,7 +112,7 @@ export default function IPSWManager() {
             for (const linkedId of group) {
               const linkedTask = next.get(linkedId);
               if (linkedTask) {
-                newTask = { ...linkedTask, progress: 0, speed: 0, eta: undefined };
+                newTask = { ...linkedTask };
                 break;
               }
             }
@@ -222,50 +253,70 @@ export default function IPSWManager() {
     const d = window.downloader;
     if (!d) return;
 
+    const timers = pendingTimersRef.current;
+
+    const refreshIncomplete = () => {
+      ipswClient.refreshIncompleteTasks().then(() => {
+        setIncompleteTasks(ipswClient.getIncompleteTasks());
+      }).catch((err) => {
+        console.error("[IPSWManager] refresh incomplete tasks failed:", err);
+      });
+    };
+
     const subs = [
       d.onAdded((_id, task) => {
         upsertTask(task);
-        setPending(task.firmware.identifier, null);
-        ipswClient.refreshIncompleteTasks().then(() => {
-          setIncompleteTasks(ipswClient.getIncompleteTasks());
-        });
+        clearPendingForGroup(task.firmware.identifier);
+        refreshIncomplete();
       }),
       d.onProgress((_id, task) => upsertTask(task)),
       d.onPaused((_id, task) => {
         upsertTask(task);
-        setPending(task.firmware.identifier, null);
+        clearPendingForGroup(task.firmware.identifier);
       }),
       d.onResumed((_id, task) => {
         if (task) {
           upsertTask(task);
-          setPending(task.firmware.identifier, null);
+          clearPendingForGroup(task.firmware.identifier);
         }
       }),
       d.onCompleted((_id, task) => {
         upsertTask(task);
-        setPending(task.firmware.identifier, null);
+        clearPendingForGroup(task.firmware.identifier);
+        setAllFiles(ipswClient.getFiles());
       }),
       d.onError((_id, err, task) => {
         upsertTask(task);
-        setPending(task.firmware.identifier, null);
+        clearPendingForGroup(task.firmware.identifier);
       }),
       d.onCancelled((id) => {
+        const affected = new Set<string>();
         for (const [identifier, t] of taskMapRef.current) {
-          if (t.id === id) {
-            setPending(identifier, null);
-            break;
-          }
+          if (t.id === id) affected.add(identifier);
         }
         removeTaskById(id);
+        for (const identifier of affected) {
+          clearPendingForGroup(identifier);
+        }
+        setAllFiles(ipswClient.getFiles());
+        refreshIncomplete();
       }),
       d.onIncompleteDeleted((id) => {
+        const task = ipswClient.getIncompleteTasks().find(t => t.id === id);
         removeTaskById(id);
+        if (task) clearPendingForGroup(task.firmware.identifier);
         ipswClient.removeIncompleteTask(id);
         setIncompleteTasks(ipswClient.getIncompleteTasks());
       }),
     ];
 
-    return () => { subs.forEach(s => s.unsubscribe()); };
+    return () => {
+      subs.forEach(s => s.unsubscribe());
+      for (const timer of timers.values()) {
+        window.clearTimeout(timer);
+      }
+      timers.clear();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -423,15 +474,30 @@ export default function IPSWManager() {
           break;
 
         case "pause":
-          if (task) await d.pause(task.id);
+          if (task) {
+            await d.pause(task.id);
+            clearPendingForGroup(deviceIdentifier);
+          }
           break;
 
         case "resume":
-          if (task) await d.resume(task.id);
+          if (task) {
+            await d.resume(task.id);
+            clearPendingForGroup(deviceIdentifier);
+          }
           break;
 
         case "cancel":
-          if (task) await d.cancel(task.id);
+          if (task) {
+            await d.cancel(task.id);
+            clearPendingForGroup(deviceIdentifier);
+            setAllFiles(ipswClient.getFiles());
+            ipswClient.refreshIncompleteTasks().then(() => {
+              setIncompleteTasks(ipswClient.getIncompleteTasks());
+            }).catch((err) => {
+              console.error("[IPSWManager] cancel refresh incomplete failed:", err);
+            });
+          }
           break;
 
         case "delete":
@@ -451,19 +517,30 @@ export default function IPSWManager() {
 
         case "resume_incomplete": {
           const latestFw = entry.firmwares?.[0];
-          const incompTask = latestFw
+          const linkedGroup = identifierGroupRef.current.get(deviceIdentifier);
+          let incompTask = latestFw
             ? ipswClient.getIncompleteTasks().find(
               t => t.firmware.identifier === deviceIdentifier && t.firmware.buildid === latestFw.buildid
             )
             : undefined;
 
+          if (!incompTask && latestFw && linkedGroup) {
+            for (const linkedId of linkedGroup) {
+              if (linkedId === deviceIdentifier) continue;
+              const match = ipswClient.getIncompleteTasks().find(
+                t => t.firmware.identifier === linkedId && t.firmware.buildid === latestFw.buildid
+              );
+              if (match) { incompTask = match; break; }
+            }
+          }
+
           if (!incompTask) {
             if (firmware) {
               await deleteFile({ identifier: deviceIdentifier }).catch(() => { });
               const { success } = await download(firmware);
-              if (!success) setPending(deviceIdentifier, null);
+              if (!success) clearPendingForGroup(deviceIdentifier);
             } else {
-              setPending(deviceIdentifier, null);
+              clearPendingForGroup(deviceIdentifier);
             }
             break;
           }
@@ -474,18 +551,29 @@ export default function IPSWManager() {
             setIncompleteTasks(ipswClient.getIncompleteTasks());
             await deleteFile({ identifier: deviceIdentifier }).catch(() => { });
           } else {
-            setPending(deviceIdentifier, null);
+            clearPendingForGroup(deviceIdentifier);
           }
           break;
         }
 
         case "delete_incomplete": {
           const latestFw = entry.firmwares?.[0];
-          const incompTask = latestFw
+          const linkedGroup = identifierGroupRef.current.get(deviceIdentifier);
+          let incompTask = latestFw
             ? ipswClient.getIncompleteTasks().find(
               t => t.firmware.identifier === deviceIdentifier && t.firmware.buildid === latestFw.buildid
             )
             : undefined;
+
+          if (!incompTask && latestFw && linkedGroup) {
+            for (const linkedId of linkedGroup) {
+              if (linkedId === deviceIdentifier) continue;
+              const match = ipswClient.getIncompleteTasks().find(
+                t => t.firmware.identifier === linkedId && t.firmware.buildid === latestFw.buildid
+              );
+              if (match) { incompTask = match; break; }
+            }
+          }
 
           if (incompTask) {
             const result = await d.deleteIncomplete(incompTask.id);
@@ -494,7 +582,7 @@ export default function IPSWManager() {
               setIncompleteTasks(ipswClient.getIncompleteTasks());
             }
           }
-          setPending(deviceIdentifier, null);
+          clearPendingForGroup(deviceIdentifier);
           break;
         }
 
@@ -503,9 +591,9 @@ export default function IPSWManager() {
       }
     } catch (err) {
       console.error(`[IPSWManager] Action "${action}" on ${deviceIdentifier} failed:`, err);
-      setPending(deviceIdentifier, null);
+      clearPendingForGroup(deviceIdentifier);
     }
-  }, [getEffectiveTask, setPending, applyTaskMap]);
+  }, [getEffectiveTask, setPending, applyTaskMap, clearPendingForGroup]);
 
   const handleRedundantFiles = useCallback(async () => {
     const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
@@ -570,44 +658,55 @@ export default function IPSWManager() {
               </div>
             </div>
             <div className="flex items-center justify-between gap-1.5 shrink-0">
-              <button
-                title="Cập nhật tất cả firmware"
-                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
-                onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
-              >
-                {TASKBAR_ICON.update}
-              </button>
+              <Tooltip label={t("tooltip.updateFirmware")} position="bottom">
+                <button
+                  className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
+                  onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
+                >
+                  {TASKBAR_ICON.update}
+                </button>
+              </Tooltip>
 
-              <button
-                onClick={async () => handleRedundantFiles()}
-                title="Xóa tệp không cần thiết"
-                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
-              >
-                {TASKBAR_ICON.delete}
-              </button>
+              <Tooltip label={t("tooltip.removeRedundantFiles")} position="bottom">
+                <button
+                  onClick={async () => handleRedundantFiles()}
+                  className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
+                >
+                  {TASKBAR_ICON.delete}
+                </button>
+              </Tooltip>
 
-              <button
-                onClick={() => navigate("/downloads")}
-                title="Tải xuống"
-                className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
-              >
-                {TASKBAR_ICON.download}
-              </button>
-              <button
-                onClick={() => navigate("/")}
-                title="Đóng"
-                className="w-10 h-8 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 flex items-center justify-center transition-all"
-              >
-                {TASKBAR_ICON.close}
-              </button>
+              <Tooltip label={t("tooltip.downloads")} position="bottom">
+                <button
+                  onClick={() => navigate("/downloads")}
+                  className="w-10 h-8 p-2! rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-gray-500 hover:text-gray-400 flex items-center justify-center transition-colors shrink-0"
+                >
+                  {TASKBAR_ICON.download}
+                </button>
+              </Tooltip>
+
+                <button
+                  onClick={() => navigate("/")}
+                  className="w-10 h-8 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 flex items-center justify-center transition-all"
+                >
+                  {TASKBAR_ICON.close}
+                </button>
             </div>
           </div>
 
           <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-3! scrollbar-thin">
             {loading ? (
-              <div className="flex items-center justify-center h-32 gap-2 text-gray-600">
-                <Spinner className="w-4 h-4 text-gray-600" />
-                <span className="text-[12px]">Đang tải…</span>
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}>
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-50 relative rounded-[14px] cursor-default select-none overflow-visible aurora-border"
+                  >
+                    <div className="relative w-full h-full rounded-[14px] border border-transparent bg-[#0c0c0f] overflow-hidden">
+                      <CardSkeleton />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 gap-2 text-gray-600">
@@ -706,6 +805,11 @@ export default function IPSWManager() {
       </div>
 
       <style>{`
+        @property --aurora-angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
         @keyframes slideIn {
           from { opacity: 0; transform: translateX(20px); }
           to   { opacity: 1; transform: translateX(0); }
@@ -731,6 +835,42 @@ export default function IPSWManager() {
           100% { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
         }
         .animate-turbo-flash { animation: turboFlash 0.6s ease-out 3; }
+        @keyframes cardEnter {
+          from { opacity: 0; transform: translateY(10px) scale(0.985); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-card-enter { animation: cardEnter 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+        .aurora-border::before {
+          content: "";
+          position: absolute;
+          inset: -3px;
+          border-radius: 17px;
+          padding: 3px;
+          background: conic-gradient(from var(--aurora-angle), #137fec, #8b5cf6, #06b6d4, #137fec);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          z-index: -1;
+          animation: aurora-rotate 3s linear infinite;
+        }
+        .aurora-border::after {
+          content: "";
+          position: absolute;
+          inset: -3px;
+          border-radius: 17px;
+          padding: 3px;
+          background: conic-gradient(from var(--aurora-angle), #137fec, #8b5cf6, #06b6d4, #137fec);
+          filter: blur(10px);
+          opacity: 0.45;
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          z-index: -2;
+          animation: aurora-rotate 3s linear infinite;
+        }
+        @keyframes aurora-rotate { to { --aurora-angle: 360deg; } }
         .scrollbar-thin::-webkit-scrollbar { width: 4px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }

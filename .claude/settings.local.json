@@ -3,8 +3,6 @@
     "allow": [
       "Bash(npx tsc *)",
       "Bash(npm run *)",
-      "Bash(Select-String -Pattern \"welcome|App.tsx\")",
-      "Bash(Select-String \"downloader\\\\.ts|cleanup\\\\.ts\")",
       "Bash(Get-Content *)"
     ]
   }

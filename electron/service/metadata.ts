@@ -2,16 +2,11 @@ import userData from "./userData";
 
 class _MetaData {
   private readonly file = "metadata.json"
-  private parse(raw: string | null): Record<string, unknown> {
-    if (!raw) return {};
-    try { return JSON.parse(raw); } catch { return {}; }
-  }
 
   async read(): Promise<Record<string, unknown>>;
   async read<T = unknown>(key: string): Promise<T | null>;
   async read<T = unknown>(key?: string): Promise<Record<string, unknown> | T | null> {
-    const raw = await userData.read<string>(this.file);
-    const data = this.parse(raw);
+    const data = (await userData.read<Record<string, unknown>>(this.file)) ?? {};
     if (key === undefined) return data;
     return (data[key] as T) ?? null;
   }

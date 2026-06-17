@@ -1,4 +1,4 @@
-import type { DeviceWithIPSWs, DeviceWithOTAs, IPSWFirmware, OTAFirmware, Release, Releases } from "@custom-type/ipswAPI";
+import type { DeviceWithIPSWs, DeviceWithOTAs, IPSWFirmware, OTAFirmware, Releases } from "@custom-type/ipswAPI";
 
 interface FetchResult<T = any> {
   success: boolean;

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { formatBytes, formatEta, Spinner } from "@/ui/shared";
 import type { CardTask, ControlAction, DeviceEntry } from "./types";
@@ -25,6 +26,7 @@ export const ControlButtons = memo(function ControlButtons({
 }) {
   const latestFw = entry.firmwares?.[0];
   const busy = pendingAction !== null;
+  const { t } = useTranslation();
 
   // ── Chưa tải (none) ──────────────────────────────────────────────────────
   if (status === "none") {
@@ -41,7 +43,7 @@ export const ControlButtons = memo(function ControlButtons({
               <path d="M12 2v13m-5-5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M4 20h16" strokeLinecap="round" />
             </svg>
-            Download
+            {t("pages.selectDevice.control.button.download")}
           </>
         }
       </button>
@@ -287,8 +289,8 @@ export const ControlButtons = memo(function ControlButtons({
       return (
         <div className="bg-white/4 rounded-xl p-3! border border-white/6">
           <div className="flex items-center gap-2">
-            <div className={`w-1.75 h-1.75 rounded-full ${STATUS_CONFIG[status].dot} ${STATUS_CONFIG[status].animate ? "animate-pulse" : ""}`} />
-            <span className={`text-[13px] font-semibold ${STATUS_CONFIG[status].text}`}>{STATUS_LABEL[status]}</span>
+            <div className={`w-1.75 h-1.75 rounded-full ${STATUS_CONFIG[status].dotClass} ${STATUS_CONFIG[status].animated ? "animate-pulse" : ""}`} />
+            <span className={`text-[13px] font-semibold ${STATUS_CONFIG[status].textClass}`}>{t(STATUS_LABEL[status] as any)}</span>
             <span className="text-[10px] text-gray-500">qua thiết bị liên kết</span>
           </div>
         </div>
@@ -299,7 +301,7 @@ export const ControlButtons = memo(function ControlButtons({
       <div className="space-y-2!">
         <div className="bg-white/4 rounded-xl p-3! border border-white/6 space-y-1.5">
           <div className="flex justify-between text-[11px]">
-            <span className={STATUS_COLOR[status]}>{STATUS_LABEL[status]}</span>
+            <span className={STATUS_COLOR[status]}>{t(STATUS_LABEL[status] as any)}</span>
             <span className="text-white font-semibold">{entry.task!.progress}%</span>
           </div>
           <ProgressBar value={entry.task!.progress} status={status as TaskStatus} />
@@ -378,8 +380,8 @@ export const ControlButtons = memo(function ControlButtons({
       return (
         <div className="bg-white/4 rounded-xl p-3! border border-white/6">
           <div className="flex items-center gap-2">
-            <div className={`w-1.75 h-1.75 rounded-full ${STATUS_CONFIG[status].dot} animate-pulse`} />
-            <span className={`text-[13px] font-semibold ${STATUS_CONFIG[status].text}`}>{STATUS_LABEL[status]}…</span>
+            <div className={`w-1.75 h-1.75 rounded-full ${STATUS_CONFIG[status].dotClass} animate-pulse`} />
+            <span className={`text-[13px] font-semibold ${STATUS_CONFIG[status].textClass}`}>{t(STATUS_LABEL[status] as any)}…</span>
             <span className="text-[10px] text-gray-500">qua thiết bị liên kết</span>
           </div>
         </div>
@@ -389,7 +391,7 @@ export const ControlButtons = memo(function ControlButtons({
     return (
       <div className="bg-white/4 rounded-xl p-3! border border-white/6 space-y-1.5">
         <div className="flex justify-between text-[11px]">
-          <span className={STATUS_COLOR[status]}>{STATUS_LABEL[status]}…</span>
+          <span className={STATUS_COLOR[status]}>{t(STATUS_LABEL[status] as any)}…</span>
           <span className="text-white font-semibold">{entry.task?.progress ?? 0}%</span>
         </div>
         <ProgressBar value={entry.task?.progress ?? 0} status={status as TaskStatus} />

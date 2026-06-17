@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { formatBytes, formatEta, Spinner } from "@/ui/shared";
 import type { DeviceEntry } from "./types";
@@ -35,6 +36,7 @@ export const DeviceCard = memo(function DeviceCard({
   const [flash, setFlash] = useState(false);
   const [turboFlash, setTurboFlash] = useState(false);
   const prevMode = useRef(entry.task?.mode);
+  const { t } = useTranslation();
 
   const status = computeCardStatus(entry, allFiles, incompleteTasks, linkedGroup);
   const cfg = STATUS_CONFIG[status];
@@ -101,6 +103,7 @@ export const DeviceCard = memo(function DeviceCard({
   const osLabel = OS_LABEL[product as Product] ?? "Version";
   const firmwaresLoaded = entry.firmwares != null;
   const isWaiting = entry.firmwares === undefined;
+  const showAurora = !firmwaresLoaded;
 
   return (
     <div
@@ -108,14 +111,17 @@ export const DeviceCard = memo(function DeviceCard({
       onClick={onClick}
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(5px)",
-        transition: "opacity 0.3s, transform 0.3s, background 0.15s, border-color 0.15s",
+        transform: visible ? "translateY(0) scale(1)" : "translateY(8px) scale(0.985)",
+        transition: "opacity 0.35s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1), background 0.15s, border-color 0.15s",
+        willChange: "transform, opacity",
       }}
       className={`
-        group h-50 relative cursor-pointer rounded-[14px] border select-none overflow-hidden
-        ${selected
-          ? "border-[#137fec]/50 bg-[#137fec]/8 shadow-[0_0_0_1px_rgba(19,127,236,0.18)]"
-          : "border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15"
+        group h-50 relative cursor-pointer rounded-[14px] border select-none
+        ${showAurora
+          ? "overflow-visible aurora-border border-transparent bg-[#0c0c0f]"
+          : selected
+            ? "overflow-hidden border-[#137fec]/50 bg-[#137fec]/8 shadow-[0_0_0_1px_rgba(19,127,236,0.18)]"
+            : "overflow-hidden border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15"
         }
         ${flash ? "animate-card-flash" : ""}
       `}
@@ -164,11 +170,11 @@ export const DeviceCard = memo(function DeviceCard({
 
           <div className="mt-1! pt-3! flex items-center justify-between">
             <div className="flex flex-start">
-              <div className={`inline-flex items-center gap-2 rounded-lg px-3! py-1.5! ${cfg.pill}`}>
+              <div className={`inline-flex items-center gap-2 rounded-lg px-3! py-1.5! ${cfg.pillClass}`}>
                 <div
-                  className={`w-1.75 h-1.75 rounded-full ${cfg.dot} shrink-0 ${cfg.animate ? "animate-pulse" : ""}`}
+                  className={`w-1.75 h-1.75 rounded-full ${cfg.dotClass} shrink-0 ${cfg.animated ? "animate-pulse" : ""}`}
                 />
-                <span className={`text-[13px] font-semibold ${cfg.text}`}>{cfg.label}</span>
+                <span className={`text-[13px] font-semibold ${cfg.textClass}`}>{t(cfg.labelId as any)}</span>
               </div>
 
               {isOwner && inProgress && entry.task?.mode && (

@@ -4,16 +4,20 @@
   "description": "",
   "main": "electron/dist/main.js",
   "scripts": {
-    "build": "npx tsc -p tsconfig.main.json && vite build",
-    "build:main": "npx tsc -p tsconfig.main.json -w",
     "start": "npm run dev",
-    "dist": "npm run build && electron-builder --publish always",
+
+    "build": "vite build",
+    "build:main": "npx tsc -p tsconfig.main.json",
+
     "dev": "concurrently \"vite\" \"electron .\"",
+    "dev:electron": "npx tsc -p tsconfig.main.json -w",
+
+    "dist": "npm run build && electron-builder --publish always",
+
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:src": "eslint src/",
-    "lint:electron": "eslint electron/",
-    "t": "electron ."
+    "lint:electron": "eslint electron/"
   },
   "keywords": [],
   "author": "",

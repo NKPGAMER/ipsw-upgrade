@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { formatBytes, formatDate } from "@/ui/shared";
+import { useTranslation } from "react-i18next";
 
 export function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]; onDownload: (fw: Firmware) => void }) {
   const [page, setPage] = useState(0);
   const PER_PAGE = 5;
   const totalPages = Math.ceil(firmwares.length / PER_PAGE);
   const items = firmwares.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
+  const { t } = useTranslation();
 
   return (
     <div>
@@ -13,10 +15,10 @@ export function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]
         <table className="w-full text-[11px]">
           <thead>
             <tr className="border-b border-white/8 bg-white/3">
-              <th className="text-left px-3! py-2! text-gray-500 font-medium">Phiên bản</th>
-              <th className="text-left px-3! py-2! text-gray-500 font-medium">Phát hành</th>
-              <th className="text-left px-3! py-2! text-gray-500 font-medium">Signed</th>
-              <th className="text-left px-3! py-2! text-gray-500 font-medium">Kích thước</th>
+              <th className="text-left px-3! py-2! text-gray-500 font-medium">{t("firmware.version")}</th>
+              <th className="text-left px-3! py-2! text-gray-500 font-medium">{t("firmware.release")}</th>
+              <th className="text-left px-3! py-2! text-gray-500 font-medium">{t("firmware.signed")}</th>
+              <th className="text-left px-3! py-2! text-gray-500 font-medium">{t("firmware.size")}</th>
               <th className="px-3! py-2!" />
             </tr>
           </thead>

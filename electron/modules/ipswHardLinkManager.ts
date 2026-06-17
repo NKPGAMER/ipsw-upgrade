@@ -342,7 +342,7 @@ export class IPSWHardLinkManager {
       await Promise.all(
         chunk.map(async (device) => {
           const modelData = await this.dataHandle.getModelData(device.identifier, true);
-          if (!modelData) return;
+          if (!modelData || !modelData.firmwares) return;
 
           for (const firmware of modelData.firmwares) {
             const parsed = this.parseIPSW(firmware.url.split("/").pop() ?? "");
