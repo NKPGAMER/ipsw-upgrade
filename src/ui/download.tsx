@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { state as dataState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
 
-import type { Task, TaskStatus, DownloadMode } from "../../global";
+import type { Task, TaskStatus, DownloadMode } from "../../@types/global";
 import { getFileNameFromUrl } from "../core/helper";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

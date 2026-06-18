@@ -8,7 +8,7 @@ import {
 } from "react";
 import { formatBytes, formatEta, Spinner } from "./shared";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ipswClient } from "..";
+import { ipswClient } from "../init";
 import { parseIPSW, getFileNameFromUrl } from "../core/helper";
 import { state as globalState } from "../data";
 import { useDownloadStore } from "../stores/download-store";

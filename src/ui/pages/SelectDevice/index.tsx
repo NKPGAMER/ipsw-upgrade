@@ -1,15 +1,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { Task } from "@global-type";
-import { download, deleteFile, updateFirmware, getRedundantFilesFromProduct } from "@/core/helper";
+import type { Task } from "../../../../@types/global";
+import { download, deleteFile, updateFirmware, getRedundantFilesFromProduct, getFileNameFromUrl, parseIPSW } from "@/core/helper";
 import { state, DEVICE_GROUPS } from "@/data";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ProductId } from "@/ui/home";
-import { ipswClient } from "@/index";
+import { ipswClient } from "@/init";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { state as globalState } from "@/data";
 import utils from "@/core/utils";
-import type { ControlAction, DeviceEntry } from "./types";
+import type { ControlAction, DeviceEntry, VerifyState } from "./types";
 import { DeviceCard } from "./DeviceCard";
 import { DetailPanel } from "./DetailPanel";
 import { Resizer } from "./Resizer";
@@ -28,6 +28,10 @@ export default function IPSWManager() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listWidthPct, setListWidthPct] = useState(65);
   const [pendingActions, setPendingActions] = useState<Map<string, ControlAction>>(new Map());
+
+  const [verifyStates, setVerifyStates] = useState<Map<string, VerifyState>>(new Map());
+  const verifyRunningRef = useRef(false);
+  const allFilesRef = useRef<IPSWFile[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -58,7 +62,9 @@ export default function IPSWManager() {
 
   useEffect(() => {
     const unsub = ipswClient.onReload(() => {
-      setAllFiles(ipswClient.getFiles());
+      const files = ipswClient.getFiles();
+      setAllFiles(files);
+      allFilesRef.current = files;
     });
     return () => unsub();
   }, []);
@@ -88,6 +94,12 @@ export default function IPSWManager() {
       }, PENDING_TIMEOUT_MS);
       pendingTimersRef.current.set(identifier, timer);
     }
+  }, []);
+
+  const updateAllFiles = useCallback(() => {
+    const files = ipswClient.getFiles();
+    setAllFiles(files);
+    allFilesRef.current = files;
   }, []);
 
   const clearPendingForGroup = useCallback((identifier: string) => {
@@ -283,7 +295,7 @@ export default function IPSWManager() {
       d.onCompleted((_id, task) => {
         upsertTask(task);
         clearPendingForGroup(task.firmware.identifier);
-        setAllFiles(ipswClient.getFiles());
+        updateAllFiles();
       }),
       d.onError((_id, err, task) => {
         upsertTask(task);
@@ -298,7 +310,7 @@ export default function IPSWManager() {
         for (const identifier of affected) {
           clearPendingForGroup(identifier);
         }
-        setAllFiles(ipswClient.getFiles());
+        updateAllFiles();
         refreshIncomplete();
       }),
       d.onIncompleteDeleted((id) => {
@@ -307,6 +319,65 @@ export default function IPSWManager() {
         if (task) clearPendingForGroup(task.firmware.identifier);
         ipswClient.removeIncompleteTask(id);
         setIncompleteTasks(ipswClient.getIncompleteTasks());
+      }),
+
+      d.onVerifyProgress((info) => {
+        setVerifyStates(prev => {
+          const next = new Map(prev);
+          next.set(info.identifier, {
+            phase: "verifying",
+            progress: { pct: info.pct, speed: info.speed, eta: info.eta },
+          });
+          return next;
+        });
+      }),
+      d.onVerifyCompleted((info) => {
+        verifyRunningRef.current = false;
+        setVerifyStates(prev => {
+          const next = new Map(prev);
+          next.delete(info.identifier);
+          return next;
+        });
+        setPending(info.identifier, null);
+
+        if (info.ok) {
+          utils.showSuccessMessage("Xác minh thành công! Tệp IPSW khớp với checksum.");
+        } else {
+          const algoLabel = info.algo?.toUpperCase() ?? "?";
+          utils.customConfirm(
+            `Tệp IPSW **không khớp** checksum.\n\n` +
+            `**Thuật toán:** ${algoLabel}\n` +
+            `**Mong đợi:** \`${info.expected}\`\n` +
+            `**Thực tế:** \`${info.actual}\`\n\n` +
+            `Xoá tệp bị hỏng?`,
+            { variant: "danger", title: "Xác minh thất bại", confirmText: "Xoá tệp", cancelText: "Giữ lại" }
+          ).then((shouldDelete) => {
+            if (shouldDelete) {
+              deleteFile({ identifier: info.identifier }).then(() => {
+                updateAllFiles();
+              });
+            }
+          });
+        }
+      }),
+      d.onVerifyCancelled((info) => {
+        verifyRunningRef.current = false;
+        setVerifyStates(prev => {
+          const next = new Map(prev);
+          next.delete(info.identifier);
+          return next;
+        });
+        setPending(info.identifier, null);
+      }),
+      d.onVerifyError((info) => {
+        verifyRunningRef.current = false;
+        setVerifyStates(prev => {
+          const next = new Map(prev);
+          next.delete(info.identifier);
+          return next;
+        });
+        setPending(info.identifier, null);
+        utils.showErrorMessage(`Lỗi xác minh: ${info.error}`);
       }),
     ];
 
@@ -330,6 +401,8 @@ export default function IPSWManager() {
     setAllFiles([]);
     setSelectedId(null);
     setPendingActions(new Map());
+    setVerifyStates(new Map());
+    verifyRunningRef.current = false;
     requestedFwRef.current = new Set();
     urlToIdentifiersRef.current = new Map();
     identifierGroupRef.current = new Map();
@@ -359,6 +432,7 @@ export default function IPSWManager() {
 
       setEntries(builtEntries);
       setAllFiles(initialFiles);
+      allFilesRef.current = initialFiles;
       setIncompleteTasks(ipswClient.getIncompleteTasks());
       setLoading(false);
     }
@@ -457,7 +531,7 @@ export default function IPSWManager() {
           if (!firmware) { setPending(deviceIdentifier, null); return; }
           {
             await deleteFile({ identifier: deviceIdentifier });
-            setAllFiles(ipswClient.getFiles());
+            updateAllFiles();
             const nextMap = new Map(taskMapRef.current);
             nextMap.delete(deviceIdentifier);
             applyTaskMap(nextMap);
@@ -468,7 +542,7 @@ export default function IPSWManager() {
 
         case "update":
           await deleteFile({ identifier: deviceIdentifier });
-          setAllFiles(ipswClient.getFiles());
+          updateAllFiles();
           if (firmware) await updateFirmware(firmware);
           setPending(deviceIdentifier, null);
           break;
@@ -491,7 +565,7 @@ export default function IPSWManager() {
           if (task) {
             await d.cancel(task.id);
             clearPendingForGroup(deviceIdentifier);
-            setAllFiles(ipswClient.getFiles());
+            updateAllFiles();
             ipswClient.refreshIncompleteTasks().then(() => {
               setIncompleteTasks(ipswClient.getIncompleteTasks());
             }).catch((err) => {
@@ -503,7 +577,7 @@ export default function IPSWManager() {
         case "delete":
           await deleteFile({ identifier: deviceIdentifier });
           {
-            setAllFiles(ipswClient.getFiles());
+            updateAllFiles();
             const nextMap = new Map(taskMapRef.current);
             nextMap.delete(deviceIdentifier);
             applyTaskMap(nextMap);
@@ -511,8 +585,55 @@ export default function IPSWManager() {
           setPending(deviceIdentifier, null);
           break;
 
-        case "verify":
-          setPending(deviceIdentifier, null);
+        case "verify": {
+          if (verifyRunningRef.current) {
+            utils.showErrorMessage("Đang xác minh tệp khác, vui lòng đợi.");
+            setPending(deviceIdentifier, null);
+            return;
+          }
+
+          const latestFw = entry.firmwares?.[0];
+          if (!latestFw) { setPending(deviceIdentifier, null); return; }
+
+          const info = parseIPSW(getFileNameFromUrl(latestFw.url));
+          if (!info) { setPending(deviceIdentifier, null); return; }
+
+          const file = allFilesRef.current.find(f => {
+            const parsed = parseIPSW(f.name);
+            return parsed?.id === info.id && parsed?.build === latestFw.buildid;
+          });
+
+          if (!file) {
+            utils.showErrorMessage("Không tìm thấy tệp IPSW.");
+            setPending(deviceIdentifier, null);
+            return;
+          }
+
+          verifyRunningRef.current = true;
+          setVerifyStates(prev => {
+            const next = new Map(prev);
+            next.set(deviceIdentifier, { phase: "verifying", progress: { pct: 0, speed: 0 } });
+            return next;
+          });
+
+          try {
+            await d.verifyChecksum(deviceIdentifier, file.path, latestFw);
+          } catch (err) {
+            console.error("[IPSWManager] verify invoke failed:", err);
+            verifyRunningRef.current = false;
+            setVerifyStates(prev => {
+              const next = new Map(prev);
+              next.delete(deviceIdentifier);
+              return next;
+            });
+            setPending(deviceIdentifier, null);
+            utils.showErrorMessage("Không thể bắt đầu xác minh.");
+          }
+          break;
+        }
+
+        case "cancel_verify":
+          await d.cancelVerify(deviceIdentifier);
           break;
 
         case "resume_incomplete": {
@@ -593,7 +714,7 @@ export default function IPSWManager() {
       console.error(`[IPSWManager] Action "${action}" on ${deviceIdentifier} failed:`, err);
       clearPendingForGroup(deviceIdentifier);
     }
-  }, [getEffectiveTask, setPending, applyTaskMap, clearPendingForGroup]);
+  }, [getEffectiveTask, setPending, applyTaskMap, clearPendingForGroup, updateAllFiles]);
 
   const handleRedundantFiles = useCallback(async () => {
     const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
@@ -794,6 +915,7 @@ export default function IPSWManager() {
                 allFiles={allFiles}
                 incompleteTasks={incompleteTasks}
                 pendingAction={pendingActions.get(selectedEntry.device.identifier) ?? null}
+                verifyState={verifyStates.get(selectedEntry.device.identifier)}
                 onClose={() => setSelectedId(null)}
                 onAction={(action, fw) => handleAction(selectedEntry.device.identifier, action, fw)}
                 linkedDevices={linkedEntries}

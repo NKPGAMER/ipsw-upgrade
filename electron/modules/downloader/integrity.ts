@@ -23,7 +23,8 @@ export class IntegrityChecker {
   async verify(
     filePath: string,
     firmware: Firmware,
-    onProgress?: (info: { pct: number; speed: number; eta?: number }) => void
+    onProgress?: (info: { pct: number; speed: number; eta?: number }) => void,
+    signal?: AbortSignal,
   ): Promise<{ ok: boolean; algo: HashAlgo | null; expected: string; actual: string }> {
     const checks: { algo: HashAlgo; expected: string }[] = [];
 
@@ -51,8 +52,18 @@ export class IntegrityChecker {
 
       try {
         const actual = await new Promise<string>((resolve, reject) => {
+          if (signal?.aborted) return reject(new Error("ABORTED"));
+
           const hash = crypto.createHash(algo);
           const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 * 1024 });
+
+          const onAbort = () => {
+            stream.destroy();
+            reject(new Error("ABORTED"));
+          };
+          signal?.addEventListener("abort", onAbort, { once: true });
+
+          const cleanup = () => signal?.removeEventListener("abort", onAbort);
 
           stream.on("data", (chunk: string | Buffer) => {
             const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
@@ -66,8 +77,8 @@ export class IntegrityChecker {
             }
           });
 
-          stream.on("end", () => resolve(hash.digest("hex")));
-          stream.on("error", reject);
+          stream.on("end", () => { cleanup(); resolve(hash.digest("hex")); });
+          stream.on("error", (err) => { cleanup(); reject(err); });
         });
 
         return {
@@ -77,6 +88,7 @@ export class IntegrityChecker {
           actual: actual.toLowerCase(),
         };
       } catch (err: any) {
+        if (err.message === "ABORTED") throw err;
         lastError = err;
         if (attempt < MAX_RETRIES - 1) {
           await new Promise(r => setTimeout(r, RETRY_DELAY_MS));

@@ -1,5 +1,5 @@
 import { contextBridge, FileFilter, ipcRenderer } from 'electron';
-import type { ElectronApi, ElectronStoreApi, ElectronUpdaterApi, DownloaderAPI } from '../preload';
+import type { ElectronApi, ElectronStoreApi, ElectronUpdaterApi, DownloaderAPI, VerifyProgressInfo, VerifyCompletedInfo, VerifyCancelledInfo, VerifyErrorInfo } from '@custom-type/preload';
 
 function listen<T extends any[]>(
   channel: string,
@@ -56,7 +56,7 @@ const api: ElectronApi = {
 
   getDevices: (product) => ipcRenderer.invoke("dh:getDevices", product),
   getModelData: (identifier) => ipcRenderer.invoke("dh:getModelData", identifier)
-}
+};
 
 const storeApi: ElectronStoreApi = {
   set: (key: string, value?: any) => ipcRenderer.invoke('store', 'set', key, value),
@@ -93,6 +93,15 @@ const downloaderAPI: DownloaderAPI = {
   onCancelled: (cb) => listen("dm:cancelled", cb),
   onIncompleteDeleted: (cb) => listen("dm:incomplete_deleted", cb),
   onError: (cb) => listen("dm:error", cb),
+
+  verifyChecksum: (identifier: string, filePath: string, firmware: Firmware) =>
+    ipcRenderer.invoke("dm:verify", identifier, filePath, firmware),
+  cancelVerify: (identifier: string) =>
+    ipcRenderer.invoke("dm:verify-cancel", identifier),
+  onVerifyProgress: (cb: (info: VerifyProgressInfo) => void) => listen("dm:verify-progress", cb),
+  onVerifyCompleted: (cb: (info: VerifyCompletedInfo) => void) => listen("dm:verify-completed", cb),
+  onVerifyCancelled: (cb: (info: VerifyCancelledInfo) => void) => listen("dm:verify-cancelled", cb),
+  onVerifyError: (cb: (info: VerifyErrorInfo) => void) => listen("dm:verify-error", cb),
 }
 
 contextBridge.exposeInMainWorld('api', api);

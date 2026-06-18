@@ -9,5 +9,5 @@
         "strict": true,
         "skipLibCheck": true,
     },
-    "include": ["electron", "@types", "preload.d.ts", "global.d.ts"]
+    "include": ["electron", "@types"]
 }

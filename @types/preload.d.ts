@@ -86,6 +86,9 @@ interface DownloaderAPI {
   deleteIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
   getEnvironmentInfo: (savePath: string) => Promise<DiskEnvironmentInfo>;
 
+  verifyChecksum: (identifier: string, filePath: string, firmware: Firmware) => Promise<void>;
+  cancelVerify: (identifier: string) => Promise<void>;
+
   // Events
   onStarted: (cb: (id: string, task: Task) => void) => EventResponse;
   onAdded: (cb: (id: string, task: Task) => void) => EventResponse;
@@ -96,6 +99,35 @@ interface DownloaderAPI {
   onCancelled: (cb: (id: string) => void) => EventResponse;
   onIncompleteDeleted: (cb: (id: string) => void) => EventResponse;
   onError: (cb: (id: string, error: string, task: Task) => void) => EventResponse;
+
+  onVerifyProgress: (cb: (info: VerifyProgressInfo) => void) => EventResponse;
+  onVerifyCompleted: (cb: (info: VerifyCompletedInfo) => void) => EventResponse;
+  onVerifyCancelled: (cb: (info: VerifyCancelledInfo) => void) => EventResponse;
+  onVerifyError: (cb: (info: VerifyErrorInfo) => void) => EventResponse;
+}
+
+interface VerifyProgressInfo {
+  identifier: string;
+  pct: number;
+  speed: number;
+  eta?: number;
+}
+
+interface VerifyCompletedInfo {
+  identifier: string;
+  ok: boolean;
+  algo: string | null;
+  expected: string;
+  actual: string;
+}
+
+interface VerifyCancelledInfo {
+  identifier: string;
+}
+
+interface VerifyErrorInfo {
+  identifier: string;
+  error: string;
 }
 
 declare global {
@@ -205,5 +237,9 @@ export type {
   ElectronApi,
   ElectronStoreApi,
   ElectronUpdaterApi,
-  DownloaderAPI
+  DownloaderAPI,
+  VerifyProgressInfo,
+  VerifyCompletedInfo,
+  VerifyCancelledInfo,
+  VerifyErrorInfo,
 };

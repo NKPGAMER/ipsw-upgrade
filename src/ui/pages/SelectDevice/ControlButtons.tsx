@@ -2,10 +2,10 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { formatBytes, formatEta, Spinner } from "@/ui/shared";
-import type { CardTask, ControlAction, DeviceEntry } from "./types";
+import type { CardTask, ControlAction, DeviceEntry, VerifyState } from "./types";
 import { STATUS_CONFIG, STATUS_LABEL, STATUS_COLOR } from "./constants";
 import { ProgressBar } from "./ProgressBar";
-import type { TaskStatus } from "@global-type"
+import type { TaskStatus } from "../../../../@types/global"
 
 export const ControlButtons = memo(function ControlButtons({
   entry,
@@ -13,6 +13,7 @@ export const ControlButtons = memo(function ControlButtons({
   pendingAction,
   incompTask,
   corruptedFile,
+  verifyState,
   onAction,
   readonly,
 }: {
@@ -21,6 +22,7 @@ export const ControlButtons = memo(function ControlButtons({
   pendingAction: ControlAction | null;
   incompTask?: IncompleteTaskClient;
   corruptedFile?: IPSWFile;
+  verifyState?: VerifyState;
   onAction: (action: ControlAction, fw?: Firmware) => void;
   readonly?: boolean;
 }) {
@@ -203,13 +205,36 @@ export const ControlButtons = memo(function ControlButtons({
           >
             {pendingAction === "delete" ? <><Spinner className="w-3 h-3" /> Đang xoá…</> : "Xoá tệp cũ"}
           </button>
-          <button
-            disabled={busy}
-            onClick={() => onAction("verify")}
-            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-          >
-            {pendingAction === "verify" ? <><Spinner className="w-3 h-3" /> Đang kiểm tra…</> : "Xác minh"}
-          </button>
+          {verifyState ? (
+            <div className="flex items-center gap-1.5 flex-1">
+              <div className="flex-1 py-1! px-2! rounded-xl bg-violet-500/10 border border-violet-500/20 flex flex-col justify-center gap-0.5!">
+                <div className="flex justify-between text-[9px]">
+                  <span className="text-violet-300/80 font-medium">Xác minh</span>
+                  <span className="text-violet-200 font-semibold tabular-nums">{verifyState.progress.pct}%</span>
+                </div>
+                <ProgressBar value={verifyState.progress.pct} status="verifying" />
+                <div className="flex justify-between text-[8px] text-gray-500">
+                  <span>{formatBytes(verifyState.progress.speed)}/s</span>
+                  {verifyState.progress.eta != null && <span>còn {formatEta(verifyState.progress.eta)}</span>}
+                </div>
+              </div>
+              <button
+                disabled={busy}
+                onClick={() => onAction("cancel_verify")}
+                className="px-2! py-2! rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/18 text-red-400 text-[10px] font-medium transition-colors disabled:opacity-50 shrink-0"
+              >
+                Huỷ
+              </button>
+            </div>
+          ) : (
+            <button
+              disabled={busy}
+              onClick={() => onAction("verify")}
+              className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              {pendingAction === "verify" ? <><Spinner className="w-3 h-3" /> Đang kiểm tra…</> : "Xác minh"}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -234,14 +259,37 @@ export const ControlButtons = memo(function ControlButtons({
             </>
           }
         </button>
-        <div className="flex gap-2">
-          <button
-            disabled={busy}
-            onClick={() => onAction("verify")}
-            className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-          >
-            {pendingAction === "verify" ? <><Spinner className="w-3 h-3" /> Đang kiểm tra…</> : "Xác minh"}
-          </button>
+        <div className="flex gap-2!">
+          {verifyState ? (
+            <div className="flex items-center gap-1.5 flex-1">
+              <div className="flex-1 py-1! px-2! rounded-xl bg-violet-500/10 border border-violet-500/20 flex flex-col justify-center gap-0.5!">
+                <div className="flex justify-between text-[9px]">
+                  <span className="text-violet-300/80 font-medium">Xác minh</span>
+                  <span className="text-violet-200 font-semibold tabular-nums">{verifyState.progress.pct}%</span>
+                </div>
+                <ProgressBar value={verifyState.progress.pct} status="verifying" />
+                <div className="flex justify-between text-[8px] text-gray-500">
+                  <span>{formatBytes(verifyState.progress.speed)}/s</span>
+                  {verifyState.progress.eta != null && <span>còn {formatEta(verifyState.progress.eta)}</span>}
+                </div>
+              </div>
+              <button
+                disabled={busy}
+                onClick={() => onAction("cancel_verify")}
+                className="px-2! py-2! rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/18 text-red-400 text-[10px] font-medium transition-colors disabled:opacity-50 shrink-0"
+              >
+                Huỷ
+              </button>
+            </div>
+          ) : (
+            <button
+              disabled={busy}
+              onClick={() => onAction("verify")}
+              className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              {pendingAction === "verify" ? <><Spinner className="w-3 h-3" /> Đang kiểm tra…</> : "Xác minh"}
+            </button>
+          )}
           <button
             disabled={busy}
             onClick={() => onAction("redownload", latestFw)}

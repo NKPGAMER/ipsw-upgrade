@@ -11,8 +11,8 @@
         "paths": {
             "@/*": ["./src/*"],
             "@pages/*": ["./src/ui/pages/*"],
-            "@global-type": ["./global.d.ts"]
+            "@global-type": ["./@types/global.d.ts"]
         }
     },
-    "include": ["src", "@types", "vite-env.d.ts", "preload.d.ts", "global.d.ts"]
+    "include": ["src", "@types"]
 }

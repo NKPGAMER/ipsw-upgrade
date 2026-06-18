@@ -1,4 +1,4 @@
-import type { TaskStatus } from "@global-type";
+import type { TaskStatus } from "../../../../@types/global";
 
 export function ProgressBar({ value, status }: { value: number; status: TaskStatus | "incomplete_dl" }) {
   const colorMap: Partial<Record<string, string>> = {

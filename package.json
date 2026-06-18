@@ -17,7 +17,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:src": "eslint src/",
-    "lint:electron": "eslint electron/"
+    "lint:electron": "eslint electron/",
+
+    "t": "electron ."
   },
   "keywords": [],
   "author": "",

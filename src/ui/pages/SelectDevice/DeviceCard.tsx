@@ -10,7 +10,7 @@ import { ProgressBar } from "./ProgressBar";
 import { DeviceName } from "./DeviceName";
 import { CardSkeleton } from "./CardSkeleton";
 import { PRODUCT_ICON } from "./icons";
-import type { TaskStatus } from "@global-type"
+import type { TaskStatus } from "../../../../@types/global"
 
 export const DeviceCard = memo(function DeviceCard({
   entry,

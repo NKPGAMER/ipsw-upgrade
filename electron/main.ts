@@ -67,15 +67,16 @@ const storeGet = (key: string, fallback?: any) => s.get(key) ?? fallback;
 
 // ─── Window Factory ───────────────────────────────────────────────────────────
 
-function createSplashWindow(width: number, height: number): BrowserWindow {
+function createSplashWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: Math.round(width * 0.42),
-    height: Math.round(height * 0.40),
-    frame: false,
-    alwaysOnTop: true,
-    transparent: false,
-    resizable: false,
-  });
+  width: 320,
+  height: 320,
+  frame: false,
+  alwaysOnTop: true,
+  transparent: true,
+  resizable: false,
+  backgroundColor: '#00000000'
+});
   win.loadFile("splash.html");
   return win;
 }
@@ -104,7 +105,7 @@ function createMainWindow(width: number, height: number): BrowserWindow {
 async function init(): Promise<void> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const ipswFolder = storeGet("ipswFolder") || app.getPath('downloads');
-  splash = createSplashWindow(width, height);
+  splash = createSplashWindow();
   mainWindow = createMainWindow(width, height);
 
   setWin(mainWindow);

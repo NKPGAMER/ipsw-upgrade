@@ -1,4 +1,4 @@
-import type { Task, TaskStatus } from "@global-type";
+import type { Task, TaskStatus } from "../../../../@types/global";
 
 export type CardTask = TaskStatus | "none" | "downloaded" | "old" | "corrupted" | "incomplete_dl";
 
@@ -15,5 +15,10 @@ export interface DeviceGroup {
 
 export type ControlAction =
   | "download" | "pause" | "resume" | "cancel"
-  | "delete" | "verify" | "redownload" | "update"
+  | "delete" | "verify" | "cancel_verify" | "redownload" | "update"
   | "resume_incomplete" | "delete_incomplete";
+
+export interface VerifyState {
+  phase: "verifying";
+  progress: { pct: number; speed: number; eta?: number };
+}

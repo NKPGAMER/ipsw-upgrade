@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 
 import type { MainToWorker, WorkerToMain } from "./worker-messages";
 import type { DownloaderConfig, DownloadRequestConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
+import { IntegrityChecker } from "./integrity";
 import { app, ipcMain } from "electron";
 
 interface BrowserWindow {
@@ -18,6 +19,8 @@ export class DownloaderMain {
   private worker: Worker | null = null;
   private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void; timer: NodeJS.Timeout }>();
   private readonly callTimeoutMs = 30_000;
+  private integrityChecker = new IntegrityChecker();
+  private verifyControllers = new Map<string, AbortController>();
 
   constructor(win: BrowserWindow, opts: DownloaderConfig) {
     this.win = win;
@@ -127,6 +130,50 @@ export class DownloaderMain {
     return this.call({ type: "getEnvironmentInfo", reqId: randomUUID(), savePath });
   }
 
+  async startVerify(identifier: string, filePath: string, firmware: Firmware): Promise<void> {
+    this.cancelVerify(identifier);
+
+    const controller = new AbortController();
+    this.verifyControllers.set(identifier, controller);
+
+    try {
+      const result = await this.integrityChecker.verify(
+        filePath,
+        firmware,
+        (progress) => {
+          if (!this.win || this.win.isDestroyed()) return;
+          this.win.webContents.send("dm:verify-progress", { identifier, pct: progress.pct, speed: progress.speed, eta: progress.eta });
+        },
+        controller.signal,
+      );
+
+      if (this.win && !this.win.isDestroyed()) {
+        this.win.webContents.send("dm:verify-completed", {
+          identifier, ok: result.ok, algo: result.algo,
+          expected: result.expected, actual: result.actual,
+        });
+      }
+    } catch (err: any) {
+      if (this.win && !this.win.isDestroyed()) {
+        if (err.message === "ABORTED") {
+          this.win.webContents.send("dm:verify-cancelled", { identifier });
+        } else {
+          this.win.webContents.send("dm:verify-error", { identifier, error: err.message });
+        }
+      }
+    } finally {
+      this.verifyControllers.delete(identifier);
+    }
+  }
+
+  cancelVerify(identifier: string): void {
+    const controller = this.verifyControllers.get(identifier);
+    if (controller) {
+      controller.abort();
+      this.verifyControllers.delete(identifier);
+    }
+  }
+
   /** Terminate the worker gracefully. Call on app quit. */
   async destroy(): Promise<void> {
     if (!this.worker) return;
@@ -179,6 +226,8 @@ export class DownloaderMain {
       ["dm:getAllTask", () => this.getAllTask()],
       ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
       ["dm:getEnvironmentInfo", (_e: any, savePath: string) => this.getEnvironmentInfo(savePath)],
+      ["dm:verify", (_e: any, identifier: string, filePath: string, firmware: Firmware) => { this.startVerify(identifier, filePath, firmware); }],
+      ["dm:verify-cancel", (_e: any, identifier: string) => { this.cancelVerify(identifier); }],
     ];
 
     for (const [channel, handler] of handlers) {

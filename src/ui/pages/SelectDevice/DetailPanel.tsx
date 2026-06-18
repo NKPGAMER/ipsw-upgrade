@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { parseIPSW, getFileNameFromUrl } from "@/core/helper";
 import { formatBytes, formatDate } from "@/ui/shared";
-import type { ControlAction, DeviceEntry } from "./types";
+import type { ControlAction, DeviceEntry, VerifyState } from "./types";
 import { computeCardStatus } from "./utils";
 import { ControlButtons } from "./ControlButtons";
 import { FirmwareTable } from "./FirmwareTable";
@@ -21,7 +21,7 @@ function latestFirmwareItem({ title, content }: { title: string, content: string
 }
 
 export function DetailPanel({
-  entry, product, allFiles, incompleteTasks, pendingAction, onClose, onAction, linkedDevices, linkedGroup,
+  entry, product, allFiles, incompleteTasks, pendingAction, onClose, onAction, linkedDevices, linkedGroup, verifyState,
 }: {
   entry: DeviceEntry;
   product: Product;
@@ -32,6 +32,7 @@ export function DetailPanel({
   onAction: (action: ControlAction, fw?: Firmware) => void;
   linkedDevices: DeviceEntry[];
   linkedGroup?: Set<string>;
+  verifyState?: VerifyState;
 }) {
   const { t } = useTranslation();
   const latest = entry.firmwares?.[0] ?? null;
@@ -148,6 +149,7 @@ export function DetailPanel({
                 pendingAction={pendingAction}
                 incompTask={incompTask}
                 corruptedFile={corruptedFile}
+                verifyState={verifyState}
                 onAction={onAction}
                 readonly={isBorrowed}
               />

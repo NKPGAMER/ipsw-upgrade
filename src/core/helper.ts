@@ -1,6 +1,6 @@
 import { t } from "i18next";
 import { state } from "../data";
-import { ipswClient } from "..";
+import { ipswClient } from "../init";
 import utils from "./utils";
 
 // ─── Semaphore helper ─────────────────────────────────────────────────────────
