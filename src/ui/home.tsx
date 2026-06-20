@@ -351,6 +351,9 @@ export default function Home() {
     ];
   }, [envInfo]);
 
+
+  useEffect(() => window.api.ready(), []);
+
   return (
     <div className="flex flex-col min-h-screen w-full bg-[#0d0d0d] text-[#e5e5e5]">
 

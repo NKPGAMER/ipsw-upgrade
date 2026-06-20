@@ -547,6 +547,8 @@ export default function App(): JSX.Element {
         if (mountedRef.current) window.api.relaunch();
     }, [saveDir, turboMode, skipVerify, parseFileName, linkOutDir, autoRemoveOld, autoRemoveDupe, autoRemoveInvalid]);
 
+     useEffect(() => window.api.ready(), []);
+
     return (
         <>
             <style>{`

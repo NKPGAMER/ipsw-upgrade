@@ -67,17 +67,25 @@ const storeGet = (key: string, fallback?: any) => s.get(key) ?? fallback;
 
 // ─── Window Factory ───────────────────────────────────────────────────────────
 
-function createSplashWindow(): BrowserWindow {
+function createSplashWindow(width: number, height: number): BrowserWindow {
   const win = new BrowserWindow({
-  width: 320,
-  height: 320,
-  frame: false,
-  alwaysOnTop: true,
-  transparent: true,
-  resizable: false,
-  backgroundColor: '#00000000'
-});
-  win.loadFile("splash.html");
+    width: Math.round(width * 0.92),
+    height: Math.round(height * 0.95),
+    frame: false,
+    alwaysOnTop: true,
+    transparent: true,
+    resizable: false,
+    hasShadow: false,           // ⬅ thêm: tắt shadow mặc định của Windows OS — shadow này là hình chữ nhật và sẽ "lộ" rìa vuông quanh phần bo góc
+    backgroundColor: '#00000000',
+    thickFrame: false,          // ⬅ thêm: tắt frame dày của Windows (Aero) hay can thiệp vào alpha blending ở viền
+    webPreferences: {
+      preload: join(__dirname, "preload.splash.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  const splashPath = app.isPackaged ? "dist/splash.html" : "src/splash.html";
+  win.loadFile(splashPath);
   return win;
 }
 
@@ -105,8 +113,19 @@ function createMainWindow(width: number, height: number): BrowserWindow {
 async function init(): Promise<void> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const ipswFolder = storeGet("ipswFolder") || app.getPath('downloads');
-  splash = createSplashWindow();
+  splash = createSplashWindow(width, height);
   mainWindow = createMainWindow(width, height);
+
+  ipcMain.once('renderer:ready', () => {
+    splash?.webContents.send('splash:ready');
+  });
+
+  ipcMain.once('splash:animation-done', () => {
+    splash?.destroy();
+    splash = undefined;
+    mainWindow?.show();
+    isReady = true;
+  });
 
   setWin(mainWindow);
 
@@ -133,7 +152,6 @@ async function init(): Promise<void> {
   });
 
   loadRenderer(mainWindow);
-  registerMainWindowEvents(mainWindow);
 
   void (async () => {
     try {
@@ -157,15 +175,6 @@ function loadRenderer(win: BrowserWindow): void {
   }
 }
 
-function registerMainWindowEvents(win: BrowserWindow): void {
-  win.once("ready-to-show", () => {
-    splash?.destroy();
-    splash = undefined;
-    win.show();
-    isReady = true;
-  });
-}
-
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 
 process.on("unhandledRejection", (reason: Error) => {
@@ -175,12 +184,17 @@ process.on("unhandledRejection", (reason: Error) => {
 app.whenReady().then(async () => {
   await init();
 
-  // Fallback: show main window if `ready-to-show` never fires
+  // Fallback: force splash exit if main window never signals ready-to-show
   setTimeout(() => {
     if (isReady) return;
-    splash?.destroy();
-    splash = undefined;
-    mainWindow?.show();
+    splash?.webContents.send('splash:ready');
+    // Nested fallback: if splash animation never completes, force destroy
+    setTimeout(() => {
+      if (isReady) return;
+      splash?.destroy();
+      splash = undefined;
+      mainWindow?.show();
+    }, 5_000);
   }, SPLASH_TIMEOUT_MS);
 
   setTimeout(() => initAutoUpdater(), UPDATER_INIT_DELAY);
@@ -266,9 +280,9 @@ const handlers: IpcHandler[] = [
   // Persistent store
   ["store", (_, method: string, key: string, value?: any) => {
     switch (method) {
-      case "get":    return s.get(key);
-      case "set":    return s.set(key, value);
-      case "has":    return s.has(key);
+      case "get": return s.get(key);
+      case "set": return s.set(key, value);
+      case "has": return s.has(key);
       case "delete": return s.delete(key);
       default:
         console.warn("[store] unknown method:", method);

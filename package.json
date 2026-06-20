@@ -9,7 +9,7 @@
     "build": "vite build",
     "build:main": "npx tsc -p tsconfig.main.json",
 
-    "dev": "concurrently \"vite\" \"electron .\"",
+    "dev": "npm run build:main && concurrently \"vite\" \"electron .\" \"npm run dev:electron\"",
     "dev:electron": "npx tsc -p tsconfig.main.json -w",
 
     "dist": "npm run build && electron-builder --publish always",
@@ -26,7 +26,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.4",
     "@tailwindcss/cli": "^4.1.18",
     "@tailwindcss/postcss": "^4.2.1",
     "@tailwindcss/vite": "^4.2.1",
@@ -39,7 +39,7 @@
     "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "electron-reloader": "^1.2.3",
-    "eslint": "^10.4.1",
+    "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.6.0",
@@ -88,7 +88,6 @@
     "files": [
       "dist/**/*",
       "electron/dist/**/*",
-      "splash.html",
       "!dist/**/*.map",
       "!electron/dist/**/*.map",
       "!**/test/**",

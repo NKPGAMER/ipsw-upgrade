@@ -98,7 +98,7 @@ const rootConfig = tseslint.config({
 });
 
 export default tseslint.config(
-  { ignores: ["dist/**", "electron/dist/**", "node_modules/**", "release/**"] },
+  { ignores: ["dist/**", "src/dist/**", "electron/dist/**", "node_modules/**", "release/**"] },
   ...commonTS,
   ...frontend,
   ...backend,
