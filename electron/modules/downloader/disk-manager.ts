@@ -94,15 +94,19 @@ export class DiskManager {
     firmwareSize: number,
     bufferBytes: number = 5 * GB,
     deleteOnRun: IPSWFile[] = []
-  ): Promise<{ ok: boolean; available: number; required: number }> {
+  ): Promise<{ ok: boolean; available: number; required: number; unknown?: boolean }> {
     let freeAfterDelete = 0;
     if (deleteOnRun) {
       freeAfterDelete = deleteOnRun.reduce((a, b) => a + b.size, 0);
     }
     const currentUsage = Array.from(this.usageTracker.values()).reduce((a, b) => a + b, 0);
     const required = Math.max(0, firmwareSize + currentUsage + bufferBytes - freeAfterDelete);
-    const info = await this.getDiskInfo(savePath);
-    return { ok: info.available >= required, available: info.available, required };
+    try {
+      const info = await this.getDiskInfo(savePath);
+      return { ok: info.available >= required, available: info.available, required };
+    } catch {
+      return { ok: false, available: -1, required, unknown: true };
+    }
   }
 
   reserveSpace(taskId: string, bytes: number): void { this.usageTracker.set(taskId, bytes); }
@@ -159,11 +163,9 @@ export class DiskManager {
       return { available: s.bavail * s.bsize, total: s.blocks * s.bsize };
     } catch { /* older Node — fall back to PowerShell */ }
 
-    try {
-      return await this.getStatfsWindows(dir);
-    } catch {
-      return { available: 50 * GB, total: 100 * GB };
-    }
+    // PowerShell fallback
+    const result = await this.getStatfsWindows(dir);
+    return result;
   }
 
   private async getStatfsWindows(dir: string): Promise<{ available: number; total: number }> {

@@ -1,24 +1,19 @@
 {
   "name": "ipsw-manager",
-  "version": "3.3.2",
+  "version": "4.0.0",
   "description": "",
   "main": "electron/dist/main.js",
   "scripts": {
     "start": "npm run dev",
-
     "build": "vite build",
     "build:main": "npx tsc -p tsconfig.main.json",
-
     "dev": "npm run build:main && concurrently \"vite\" \"electron .\" \"npm run dev:electron\"",
     "dev:electron": "npx tsc -p tsconfig.main.json -w",
-
     "dist": "npm run build && electron-builder --publish always",
-
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:src": "eslint src/",
     "lint:electron": "eslint electron/",
-
     "t": "electron ."
   },
   "keywords": [],
@@ -52,7 +47,6 @@
     "vitest": "^4.1.8"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "chokidar": "^5.0.0",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.6.2",

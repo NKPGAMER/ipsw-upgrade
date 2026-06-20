@@ -85,7 +85,7 @@ export const DeviceCard = memo(function DeviceCard({
         );
         if (direct) return direct;
         if (linkedGroup) {
-          for (const linkedId of linkedGroup) {
+          for (const linkedId of Array.from(linkedGroup)) {
             if (linkedId === entry.device.identifier) continue;
             const match = incompleteTasks.find(
               t => t.firmware.identifier === linkedId && t.firmware.buildid === latestFw.buildid
@@ -133,14 +133,15 @@ export const DeviceCard = memo(function DeviceCard({
       }}
       className={`
         group h-50 relative cursor-pointer rounded-[14px] border select-none
-        ${selected
+        ${selected && !borderProgress
           ? "overflow-hidden border-[#137fec]/50 bg-[#137fec]/8 shadow-[0_0_0_1px_rgba(19,127,236,0.18)]"
           : borderProgress
-            ? "overflow-visible border-transparent bg-[#0c0c0f]"
+            ? "overflow-visible border-transparent bg-[#0c0c0f] hover:bg-white/[0.03]"
             : showAurora
               ? "overflow-visible aurora-border border-transparent bg-[#0c0c0f]"
               : "overflow-hidden border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15"
         }
+        ${selected && borderProgress ? "ring-1 ring-white/8" : ""}
         ${flash ? "animate-card-flash" : ""}
       `}
     >
@@ -157,7 +158,7 @@ export const DeviceCard = memo(function DeviceCard({
         />
       )}
 
-      {selected && (
+      {selected && !borderProgress && (
         <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r-full bg-[#137fec]" />
       )}
 
@@ -210,17 +211,18 @@ export const DeviceCard = memo(function DeviceCard({
                   <span className={`text-[24px] font-bold font-mono tabular-nums leading-none ${cfg.textClass}`}>
                     {entry.task!.progress}
                   </span>
-                  <span className={`text-[11px] font-medium ${cfg.textClass} opacity-60`}>%</span>
+                  <span className={`text-[12px] font-medium ${cfg.textClass} opacity-60`}>%</span>
                 </div>
-                {status === "downloading" && entry.task!.speed > 0 && (
+                {(status === "downloading" || status === "moving") && entry.task!.speed > 0 && (
                   <div className="text-right">
-                    <p className="text-[11px] text-gray-400 font-mono tabular-nums">
-                      {formatBytes(entry.task!.speed)}/s
+                    <p className="text-[12px] text-gray-400 font-mono tabular-nums">
+                      {formatBytes(entry.task!.speed, 0)}/s
                     </p>
                     {entry.task!.eta && (
-                      <p className="text-[10px] text-gray-500 font-mono tabular-nums">
-                        còn {formatEta(entry.task!.eta)}
-                      </p>
+                      <span className="inline-flex items-baseline gap-1 text-gray-500 font-bold tabular-nums">
+                        <span className="text-[10px] opacity-60">còn</span>
+                        <span className={`text-[20px] ${cfg.textClass}`}>{formatEta(entry.task!.eta)}</span>
+                      </span>
                     )}
                   </div>
                 )}

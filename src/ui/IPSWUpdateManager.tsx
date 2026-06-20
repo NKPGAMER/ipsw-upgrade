@@ -766,7 +766,7 @@ export default function IPSWUpdateManager() {
         ) : scan.phase === "done" && entries.length === 0 ? (
           <EmptyState product={product} />
         ) : (
-          <div className="flex-1 overflow-y-auto px-3! py-3! space-y-1.5" style={{ scrollbarWidth: "thin" }}>
+          <div className="flex-1 overflow-y-auto px-3! py-3! space-y-1.5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(19,127,236,0.5) transparent" }}>
             {entries.map((entry, idx) => {
               const st = entryStates.get(entry.firmware.url) ?? {
                 status: "pending" as EntryStatus,

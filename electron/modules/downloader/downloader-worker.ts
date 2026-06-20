@@ -45,15 +45,15 @@ parentPort.on("message", async (msg: MainToWorker) => {
     }
 
     case "pause":
-      dl.pause(msg.id);
+      reply(msg.reqId, dl.pause(msg.id));
       break;
 
     case "resume":
-      dl.resume(msg.id);
+      reply(msg.reqId, dl.resume(msg.id));
       break;
 
     case "cancel":
-      dl.cancel(msg.id);
+      reply(msg.reqId, dl.cancel(msg.id));
       break;
 
     case "getAllTask":
@@ -65,7 +65,7 @@ parentPort.on("message", async (msg: MainToWorker) => {
       break;
 
     case "resumeIncomplete":
-      reply(msg.reqId, dl.resumeIncomplete(msg.id));
+      reply(msg.reqId, await dl.resumeIncomplete(msg.id));
       break;
 
     case "deleteIncomplete":

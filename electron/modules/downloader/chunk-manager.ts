@@ -22,6 +22,8 @@ export interface ChunkManagerOptions {
   /** DiskManager for dual-disk space check */
   tmpDiskAvailable?: number;
   hddDiskAvailable?: number;
+  /** Allow TLS connections with invalid certificates (for development). */
+  insecureTLS?: boolean;
 }
 
 export interface TurboMoveInfo {
@@ -51,15 +53,20 @@ export type ChunkManagerEvents = {
 const DEFAULT_CHUNK_SIZE = 32 * 1024 * 1024;   // 32 MB per chunk
 const WRITE_HIGH_WATER   = 8 * 1024 * 1024;    // 8 MB — flush threshold
 
+// ─── Speed / ETA smoothing (skill: stable-download-speed) ─────────────────────
+const SPEED_WINDOW_MS = 8_000;   // sliding window: 8 seconds
+const SPEED_ALPHA     = 0.15;    // speed EMA factor
+const ETA_ALPHA       = 0.15;    // ETA EMA factor
+
 /** undici Pool options tuned for bulk file transfer */
-function makePool(origin: string, maxConnections: number): Pool {
+function makePool(origin: string, maxConnections: number, insecureTLS = false): Pool {
   return new Pool(origin, {
     connections: maxConnections,
     pipelining: 1,
     keepAliveTimeout: 30_000,
     keepAliveMaxTimeout: 60_000,
     connect: {
-      rejectUnauthorized: false,
+      ...(insecureTLS ? { rejectUnauthorized: false } : {}),
       timeout: 15_000,
     },
     bodyTimeout: 60_000,
@@ -78,7 +85,7 @@ interface QueuedChunk {
 
 class IOWriteQueue {
   private queue: QueuedChunk[] = [];
-  private active = false;
+  private activeCount = 0;
   private totalMovedBytes = 0;
   private stateManager: StateManager;
   private stateId: string;
@@ -86,6 +93,7 @@ class IOWriteQueue {
   private onError?: (err: Error) => void;
   private totalSize: number;
   private stopped = false;
+  private drainResolve: (() => void) | null = null;
 
   constructor(
     private tmpPath: string,
@@ -95,6 +103,7 @@ class IOWriteQueue {
     totalSize: number,
     onMove?: (info: TurboMoveInfo) => void,
     onError?: (err: Error) => void,
+    private maxConcurrency: number = 2,
   ) {
     this.stateManager = stateManager;
     this.stateId = stateId;
@@ -105,25 +114,36 @@ class IOWriteQueue {
 
   enqueue(chunk: QueuedChunk): void {
     this.queue.push(chunk);
-    if (!this.active && !this.stopped) {
-      this.active = true;
-      this.processQueue();
+    this.scheduleNext();
+  }
+
+  /**
+   * Fill up to maxConcurrency slots. Each move runs independently;
+   * on completion it cascades to fill the next slot.
+   */
+  private scheduleNext(): void {
+    while (this.activeCount < this.maxConcurrency && this.queue.length > 0 && !this.stopped) {
+      const chunk = this.queue.shift()!;
+      this.activeCount++;
+      this.moveChunk(chunk)
+        .catch((err: any) => {
+          this.stopped = true;
+          if (this.onError) this.onError(err);
+        })
+        .finally(() => {
+          this.activeCount--;
+          if (!this.stopped) this.scheduleNext();
+          this.checkDrain();
+        });
     }
   }
 
-  private async processQueue(): Promise<void> {
-    while (this.queue.length > 0 && !this.stopped) {
-      const chunk = this.queue.shift()!;
-      try {
-        await this.moveChunk(chunk);
-      } catch (err: any) {
-        this.stopped = true;
-        if (this.onError) this.onError(err);
-        this.active = false;
-        return;
-      }
+  /** Resolve the drain promise when everything is idle. */
+  private checkDrain(): void {
+    if (this.drainResolve && this.queue.length === 0 && this.activeCount === 0) {
+      this.drainResolve();
+      this.drainResolve = null;
     }
-    this.active = false;
   }
 
   private moveChunk(chunk: QueuedChunk): Promise<void> {
@@ -177,24 +197,32 @@ class IOWriteQueue {
     });
   }
 
-  /** Abort immediately — finish the in-flight chunk then discard the rest of the queue. */
+  /**
+   * Stop — finish in-flight moves then discard the rest of the queue.
+   * If multiple chunks are being moved concurrently, all of them finish
+   * before the promise resolves.
+   */
   async stop(): Promise<void> {
     this.stopped = true;
-    while (this.active) {
+    while (this.activeCount > 0) {
       await new Promise(r => setTimeout(r, 50));
     }
   }
 
-  /** Drain every queued chunk, then return.  If the HDD errors mid-drain the
-   *  stopped flag is raised and we return early — the caller checks movedChunks. */
+  /**
+   * Drain every queued chunk, then return.  If the HDD errors mid-drain the
+   * stopped flag is raised and we return early — the caller checks movedChunks.
+   */
   async drain(): Promise<void> {
-    while ((this.queue.length > 0 || this.active) && !this.stopped) {
-      await new Promise(r => setTimeout(r, 100));
-    }
+    if (this.queue.length === 0 && this.activeCount === 0) return;
+    return new Promise<void>(resolve => {
+      this.drainResolve = resolve;
+      this.checkDrain();
+    });
   }
 
   get hasPending(): boolean {
-    return this.queue.length > 0 || this.active;
+    return this.queue.length > 0 || this.activeCount > 0;
   }
 
   getTotalMovedBytes(): number {
@@ -209,7 +237,7 @@ class IOWriteQueue {
 // ─── ChunkManager ──────────────────────────────────────────────────────────────
 
 export class ChunkManager {
-  private opts: Required<Omit<ChunkManagerOptions, "turboHddSsd" | "tmpDiskAvailable" | "hddDiskAvailable">>;
+  private opts: Required<Omit<ChunkManagerOptions, "turboHddSsd" | "tmpDiskAvailable" | "hddDiskAvailable" | "insecureTLS">>;
   private stateManager: StateManager;
   private state: DownloadState;
   private fd: number = -1;
@@ -219,16 +247,29 @@ export class ChunkManager {
   private listeners: Partial<ChunkManagerEvents> = {};
   private bytesPerSecond = 0;
   private lastSpeedCheck = Date.now();
-  private bytesInWindow = 0;
+  private speedSamples: { timestamp: number; downloaded: number }[] = [];
+  private smoothedSpeed = 0;
+  private smoothedEta = 0;
+
+  // ── AIMD congestion control ────────────────────────────────────────────
+  private aimdConnections = 0;
+  private lastAIMDCheck = 0;
+  private maxSeenSpeed = 0;
+  private previousSpeed = 0;
+
   private stateFlushTimer: NodeJS.Timeout | null = null;
   private pendingStateUpdates: { index: number; downloaded: number; completed: boolean }[] = [];
   private pool!: Pool;
   private totalDownloaded = 0;
 
+  // ── TLS / security ──────────────────────────────────────────────────────
+  private insecureTLS: boolean;
+
   // ── Turbo / promotion state ─────────────────────────────────────────────
   private ioWriteQueue: IOWriteQueue | null = null;
   private turboHddSsd: ChunkManagerOptions["turboHddSsd"];
   private promoting = false;
+  private promoteResolve: (() => void) | null = null;
   private turboPath: string | null = null;
   private triggerTick: (() => void) | null = null; // re-trigger after promotion
 
@@ -260,6 +301,7 @@ export class ChunkManager {
     };
 
     this.turboHddSsd = opts.turboHddSsd;
+    this.insecureTLS = opts.insecureTLS ?? false;
   }
 
   on<K extends keyof ChunkManagerEvents>(event: K, handler: ChunkManagerEvents[K]): this {
@@ -285,8 +327,17 @@ export class ChunkManager {
     this.aborted = false;
     this.buildQueue();
 
+    // Reset speed/ETA smoothing and AIMD state for a fresh ramp-up
+    this.speedSamples = [];
+    this.smoothedSpeed = 0;
+    this.smoothedEta = 0;
+    this.aimdConnections = 0;
+    this.lastAIMDCheck = 0;
+    this.maxSeenSpeed = 0;
+    this.previousSpeed = 0;
+
     const url = new URL(this.state.firmware.url);
-    this.pool = makePool(url.origin, this.opts.maxConnections);
+    this.pool = makePool(url.origin, this.opts.maxConnections, this.insecureTLS);
 
     // ── Dual-disk space check ──────────────────────────────────────────────
     // If turboHddSsd was set, verify both disks have space before allocating
@@ -402,10 +453,16 @@ export class ChunkManager {
 
           // Don't start new downloads while promoting
           if (this.promoting) {
-            if (this.activeCount === 0 && this.pendingQueue.length === 0) {
-              // Wait — promotion will call tick() again
-              return;
+            if (this.activeCount === 0) {
+              // All in-flight chunks done — complete promotion now
+              this.pendingQueue = this.state.chunks.filter(c => !c.completed);
+              this.promoting = false;
+              const resolve = this.promoteResolve;
+              this.promoteResolve = null;
+              resolve?.();
+              tick(); // Continue with turbo settings
             }
+            return;
           }
 
           while (
@@ -438,16 +495,73 @@ export class ChunkManager {
     }
   }
 
-  // ─── Adaptive concurrency ───────────────────────────────────────────────────
+  // ─── Adaptive concurrency (AIMD) ──────────────────────────────────────────
 
+  /**
+   * Throughput-based Additive Increase / Multiplicative Decrease.
+   *
+   * - Starts at `initialConnections`
+   * - Every ~3 seconds evaluates smoothed speed via the sliding-window + EMA pipeline
+   * - If speed is stable or growing → +1 connection (Additive Increase)
+   * - If speed drops >20% from previous → -2 connections (Multiplicative Decrease)
+   * - If speed drops >50% from max seen → halve connections (aggressive backoff)
+   * - Always clamped to [`initialConnections`, `maxConnections`]
+   *
+   * Replaces the old fixed 10-second linear ramp which didn't adapt to
+   * actual network conditions.
+   */
   private currentMaxConnections(): number {
-    const elapsed = (Date.now() - this.lastSpeedCheck) / 1000;
-    const rampFactor = Math.min(1, elapsed / 10);
-    const target = Math.round(
-      this.opts.initialConnections +
-      (this.opts.maxConnections - this.opts.initialConnections) * rampFactor
-    );
-    return Math.max(this.opts.initialConnections, target);
+    const now = Date.now();
+
+    // First call: initialise at the floor
+    if (this.lastAIMDCheck === 0) {
+      this.lastAIMDCheck = now;
+      this.aimdConnections = this.opts.initialConnections;
+      return this.aimdConnections;
+    }
+
+    // Only re-evaluate every ~3 s (called on every chunk completion)
+    if (now - this.lastAIMDCheck < 3_000) {
+      return Math.max(
+        this.opts.initialConnections,
+        Math.min(this.opts.maxConnections, this.aimdConnections),
+      );
+    }
+
+    this.lastAIMDCheck = now;
+    const currentSpeed = this.smoothedSpeed;
+
+    // Not enough throughput data yet — hold steady
+    if (currentSpeed <= 0 || this.previousSpeed <= 0) {
+      this.previousSpeed = currentSpeed;
+      this.maxSeenSpeed = Math.max(this.maxSeenSpeed, currentSpeed);
+      return Math.max(
+        this.opts.initialConnections,
+        Math.min(this.opts.maxConnections, this.aimdConnections),
+      );
+    }
+
+    this.maxSeenSpeed = Math.max(this.maxSeenSpeed, currentSpeed);
+
+    if (currentSpeed >= this.previousSpeed * 0.8) {
+      // Stable or growing → Additive Increase
+      this.aimdConnections = Math.min(this.opts.maxConnections, this.aimdConnections + 1);
+    } else if (currentSpeed < this.maxSeenSpeed * 0.5) {
+      // Dropped >50 % of max seen → halve (aggressive backoff)
+      this.aimdConnections = Math.max(
+        this.opts.initialConnections,
+        Math.floor(this.aimdConnections / 2),
+      );
+    } else {
+      // Dropped >20 % (but ≤50 %) → Multiplicative Decrease
+      this.aimdConnections = Math.max(
+        this.opts.initialConnections,
+        this.aimdConnections - 2,
+      );
+    }
+
+    this.previousSpeed = currentSpeed;
+    return this.aimdConnections;
   }
 
   // ─── Chunk download with retry ──────────────────────────────────────────────
@@ -529,15 +643,18 @@ export class ChunkManager {
     if (response.statusCode === 206) {
       const cr = (response.headers["content-range"] as string) || "";
       const m = cr.match(/^bytes\s+(\d+)-(\d+)\/(\d+)/i);
-      if (m) {
-        const svStart = parseInt(m[1]);
-        const svEnd   = parseInt(m[2]);
-        if (svStart !== rangeStart || svEnd < rangeStart) {
-          console.warn(
-            `[ChunkManager] chunk ${chunk.index}: server returned Content-Range ` +
-            `${svStart}-${svEnd}, requested ${rangeStart}-${rangeEnd}`
-          );
-        }
+      if (!m) {
+        await response.body.dump();
+        throw new Error(`Missing or malformed Content-Range header for chunk ${chunk.index}`);
+      }
+      const svStart = parseInt(m[1]);
+      const svEnd   = parseInt(m[2]);
+      if (svStart !== rangeStart || svEnd !== rangeEnd) {
+        await response.body.dump();
+        throw new Error(
+          `Content-Range mismatch for chunk ${chunk.index}: server returned ` +
+          `${svStart}-${svEnd}, requested ${rangeStart}-${rangeEnd}`
+        );
       }
     }
 
@@ -561,7 +678,6 @@ export class ChunkManager {
       writeHead              += combined.length;
       chunk.downloaded        = writeHead - chunk.start;
       this.totalDownloaded   += combined.length;
-      this.bytesInWindow     += combined.length;
 
       this.updateSpeed();
       this.queueStateUpdate(chunk.index, chunk.downloaded, false);
@@ -592,6 +708,17 @@ export class ChunkManager {
     }
 
     await flushBuffers();
+
+    // Validate received byte count matches expected range length.
+    // Skip validation for valid whole-file single-request downloads (200 with one chunk).
+    const expectedBytes = rangeEnd - rangeStart + 1;
+    const receivedBytes = writeHead - rangeStart;
+    if (!this.isWholeFileRequest(rangeStart, rangeEnd) && receivedBytes !== expectedBytes) {
+      throw new Error(
+        `Chunk ${chunk.index} body truncated: expected ${expectedBytes} bytes, ` +
+        `received ${receivedBytes} bytes for range ${rangeStart}-${rangeEnd}`
+      );
+    }
 
     chunk.completed = true;
     this.queueStateUpdate(chunk.index, chunk.downloaded, true);
@@ -636,19 +763,14 @@ export class ChunkManager {
    * already-completed chunks so they're moved tmp → .turbo in the background.
    * Partially-downloaded chunks stay on tmp and will be enqueued when they
    * complete. The download fd stays on SSD tmp — the download never touches HDD.
+   *
+   * Instead of blocking on in-flight chunk downloads, sets up the IOWriteQueue
+   * immediately and returns a promise that resolves when the last in-flight
+   * chunk finishes naturally. The tick() loop detects activeCount === 0 and
+   * completes the promotion (rebuilds pendingQueue, sets promoting = false).
    */
   async promote(tmpPath: string, turboPath: string): Promise<void> {
     this.promoting = true;
-
-    // Wait for in-flight chunk downloads to finish (with 30s timeout)
-    const promStart = Date.now();
-    while (this.activeCount > 0) {
-      if (Date.now() - promStart > 30_000) {
-        this.promoting = false;
-        throw new Error("Promote timed out waiting for in-flight chunks");
-      }
-      await new Promise(r => setTimeout(r, 100));
-    }
 
     if (this.aborted) {
       this.promoting = false;
@@ -711,13 +833,19 @@ export class ChunkManager {
       this.ioWriteQueue.setTotalMovedBytes(preMovedBytes);
     }
 
-    // Rebuild pending queue for the download loop
-    this.pendingQueue = this.state.chunks.filter(c => !c.completed);
+    // No in-flight chunks — complete promotion immediately
+    if (this.activeCount === 0) {
+      this.pendingQueue = this.state.chunks.filter(c => !c.completed);
+      this.promoting = false;
+      this.triggerTick?.();
+      return;
+    }
 
-    this.promoting = false;
-
-    // Re-trigger the download loop
-    this.triggerTick?.();
+    // In-flight chunks are downloading — they'll finish via tick() and
+    // complete the promotion when activeCount hits 0
+    return new Promise<void>((resolve) => {
+      this.promoteResolve = resolve;
+    });
   }
 
   // ─── Turbo helpers ──────────────────────────────────────────────────────────
@@ -768,17 +896,70 @@ export class ChunkManager {
     });
   }
 
+  /**
+   * Pipeline: Raw bytes → Sliding Window → EMA → Stable Speed
+   * Called from flushBuffers every WRITE_HIGH_WATER (8MB).
+   */
   private updateSpeed(): void {
-    const now     = Date.now();
-    const elapsed = (now - this.lastSpeedCheck) / 1000;
-    if (elapsed >= 1) {
-      this.bytesPerSecond = Math.round(this.bytesInWindow / elapsed);
-      this.bytesInWindow  = 0;
-      this.lastSpeedCheck = now;
+    const now = Date.now();
+
+    // Record position sample into sliding window
+    this.speedSamples.push({ timestamp: now, downloaded: this.totalDownloaded });
+
+    // Prune samples older than the window
+    const cutoff = now - SPEED_WINDOW_MS;
+    while (this.speedSamples.length > 0 && this.speedSamples[0].timestamp < cutoff) {
+      this.speedSamples.shift();
+    }
+
+    // Sliding window speed: (newest - oldest) / elapsed seconds
+    if (this.speedSamples.length >= 2) {
+      const oldest = this.speedSamples[0];
+      const latest = this.speedSamples[this.speedSamples.length - 1];
+      const elapsed = (latest.timestamp - oldest.timestamp) / 1000;
+      if (elapsed > 0.5) {
+        const windowSpeed = (latest.downloaded - oldest.downloaded) / elapsed;
+
+        // Keep raw for backward compat / debugging
+        this.bytesPerSecond = Math.round(windowSpeed);
+
+        // EMA smooth the windowed speed
+        this.smoothedSpeed = this.smoothedSpeed === 0
+          ? windowSpeed
+          : this.smoothedSpeed * (1 - SPEED_ALPHA) + windowSpeed * SPEED_ALPHA;
+      }
     }
   }
 
+  /** Raw instantaneous bytes/sec (volatile — for debug only). */
   getSpeed(): number { return this.bytesPerSecond; }
+
+  /**
+   * Stable speed via Sliding Window + EMA pipeline.
+   * This is the value consumers should use for display and ETA computation.
+   */
+  getStableSpeed(): number {
+    return Math.round(this.smoothedSpeed);
+  }
+
+  /**
+   * Stable ETA via secondary EMA on top of smoothed-speed ETA.
+   * Call this from the progress handler with total/downloaded bytes.
+   */
+  getStableEta(totalBytes: number, downloadedBytes: number): number | undefined {
+    const speed = this.smoothedSpeed;
+    if (speed <= 0) return undefined;
+
+    const remaining = totalBytes - downloadedBytes;
+    if (remaining <= 0) return 0;
+
+    const rawEta = remaining / speed;
+    this.smoothedEta = this.smoothedEta === 0
+      ? rawEta
+      : this.smoothedEta * (1 - ETA_ALPHA) + rawEta * ETA_ALPHA;
+
+    return Math.round(this.smoothedEta);
+  }
 
   abort(): void {
     this.aborted = true;
@@ -791,6 +972,11 @@ export class ChunkManager {
     // Stop IOWriteQueue gracefully
     if (this.ioWriteQueue) {
       this.ioWriteQueue.stop().catch(() => {});
+    }
+    // Resolve pending promote so promoteTask() doesn't hang
+    if (this.promoteResolve) {
+      this.promoteResolve();
+      this.promoteResolve = null;
     }
     if (this.fd !== -1) {
       try { fs.closeSync(this.fd); } catch { }

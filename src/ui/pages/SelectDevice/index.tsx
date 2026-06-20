@@ -549,22 +549,49 @@ export default function IPSWManager() {
 
         case "pause":
           if (task) {
-            await d.pause(task.id);
+            const result = await d.pause(task.id);
             clearPendingForGroup(deviceIdentifier);
+            if (!result.success) {
+              if (result.error === "NOT_FOUND") {
+                utils.showErrorMessage(t("message.downloader.lifecycle.pause.not_found"));
+              } else {
+                utils.showErrorMessage(t("message.downloader.lifecycle.pause.invalid_status"));
+              }
+            } else {
+              utils.showSuccessMessage(t("message.downloader.lifecycle.pause.success"));
+            }
           }
           break;
 
         case "resume":
           if (task) {
-            await d.resume(task.id);
+            const result = await d.resume(task.id);
             clearPendingForGroup(deviceIdentifier);
+            if (!result.success) {
+              if (result.error === "NOT_FOUND") {
+                utils.showErrorMessage(t("message.downloader.lifecycle.resume.not_found"));
+              } else {
+                utils.showErrorMessage(t("message.downloader.lifecycle.resume.invalid_status"));
+              }
+            } else {
+              utils.showSuccessMessage(t("message.downloader.lifecycle.resume.success"));
+            }
           }
           break;
 
         case "cancel":
           if (task) {
-            await d.cancel(task.id);
+            const result = await d.cancel(task.id);
             clearPendingForGroup(deviceIdentifier);
+            if (!result.success) {
+              if (result.error === "NOT_FOUND") {
+                utils.showErrorMessage(t("message.downloader.lifecycle.cancel.not_found"));
+              } else {
+                utils.showErrorMessage(t("message.downloader.lifecycle.cancel.invalid_status"));
+              }
+            } else {
+              utils.showSuccessMessage(t("message.downloader.lifecycle.cancel.success"));
+            }
             updateAllFiles();
             ipswClient.refreshIncompleteTasks().then(() => {
               setIncompleteTasks(ipswClient.getIncompleteTasks());
@@ -714,7 +741,7 @@ export default function IPSWManager() {
       console.error(`[IPSWManager] Action "${action}" on ${deviceIdentifier} failed:`, err);
       clearPendingForGroup(deviceIdentifier);
     }
-  }, [getEffectiveTask, setPending, applyTaskMap, clearPendingForGroup, updateAllFiles]);
+  }, [getEffectiveTask, setPending, applyTaskMap, clearPendingForGroup, updateAllFiles, t]);
 
   const handleRedundantFiles = useCallback(async () => {
     const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
@@ -993,10 +1020,11 @@ export default function IPSWManager() {
           animation: aurora-rotate 3s linear infinite;
         }
         @keyframes aurora-rotate { to { --aurora-angle: 360deg; } }
+        .scrollbar-thin { scrollbar-color: rgba(19,127,236,0.5) transparent; scrollbar-width: thin; }
         .scrollbar-thin::-webkit-scrollbar { width: 4px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(19,127,236,0.5); border-radius: 2px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(19,127,236,0.8); }
       `}</style>
     </div>
   );

@@ -11,9 +11,9 @@ import type { Task, DownloaderConfig, DownloadRequestConfig } from "./types";
 export type MainToWorker =
   | { type: "init";               config: DownloaderConfig; stateDir: string }
   | { type: "add";                reqId: string; firmware: Firmware; config: DownloadRequestConfig }
-  | { type: "pause";              id: string }
-  | { type: "resume";             id: string }
-  | { type: "cancel";             id: string }
+  | { type: "pause";              reqId: string; id: string }
+  | { type: "resume";             reqId: string; id: string }
+  | { type: "cancel";             reqId: string; id: string }
   | { type: "getAllTask";         reqId: string }
   | { type: "getIncompleteTasks"; reqId: string }
   | { type: "resumeIncomplete";   reqId: string; id: string }

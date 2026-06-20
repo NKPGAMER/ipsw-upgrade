@@ -50,6 +50,11 @@ export class IntegrityChecker {
       let processed = 0;
       const startedAt = Date.now();
 
+      // Speed/ETA smoothing for verify progress
+      const VERIFY_ALPHA = 0.15;
+      let smoothedSpeed = 0;
+      let smoothedEta = 0;
+
       try {
         const actual = await new Promise<string>((resolve, reject) => {
           if (signal?.aborted) return reject(new Error("ABORTED"));
@@ -71,9 +76,24 @@ export class IntegrityChecker {
             processed += buf.length;
             if (onProgress && fileSize > 0) {
               const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
-              const speed = processed / elapsedSec;
-              const eta = speed > 0 ? Math.round((fileSize - processed) / speed) : undefined;
-              onProgress({ pct: Math.floor((processed / fileSize) * 100), speed, eta });
+              const rawSpeed = processed / elapsedSec;
+              const rawEta = rawSpeed > 0 ? (fileSize - processed) / rawSpeed : 0;
+
+              // EMA smooth speed
+              smoothedSpeed = smoothedSpeed === 0
+                ? rawSpeed
+                : smoothedSpeed * (1 - VERIFY_ALPHA) + rawSpeed * VERIFY_ALPHA;
+
+              // EMA smooth ETA
+              smoothedEta = smoothedEta === 0
+                ? rawEta
+                : smoothedEta * (1 - VERIFY_ALPHA) + rawEta * VERIFY_ALPHA;
+
+              onProgress({
+                pct: Math.floor((processed / fileSize) * 100),
+                speed: Math.round(smoothedSpeed),
+                eta: Math.max(0, Math.round(smoothedEta)),
+              });
             }
           });
 

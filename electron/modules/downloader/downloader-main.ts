@@ -106,9 +106,17 @@ export class DownloaderMain {
     return this.call<AddResult>({ type: "add", reqId: randomUUID(), firmware, config });
   }
 
-  pause(id: string): void { this.ensureWorker().postMessage({ type: "pause", id } satisfies MainToWorker); }
-  resume(id: string): void { this.ensureWorker().postMessage({ type: "resume", id } satisfies MainToWorker); }
-  cancel(id: string): void { this.ensureWorker().postMessage({ type: "cancel", id } satisfies MainToWorker); }
+  pause(id: string): Promise<import("./types").LifecycleResult> {
+    return this.call<import("./types").LifecycleResult>({ type: "pause", reqId: randomUUID(), id });
+  }
+
+  resume(id: string): Promise<import("./types").LifecycleResult> {
+    return this.call<import("./types").LifecycleResult>({ type: "resume", reqId: randomUUID(), id });
+  }
+
+  cancel(id: string): Promise<import("./types").LifecycleResult> {
+    return this.call<import("./types").LifecycleResult>({ type: "cancel", reqId: randomUUID(), id });
+  }
 
   getAllTask(): Promise<Task[]> {
     return this.call<Task[]>({ type: "getAllTask", reqId: randomUUID() });
@@ -218,9 +226,9 @@ export class DownloaderMain {
   private registerIPC(): void {
     const handlers: Array<[string, (...args: any[]) => any]> = [
       ["dm:add", (_e: any, firmware: Firmware, config: DownloadRequestConfig) => this.add(firmware, config)],
-      ["dm:pause", (_e: any, id: string) => { this.pause(id); }],
-      ["dm:resume", (_e: any, id: string) => { this.resume(id); }],
-      ["dm:cancel", (_e: any, id: string) => { this.cancel(id); }],
+      ["dm:pause", (_e: any, id: string) => this.pause(id)],
+      ["dm:resume", (_e: any, id: string) => this.resume(id)],
+      ["dm:cancel", (_e: any, id: string) => this.cancel(id)],
       ["dm:resumeIncomplete", (_e: any, id: string) => this.resumeIncomplete(id)],
       ["dm:deleteIncomplete", (_e: any, id: string) => this.deleteIncomplete(id)],
       ["dm:getAllTask", () => this.getAllTask()],

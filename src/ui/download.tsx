@@ -7,6 +7,7 @@ import { useDownloadStore } from "../stores/download-store";
 
 import type { Task, TaskStatus, DownloadMode } from "../../@types/global";
 import { getFileNameFromUrl } from "../core/helper";
+import utils from "../core/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -366,18 +367,45 @@ export default function DownloadPage() {
 
   const handlePause = useCallback(async (id: string) => {
     patchTask(id, { status: "paused" as TaskStatus });
-    await window.downloader.pause(id);
-  }, [patchTask]);
+    const result = await window.downloader.pause(id);
+    if (!result.success) {
+      if (result.error === "NOT_FOUND") {
+        utils.showErrorMessage(t("message.downloader.lifecycle.pause.not_found"));
+      } else {
+        utils.showErrorMessage(t("message.downloader.lifecycle.pause.invalid_status"));
+      }
+    } else {
+      utils.showSuccessMessage(t("message.downloader.lifecycle.pause.success"));
+    }
+  }, [patchTask, t]);
 
   const handleResume = useCallback(async (id: string) => {
     patchTask(id, { status: "downloading" as TaskStatus });
-    await window.downloader.resume(id);
-  }, [patchTask]);
+    const result = await window.downloader.resume(id);
+    if (!result.success) {
+      if (result.error === "NOT_FOUND") {
+        utils.showErrorMessage(t("message.downloader.lifecycle.resume.not_found"));
+      } else {
+        utils.showErrorMessage(t("message.downloader.lifecycle.resume.invalid_status"));
+      }
+    } else {
+      utils.showSuccessMessage(t("message.downloader.lifecycle.resume.success"));
+    }
+  }, [patchTask, t]);
 
   const handleCancel = useCallback(async (id: string) => {
     removeTask(id);
-    await window.downloader.cancel(id);
-  }, [removeTask]);
+    const result = await window.downloader.cancel(id);
+    if (!result.success) {
+      if (result.error === "NOT_FOUND") {
+        utils.showErrorMessage(t("message.downloader.lifecycle.cancel.not_found"));
+      } else {
+        utils.showErrorMessage(t("message.downloader.lifecycle.cancel.invalid_status"));
+      }
+    } else {
+      utils.showSuccessMessage(t("message.downloader.lifecycle.cancel.success"));
+    }
+  }, [removeTask, t]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 

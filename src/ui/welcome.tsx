@@ -553,11 +553,11 @@ export default function App(): JSX.Element {
         <>
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
-                html, body, #root { height: 100%; background: #111; }
+                html, body, #root { height: 100%; background: #111; scrollbar-color: rgba(19,127,236,0.5) transparent; scrollbar-width: thin; }
                 ::-webkit-scrollbar { width: 4px; }
                 ::-webkit-scrollbar-track { background: transparent; }
-                ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
-                ::-webkit-scrollbar-thumb:hover { background: #383838; }
+                ::-webkit-scrollbar-thumb { background: rgba(19,127,236,0.5); border-radius: 2px; }
+                ::-webkit-scrollbar-thumb:hover { background: rgba(19,127,236,0.8); }
                 @keyframes popIn {
                     0% { transform: scale(0); opacity: 0; }
                     70% { transform: scale(1.15); }

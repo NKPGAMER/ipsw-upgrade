@@ -3,7 +3,7 @@ import type { UpdateInfo } from "electron-updater";
 import type { FSWatcher, WriteStream } from 'fs';
 import type { ChildProcess } from 'child_process';
 import type { ClientRequest } from "http";
-import type { Task, AddResult, IncompleteTask, DownloadRequestConfig, EventChannel, DiskEnvironmentInfo } from "./global"
+import type { Task, AddResult, IncompleteTask, DownloadRequestConfig, EventChannel, DiskEnvironmentInfo, LifecycleResult } from "./global"
 
 /* ---------- Common types ---------- */
 
@@ -78,9 +78,9 @@ interface ElectronUpdaterApi {
 
 interface DownloaderAPI {
   add: (firmware: Firmware, config?: DownloadRequestConfig) => Promise<AddResult>;
-  pause: (id: string) => Promise<void>;
-  resume: (id: string) => Promise<void>;
-  cancel: (id: string) => Promise<void>;
+  pause: (id: string) => Promise<LifecycleResult>;
+  resume: (id: string) => Promise<LifecycleResult>;
+  cancel: (id: string) => Promise<LifecycleResult>;
   getAllTask: () => Promise<Task[]>;
   getIncompleteTasks: () => Promise<IncompleteTask>;
   resumeIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;

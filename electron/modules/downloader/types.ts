@@ -41,7 +41,12 @@ export interface DownloadState {
 export interface AddResult {
   success: boolean;
   id?: string;
-  error?: "DISK_FULL" | "ALREADY_IN_LIST" | "INVALID_URL" | "INVALID_SAVE_PATH" | "UNKNOWN";
+  error?: "DISK_FULL" | "ALREADY_IN_LIST" | "INVALID_URL" | "INVALID_SAVE_PATH" | "UNKNOWN_DISK_SPACE" | "UNKNOWN";
+}
+
+export interface LifecycleResult {
+  success: boolean;
+  error?: "NOT_FOUND" | "INVALID_STATUS";
 }
 
 export interface DownloadRequestConfig {
@@ -98,6 +103,8 @@ export interface DownloaderConfig {
   skipVerify?: boolean;
   turboConnectionsMultiplier?: number;
   turboChunkSizeMultiplier?: number;
+  /** Allow TLS connections with invalid certificates (development only). */
+  insecureTLS?: boolean;
 }
 
 export interface DownloadEvents {

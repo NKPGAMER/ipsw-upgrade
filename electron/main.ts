@@ -132,7 +132,8 @@ async function init(): Promise<void> {
   dl = new DownloaderMain(mainWindow, {
     saveDir: ipswFolder,
     turboMode: storeGet("turboMode", false),
-    skipVerify: storeGet("skipVerify", false)
+    skipVerify: storeGet("skipVerify", false),
+    insecureTLS: process.env.IPSW_INSECURE_TLS === "1",
   });
 
   dh = new DataHandle(mainWindow);

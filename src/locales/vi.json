@@ -148,7 +148,25 @@
                 "ALREADY_IN_LIST": "Tệp này đã có trong danh sách tải",
                 "INVALID_URL": "URL không hợp lệ",
                 "INVALID_SAVE_PATH": "Đường dẫn tải xuống không hợp lệ",
+                "UNKNOWN_DISK_SPACE": "Không thể xác định dung lượng ổ đĩa. Hãy kiểm tra lại đường dẫn tải xuống",
                 "UNKNOWN": "Đã xảy ra lỗi không xác định"
+            },
+            "lifecycle": {
+                "pause": {
+                    "success": "Đã tạm dừng tải xuống",
+                    "not_found": "Không tìm thấy tác vụ để tạm dừng",
+                    "invalid_status": "Không thể tạm dừng tác vụ ở trạng thái hiện tại"
+                },
+                "resume": {
+                    "success": "Đã tiếp tục tải xuống",
+                    "not_found": "Không tìm thấy tác vụ để tiếp tục",
+                    "invalid_status": "Không thể tiếp tục tác vụ ở trạng thái hiện tại"
+                },
+                "cancel": {
+                    "success": "Đã hủy tải xuống",
+                    "not_found": "Không tìm thấy tác vụ để hủy",
+                    "invalid_status": "Không thể hủy tác vụ ở trạng thái hiện tại"
+                }
             }
         },
         "error": {

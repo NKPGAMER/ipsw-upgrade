@@ -12,6 +12,14 @@ export type SchedulerTask = {
   turboPriority?: boolean;
 };
 
+/** Per-task connection budget used for dynamic rebalancing on ssd_save. */
+export interface ConnectionBudget {
+  current: number;
+  base: number;
+  speed?: number;
+  progress?: number;
+}
+
 export class Scheduler extends EventEmitter {
   private maxConcurrent: number;
   private active = new Set<string>();
@@ -28,6 +36,9 @@ export class Scheduler extends EventEmitter {
   private activeRunGens = new Map<string, number>();
   private tasks = new Map<string, SchedulerTask>();
 
+  // ── Connection budget tracking (ssd_save dynamic rebalancing) ───────────
+  private connectionBudgets = new Map<string, ConnectionBudget>();
+
   constructor(maxConcurrent = 3) {
     super();
     this.maxConcurrent = maxConcurrent;
@@ -41,7 +52,7 @@ export class Scheduler extends EventEmitter {
     if (enabled) {
       switch (environment) {
         case "ssd_save": this.maxTurbo = 3; this.maxNormal = 1; break;
-        case "hdd_ssd_tmp": this.maxTurbo = 1; this.maxNormal = 2; break;
+        case "hdd_ssd_tmp": this.maxTurbo = 1; this.maxNormal = 1; break;
         case "hdd_only": this.maxTurbo = 1; this.maxNormal = 1; break;
       }
     } else {
@@ -108,6 +119,7 @@ export class Scheduler extends EventEmitter {
         this.active.delete(next.id);
         this.activeRunGens.delete(next.id);
         this.tasks.delete(next.id);
+        this.connectionBudgets.delete(next.id);
         this.emit("slot_open", next.id, "normal" as DownloadMode);
         this.drain();
       });
@@ -144,6 +156,7 @@ export class Scheduler extends EventEmitter {
       this.active.delete(next.id);
       this.activeRunGens.delete(next.id);
       this.tasks.delete(next.id);
+      this.connectionBudgets.delete(next.id);
       this.emit("slot_open", next.id, "turbo" as DownloadMode);
       this.drain();
     });
@@ -208,6 +221,7 @@ export class Scheduler extends EventEmitter {
     const wasNormal = this.activeNormal.delete(id);
     this.active.delete(id);
     this.tasks.delete(id);
+    this.connectionBudgets.delete(id);
     // Invalidate old promise's finally()
     const gen = (this.activeRunGens.get(id) ?? 0) + 1;
     this.activeRunGens.set(id, gen);
@@ -272,6 +286,88 @@ export class Scheduler extends EventEmitter {
 
   getActiveNormalCount(): number {
     return this.activeNormal.size;
+  }
+
+  // ── Connection budget tracking & rebalancing ───────────────────────────
+
+  /** Register or update a turbo task's connection budget. */
+  setConnectionBudget(id: string, budget: Partial<ConnectionBudget>): void {
+    const existing = this.connectionBudgets.get(id) ?? { current: 4, base: 4 };
+    if (budget.current !== undefined) existing.current = budget.current;
+    if (budget.base !== undefined) existing.base = budget.base;
+    if (budget.speed !== undefined) existing.speed = budget.speed;
+    if (budget.progress !== undefined) existing.progress = budget.progress;
+    this.connectionBudgets.set(id, existing);
+  }
+
+  getConnectionBudget(id: string): ConnectionBudget | undefined {
+    return this.connectionBudgets.get(id);
+  }
+
+  clearConnectionBudget(id: string): void {
+    this.connectionBudgets.delete(id);
+  }
+
+  /**
+   * Dynamically rebalance connection budgets among active turbo tasks on ssd_save.
+   * Tasks with higher speed get a larger share. Tasks that are falling behind in
+   * progress get a boost to prevent starvation.
+   */
+  rebalanceTurboBudgets(totalBudget: number): Map<string, number> {
+    if (this.env !== "ssd_save") return new Map();
+
+    const turboIds = Array.from(this.activeTurbo);
+    if (turboIds.length === 0) return new Map();
+    if (turboIds.length === 1) {
+      const single = turboIds[0];
+      this.setConnectionBudget(single, { current: totalBudget });
+      return new Map([[single, totalBudget]]);
+    }
+
+    const budgets = turboIds.map(id => this.connectionBudgets.get(id) ?? { current: 4, base: 4 });
+    const totalSpeed = budgets.reduce((sum, b) => sum + (b.speed ?? 0), 0);
+    const result = new Map<string, number>();
+
+    if (totalSpeed === 0) {
+      // No speed data yet — distribute evenly
+      const even = Math.floor(totalBudget / turboIds.length);
+      let remainder = totalBudget;
+      for (const id of turboIds) {
+        const share = remainder >= even * 2 ? even : remainder;
+        this.setConnectionBudget(id, { current: share });
+        result.set(id, share);
+        remainder -= share;
+      }
+    } else {
+      // Distribute 70% by speed proportion, 30% as base floor to prevent starvation
+      const speedPool = Math.floor(totalBudget * 0.7);
+      const floorPool = totalBudget - speedPool;
+      const floorShare = Math.floor(floorPool / turboIds.length);
+      let remainder = totalBudget;
+
+      for (let i = 0; i < turboIds.length; i++) {
+        const id = turboIds[i];
+        const b = budgets[i];
+        const speedFraction = (b.speed ?? 0) / totalSpeed;
+        const speedShare = Math.round(speedPool * speedFraction);
+        const share = Math.max(floorShare, Math.min(speedShare + floorShare, remainder));
+        this.setConnectionBudget(id, { current: share });
+        result.set(id, share);
+        remainder -= share;
+      }
+
+      // Give leftovers to the fastest task
+      if (remainder > 0 && turboIds.length > 0) {
+        const fastestId = turboIds.reduce((a, b) =>
+          (this.connectionBudgets.get(a)?.speed ?? 0) > (this.connectionBudgets.get(b)?.speed ?? 0) ? a : b
+        );
+        const fastest = result.get(fastestId)!;
+        result.set(fastestId, fastest + remainder);
+        this.setConnectionBudget(fastestId, { current: fastest + remainder });
+      }
+    }
+
+    return result;
   }
 
   // ── Read-only queries ────────────────────────────────────────────────────

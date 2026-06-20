@@ -11,6 +11,7 @@ import {
   DownloadState,
   ChunkState,
   AddResult,
+  LifecycleResult,
   DownloaderConfig,
   IncompleteTask,
   DownloadRequestConfig,
@@ -103,6 +104,11 @@ class MoveQueue {
     const startedAt = Date.now();
     const bufferSize = this.getMoveBufferSize(totalSize, this.getAvailableMemoryBytes());
 
+    // Speed/ETA smoothing for copy progress
+    const COPY_ALPHA = 0.15;
+    let smoothedSpeed = 0;
+    let smoothedEta = 0;
+
     let srcHandle: fs.promises.FileHandle | null = null;
     let destHandle: fs.promises.FileHandle | null = null;
 
@@ -126,19 +132,33 @@ class MoveQueue {
           const now = Date.now();
           const pct = Math.min(99, Math.floor((copied / totalSize) * 100));
           const elapsedSec = Math.max((now - startedAt) / 1000, 0.001);
-          const speed = copied / elapsedSec;
-          const eta = speed > 0 ? Math.max(0, Math.round((totalSize - copied) / speed)) : undefined;
+          const rawSpeed = copied / elapsedSec;
+          const rawEta = rawSpeed > 0 ? (totalSize - copied) / rawSpeed : 0;
+
+          // EMA smooth speed
+          smoothedSpeed = smoothedSpeed === 0
+            ? rawSpeed
+            : smoothedSpeed * (1 - COPY_ALPHA) + rawSpeed * COPY_ALPHA;
+
+          // EMA smooth ETA
+          smoothedEta = smoothedEta === 0
+            ? rawEta
+            : smoothedEta * (1 - COPY_ALPHA) + rawEta * COPY_ALPHA;
 
           if (pct !== lastPct || now - lastEmitAt >= 200 || copied === totalSize) {
             lastEmitAt = now;
             lastPct = pct;
-            onProgress({ pct, speed, eta });
+            onProgress({
+              pct,
+              speed: Math.round(smoothedSpeed),
+              eta: Math.max(0, Math.round(smoothedEta)),
+            });
           }
         }
       }
 
       await destHandle.sync().catch(() => { });
-      if (onProgress) onProgress({ pct: 100, speed: totalSize, eta: 0 });
+      if (onProgress) onProgress({ pct: 100, speed: Math.round(smoothedSpeed || totalSize), eta: 0 });
     } finally {
       await destHandle?.close().catch(() => { });
       await srcHandle?.close().catch(() => { });
@@ -202,6 +222,9 @@ export class IPSWDownloader extends EventEmitter {
   // after pause/cancel/resume. Incremented on each lifecycle change.
   private runGenerations = new Map<string, number>();
 
+  // Track timing for turbo move speed/ETA calculation
+  private moveTimeState = new Map<string, { startedAt: number; smoothedSpeed: number; smoothedEta: number }>();
+
   private environment: DownloadEnvironment = "ssd_save";
   private envDetected = false;
 
@@ -222,6 +245,7 @@ export class IPSWDownloader extends EventEmitter {
       skipVerify: config.skipVerify ?? false,
       turboConnectionsMultiplier: config.turboConnectionsMultiplier ?? 2.0,
       turboChunkSizeMultiplier: config.turboChunkSizeMultiplier ?? 2.0,
+      insecureTLS: config.insecureTLS ?? false,
     };
 
     this.diskManager = new DiskManager();
@@ -331,6 +355,16 @@ export class IPSWDownloader extends EventEmitter {
           }
           existingState.movedChunks = [];
           this.stateManager.save(existingState);
+
+          // Tmp is gone — we need enough space for a full fresh download + buffer
+          const spaceCheck = await this.diskManager.hasEnoughSpace(
+            existingState.savePath,
+            existingState.firmware.filesize,
+            this.config.diskBufferGB * GB,
+          );
+          if (!spaceCheck.ok) {
+            return { success: false, error: spaceCheck.unknown ? "UNKNOWN_DISK_SPACE" : "DISK_FULL" };
+          }
         }
 
         await this.ensureEnvironment(existingState.savePath);
@@ -394,7 +428,9 @@ export class IPSWDownloader extends EventEmitter {
     const spaceCheck = await this.diskManager.hasEnoughSpace(
       saveDir, firmware.filesize, this.config.diskBufferGB * GB, config.deleteFiles ?? []
     );
-    if (!spaceCheck.ok) return { success: false, error: "DISK_FULL" };
+    if (!spaceCheck.ok) {
+      return { success: false, error: spaceCheck.unknown ? "UNKNOWN_DISK_SPACE" : "DISK_FULL" };
+    }
 
     if (config.deleteFiles?.length) {
       for (const file of config.deleteFiles) {
@@ -410,12 +446,14 @@ export class IPSWDownloader extends EventEmitter {
     const id = randomUUID();
     this.diskManager.reserveSpace(id, firmware.filesize);
 
-    // All tasks start as "normal" — scheduler assigns turbo when draining
+    // Nếu có turbo slot trống, enqueue với turboPriority để đi thẳng vào turbo
+    const hasFreeTurbo = this.config.turboMode && this.scheduler.hasFreeTurboSlot();
     const task: Task = { id, firmware, progress: 0, speed: 0, status: "queued", savePath: saveDir, mode: "normal" };
     this.tasks.set(id, task);
 
     this.scheduler.enqueue({
       id,
+      turboPriority: hasFreeTurbo,
       run: () => this.runDownload(id),
       onSlotOpen: (slotType: DownloadMode) => {
         const t = this.tasks.get(id);
@@ -429,9 +467,27 @@ export class IPSWDownloader extends EventEmitter {
     return { success: true, id };
   }
 
-  pause(id: string): void {
+  pause(id: string): LifecycleResult {
     const task = this.tasks.get(id);
-    if (!task || task.status !== "downloading") return;
+    if (!task) return { success: false, error: "NOT_FOUND" };
+
+    // Reject pause during final move / verify
+    if (task.status === "moving" || task.status === "verifying") {
+      return { success: false, error: "INVALID_STATUS" };
+    }
+
+    // Pausing an already-paused task is a no-op success
+    if (task.status === "paused") return { success: true };
+
+    // Allow pausing queued tasks
+    if (task.status === "queued") {
+      this.scheduler.pauseTask(id);
+      this.updateTaskStatus(id, "paused");
+      this.emit("paused", id, task);
+      return { success: true };
+    }
+
+    if (task.status !== "downloading") return { success: false, error: "INVALID_STATUS" };
 
     // Bump generation so the old runDownload catch block is silenced
     this.runGenerations.set(id, (this.runGenerations.get(id) ?? 0) + 1);
@@ -442,11 +498,16 @@ export class IPSWDownloader extends EventEmitter {
     this.scheduler.pauseTask(id);
     this.updateTaskStatus(id, "paused");
     this.emit("paused", id, task);
+    return { success: true };
   }
 
-  resume(id: string): void {
+  resume(id: string): LifecycleResult {
     const task = this.tasks.get(id);
-    if (!task || task.status !== "paused") return;
+    if (!task) return { success: false, error: "NOT_FOUND" };
+
+    // Resuming a queued or downloading task is a no-op success
+    if (task.status === "queued" || task.status === "downloading") return { success: true };
+    if (task.status !== "paused") return { success: false, error: "INVALID_STATUS" };
 
     // Bump generation so any lingering old runDownload catch block is silenced
     this.runGenerations.set(id, (this.runGenerations.get(id) ?? 0) + 1);
@@ -481,6 +542,8 @@ export class IPSWDownloader extends EventEmitter {
     if (this.config.turboMode) {
       setImmediate(() => this.refreshSlots());
     }
+
+    return { success: true };
   }
 
   /**
@@ -545,13 +608,24 @@ export class IPSWDownloader extends EventEmitter {
     this.emit("progress", demoteId, demotedTask);
   }
 
-  cancel(id: string): void {
+  cancel(id: string): LifecycleResult {
     const task = this.tasks.get(id);
+    if (!task) return { success: false, error: "NOT_FOUND" };
+
+    // Reject cancel during final move / verify to avoid corrupt state
+    if (task.status === "moving" || task.status === "verifying") {
+      return { success: false, error: "INVALID_STATUS" };
+    }
+
+    // Cancelling an already cancelled / completed / errored task is no-op success
+    if (task.status === "cancelled" || task.status === "completed" || task.status === "error") {
+      return { success: true };
+    }
 
     // Bump generation so the old runDownload catch block is silenced
     this.runGenerations.set(id, (this.runGenerations.get(id) ?? 0) + 1);
 
-    if (task) this.updateTaskStatus(id, "cancelled" as TaskStatus);
+    this.updateTaskStatus(id, "cancelled" as TaskStatus);
 
     const cm = this.chunkManagers.get(id);
     if (cm) {
@@ -568,12 +642,14 @@ export class IPSWDownloader extends EventEmitter {
     if (this.config.turboMode) {
       setImmediate(() => this.refreshSlots());
     }
+
+    return { success: true };
   }
 
   getAllTask(): Task[] {
     for (const [id, cm] of this.chunkManagers.entries()) {
       const task = this.tasks.get(id);
-      if (task && task.status === "downloading") task.speed = cm.getSpeed();
+      if (task && task.status === "downloading") task.speed = cm.getStableSpeed();
     }
     return Array.from(this.tasks.values());
   }
@@ -601,7 +677,7 @@ export class IPSWDownloader extends EventEmitter {
       .sort((a, b) => b.savedAt - a.savedAt);
   }
 
-  resumeIncomplete(id: string): { success: boolean; error?: string } {
+  async resumeIncomplete(id: string): Promise<{ success: boolean; error?: string }> {
     if (this.tasks.has(id)) return { success: false, error: "ALREADY_ACTIVE" };
 
     const state = this.stateManager.load(id);
@@ -648,6 +724,18 @@ export class IPSWDownloader extends EventEmitter {
       }
       state.movedChunks = [];
       this.stateManager.save(state);
+    }
+
+    // If tmp is missing and chunks are reset, require space for full download + buffer
+    if (!tmpExists) {
+      const spaceCheck = await this.diskManager.hasEnoughSpace(
+        state.savePath,
+        state.firmware.filesize,
+        this.config.diskBufferGB * GB,
+      );
+      if (!spaceCheck.ok) {
+        return { success: false, error: spaceCheck.unknown ? "UNKNOWN_DISK_SPACE" : "DISK_FULL" };
+      }
     }
 
     // If resuming a turbo incomplete task and all turbo slots are full, preempt
@@ -876,6 +964,7 @@ export class IPSWDownloader extends EventEmitter {
         isHDD,
         turboConnectionsMultiplier: this.config.turboConnectionsMultiplier,
         turboHddSsd,
+        insecureTLS: this.config.insecureTLS,
       });
       this.chunkManagers.set(id, cm);
 
@@ -895,14 +984,34 @@ export class IPSWDownloader extends EventEmitter {
         // Continue downloading to SSD tmp only, will use normal MoveQueue after
       });
 
+      const TURBO_MOVE_ALPHA = 0.15;
       cm.on("turboMove", (info) => {
-        // During move phase, use movedBytes for progress
+        // During move phase, use movedBytes for progress with speed/ETA
         if (task.status === "moving") {
           task.progress = info.totalSize > 0
             ? Math.min(99, Math.floor((info.totalMovedBytes / info.totalSize) * 100))
             : task.progress;
-          task.speed = 0;
-          task.eta = undefined;
+
+          // Speed/ETA via EMA smoothing (same approach as MoveQueue)
+          const mts = this.moveTimeState.get(id) ?? { startedAt: Date.now(), smoothedSpeed: 0, smoothedEta: 0 };
+          if (!this.moveTimeState.has(id)) this.moveTimeState.set(id, mts);
+
+          const elapsed = Math.max((Date.now() - mts.startedAt) / 1000, 0.001);
+          const rawSpeed = info.totalMovedBytes / elapsed;
+          const remaining = Math.max(info.totalSize - info.totalMovedBytes, 0);
+          const rawEta = rawSpeed > 0 ? remaining / rawSpeed : 0;
+
+          mts.smoothedSpeed = mts.smoothedSpeed === 0
+            ? rawSpeed
+            : mts.smoothedSpeed * (1 - TURBO_MOVE_ALPHA) + rawSpeed * TURBO_MOVE_ALPHA;
+
+          mts.smoothedEta = mts.smoothedEta === 0
+            ? rawEta
+            : mts.smoothedEta * (1 - TURBO_MOVE_ALPHA) + rawEta * TURBO_MOVE_ALPHA;
+
+          task.speed = Math.round(mts.smoothedSpeed);
+          task.eta = Math.max(0, Math.round(mts.smoothedEta));
+
           this.emitThrottledProgress(id, task);
         }
       });
@@ -911,8 +1020,8 @@ export class IPSWDownloader extends EventEmitter {
         const downloaded = p.bytesWritten;
         const total = p.totalBytes > 0 ? p.totalBytes : state!.totalSize;
         task.progress = Math.min(99, Math.floor((downloaded / total) * 100));
-        task.speed = cm.getSpeed();
-        task.eta = task.speed > 0 ? Math.round((total - downloaded) / task.speed) : undefined;
+        task.speed = cm.getStableSpeed();
+        task.eta = cm.getStableEta(total, downloaded);
         this.emitThrottledProgress(id, task);
       });
 
@@ -1049,6 +1158,16 @@ export class IPSWDownloader extends EventEmitter {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+  /** Scale chunk size with file size to keep chunk count reasonable for large files. */
+  private computeAdaptiveChunkSize(fileSize: number): number {
+    const gb = 1024 * 1024 * 1024;
+    if (fileSize < 1 * gb) return 16 * 1024 * 1024;    // 16 MB
+    if (fileSize < 4 * gb) return 32 * 1024 * 1024;    // 32 MB
+    if (fileSize < 10 * gb) return 64 * 1024 * 1024;   // 64 MB
+    if (fileSize < 20 * gb) return 128 * 1024 * 1024;  // 128 MB
+    return 256 * 1024 * 1024;                           // 256 MB
+  }
+
   private buildState(
     id: string,
     firmware: Firmware,
@@ -1074,9 +1193,14 @@ export class IPSWDownloader extends EventEmitter {
     const chunks: ChunkState[] = [];
 
     if (supportsRanges) {
+      const baseChunkSize = this.computeAdaptiveChunkSize(totalSize);
+      const effectiveChunkSize = mode === "turbo"
+        ? Math.round(baseChunkSize * this.config.turboChunkSizeMultiplier)
+        : baseChunkSize;
+
       let offset = 0, index = 0;
       while (offset < totalSize) {
-        const end = Math.min(offset + this.config.chunkSize - 1, totalSize - 1);
+        const end = Math.min(offset + effectiveChunkSize - 1, totalSize - 1);
         chunks.push({ index, start: offset, end, downloaded: 0, completed: false });
         offset = end + 1;
         index++;
@@ -1192,6 +1316,7 @@ export class IPSWDownloader extends EventEmitter {
     this.states.delete(id);
     this.chunkManagers.delete(id);
     this.runGenerations.delete(id);
+    this.moveTimeState.delete(id);
     if (options.deleteTask) {
       this.tasks.delete(id);
     }
