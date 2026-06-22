@@ -19,7 +19,7 @@ const ROOT = path.resolve(__dirname, ".."); // project root
 const PKG_PATH = path.join(ROOT, "package.json");
 
 // ⚠️  Paste your GitHub PAT here (repo scope)
-const GITHUB_TOKEN = "";
+const GITHUB_TOKEN = "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";
 const GITHUB_OWNER = "NKPGAMER";
 const GITHUB_REPO = "ipsw-manager";
 // ──────────────────────────────────────────────────────────────────────────────
