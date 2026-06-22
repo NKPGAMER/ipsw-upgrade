@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPSW Manager · Publisher</title>
+  <style>
+    :root {
+      --bg:        #101922;
+      --surface:   #0c1620;
+      --surface2:  #13202e;
+      --border:    #1e2f40;
+      --primary:   #137fec;
+      --primary-h: #1a8fff;
+      --text:      #e2e8f0;
+      --text-muted:#7a9bb5;
+      --green:     #22c55e;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+      --radius:    12px;
+      --mono:      'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 48px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 32px;
+      align-self: flex-start;
+      max-width: 860px;
+      width: 100%;
+      margin-inline: auto;
+    }
+    .header-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--primary) 0%, #0a5fb5 100%);
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-size: 20px;
+      box-shadow: 0 0 16px rgba(19,127,236,.35);
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+    .header-sub   { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      width: 100%;
+      max-width: 860px;
+    }
+    @media (max-width: 640px) { .layout { grid-template-columns: 1fr; } }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    /* ── Form controls ── */
+    label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+
+    input[type="text"], textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color .15s;
+      resize: vertical;
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(19,127,236,.15);
+    }
+    textarea { min-height: 130px; font-family: var(--mono); font-size: 13px; }
+
+    /* version row */
+    .version-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .version-row input { flex: 1; font-family: var(--mono); font-size: 15px; font-weight: 600; }
+    .version-current {
+      font-size: 12px; color: var(--text-muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── Toggle ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .toggle-label { font-size: 13px; }
+    .toggle-label span { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .toggle {
+      position: relative;
+      width: 40px; height: 22px;
+      cursor: pointer;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 99px;
+      transition: background .2s;
+    }
+    .toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s, box-shadow .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
+    .toggle input:checked ~ .toggle-track { background: var(--primary); }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+    /* ── Publish button ── */
+    #btn-publish {
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--primary) 0%, #0a5fb5 100%);
+      color: #fff;
+      transition: opacity .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 4px 16px rgba(19,127,236,.3);
+    }
+    #btn-publish:hover:not(:disabled) {
+      opacity: .92;
+      box-shadow: 0 6px 20px rgba(19,127,236,.4);
+    }
+    #btn-publish:active:not(:disabled) { transform: scale(.98); }
+    #btn-publish:disabled { opacity: .5; cursor: not-allowed; }
+    #btn-publish .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    #btn-publish.loading .spinner { display: block; }
+    #btn-publish.loading .btn-text { display: none; }
+
+    /* ── Console ── */
+    .console-wrap { grid-column: 1 / -1; }
+    #console {
+      width: 100%;
+      height: 340px;
+      overflow-y: auto;
+      background: #070e14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .log-line { display: flex; gap: 10px; animation: fadeIn .12s ease; }
+    .log-ts   { color: #3d5a72; min-width: 80px; flex-shrink: 0; }
+    .log-text { white-space: pre-wrap; word-break: break-word; flex: 1; }
+    .log-cmd    .log-text { color: #a0c4e8; }
+    .log-stdout .log-text { color: #c8d8e4; }
+    .log-stderr .log-text { color: var(--amber); }
+    .log-step   .log-text { color: var(--primary); font-weight: 600; margin-top: 8px; }
+    .log-done   .log-text { color: var(--green); font-weight: 600; }
+    .log-error  .log-text { color: var(--red); font-weight: 600; }
+    .log-info   .log-text { color: var(--text-muted); font-style: italic; }
+
+    .console-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .btn-clear {
+      font-size: 12px; color: var(--text-muted);
+      background: none; border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px 10px;
+      cursor: pointer; transition: color .15s, border-color .15s;
+    }
+    .btn-clear:hover { color: var(--text); border-color: var(--text-muted); }
+
+    /* status dot */
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-muted);
+      display: inline-block;
+      transition: background .3s;
+    }
+    .status-dot.idle    { background: var(--text-muted); }
+    .status-dot.running { background: var(--primary); animation: pulse 1.2s infinite; }
+    .status-dot.ok      { background: var(--green); }
+    .status-dot.err     { background: var(--red); }
+
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes pulse   { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+    @keyframes fadeIn  { from { opacity:0; transform: translateY(2px); } }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">⚡</div>
+  <div>
+    <div class="header-title">IPSW Manager · Publisher</div>
+    <div class="header-sub">Build &amp; deploy release lên GitHub</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- Left: Version + Changelog -->
+  <div class="card">
+    <div class="card-title">Thông tin phát hành</div>
+
+    <div class="field">
+      <label>Phiên bản mới</label>
+      <div class="version-row">
+        <input type="text" id="version" placeholder="4.1.0" spellcheck="false" />
+        <span class="version-current" id="current-version">hiện tại: —</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Changelog <span style="color:#3d5a72">(hỗ trợ Markdown)</span></label>
+      <textarea id="changelog" placeholder="## What's new&#10;&#10;- feat: thêm tính năng mới&#10;- fix: sửa lỗi ..."></textarea>
+    </div>
+  </div>
+
+  <!-- Right: Options -->
+  <div class="card">
+    <div class="card-title">Tuỳ chọn</div>
+
+    <div class="field">
+      <div class="toggle-row">
+        <div class="toggle-label">
+          Lưu nháp (Draft)
+          <span>Release sẽ không công khai cho đến khi bạn publish thủ công</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="draft" />
+          <span class="toggle-track"></span>
+          <span class="toggle-thumb"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:20px">
+      <label>Tổng quan</label>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+          <span style="color:var(--text-muted)">Repository</span>
+          <span style="font-family:var(--mono);color:var(--primary)">NKPGAMER/ipsw-manager</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+          <span style="color:var(--text-muted)">Output dir</span>
+          <span style="font-family:var(--mono)">release/</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+          <span style="color:var(--text-muted)">Artifacts</span>
+          <span style="font-family:var(--mono)">.exe · .blockmap · .yml</span>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-publish" onclick="startPublish()">
+      <div class="spinner"></div>
+      <span class="btn-text">🚀 &nbsp; Publish Release</span>
+    </button>
+  </div>
+
+  <!-- Console -->
+  <div class="card console-wrap">
+    <div class="console-toolbar">
+      <div class="card-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">
+        <span class="status-dot idle" id="status-dot"></span>
+        Console
+        <span id="status-text" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)">Sẵn sàng</span>
+      </div>
+      <button class="btn-clear" onclick="clearConsole()">Xóa</button>
+    </div>
+    <div id="console"></div>
+  </div>
+
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let ws = null;
+  let running = false;
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  window.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const res = await fetch("/api/version");
+      const { version } = await res.json();
+      document.getElementById("current-version").textContent = `hiện tại: ${version}`;
+      // Suggest next patch
+      const parts = version.split(".");
+      parts[2] = String(Number(parts[2] ?? 0) + 1);
+      document.getElementById("version").value = parts.join(".");
+    } catch {}
+    connectWS();
+  });
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  function connectWS() {
+    ws = new WebSocket(`ws://${location.host}`);
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      appendLog(msg.type, msg.text);
+      if (msg.type === "done" || msg.type === "error") setRunning(false, msg.type);
+    };
+    ws.onclose = () => setTimeout(connectWS, 2000);
+  }
+
+  // ── Console ───────────────────────────────────────────────────────────────
+  function appendLog(type, text) {
+    const el = document.getElementById("console");
+    const now = new Date();
+    const ts = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+    const line = document.createElement("div");
+    line.className = `log-line log-${type}`;
+    line.innerHTML = `<span class="log-ts">${ts}</span><span class="log-text">${escHtml(text)}</span>`;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function clearConsole() {
+    document.getElementById("console").innerHTML = "";
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // ── UI state ──────────────────────────────────────────────────────────────
+  function setRunning(state, resultType) {
+    running = state;
+    const btn = document.getElementById("btn-publish");
+    const dot = document.getElementById("status-dot");
+    const statusText = document.getElementById("status-text");
+
+    btn.disabled = state;
+    btn.classList.toggle("loading", state);
+
+    if (state) {
+      dot.className = "status-dot running";
+      statusText.textContent = "Đang chạy...";
+    } else if (resultType === "done") {
+      dot.className = "status-dot ok";
+      statusText.textContent = "Hoàn tất ✓";
+    } else if (resultType === "error") {
+      dot.className = "status-dot err";
+      statusText.textContent = "Lỗi";
+    } else {
+      dot.className = "status-dot idle";
+      statusText.textContent = "Sẵn sàng";
+    }
+  }
+
+  // ── Publish ───────────────────────────────────────────────────────────────
+  async function startPublish() {
+    if (running) return;
+    const version = document.getElementById("version").value.trim();
+    const changelog = document.getElementById("changelog").value.trim();
+    const draft = document.getElementById("draft").checked;
+
+    if (!version) { alert("Vui lòng nhập phiên bản."); return; }
+    if (!/^\d+\.\d+\.\d+/.test(version)) { alert("Phiên bản không hợp lệ (vd: 4.1.0)"); return; }
+
+    setRunning(true);
+    appendLog("step", `▶ Bắt đầu publish v${version} ${draft ? "(draft)" : "(public)"}`);
+
+    try {
+      await fetch("/api/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version, changelog, draft }),
+      });
+    } catch (err) {
+      appendLog("error", `Không thể kết nối server: ${err.message}`);
+      setRunning(false, "error");
+    }
+  }
+</script>
+</body>
+</html>

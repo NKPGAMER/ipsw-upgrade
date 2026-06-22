@@ -1,15 +1,16 @@
 {
   "name": "ipsw-manager",
-  "version": "4.0.0",
+  "version": "4.0.3",
   "description": "",
   "main": "electron/dist/main.js",
   "scripts": {
     "start": "npm run dev",
+    "publish": "node publish/server.mjs",
     "build": "vite build",
     "build:main": "npx tsc -p tsconfig.main.json",
     "dev": "npm run build:main && concurrently \"vite\" \"electron .\" \"npm run dev:electron\"",
     "dev:electron": "npx tsc -p tsconfig.main.json -w",
-    "dist": "npm run build && electron-builder --publish always",
+    "dist": "npm run build:main && npm run build && electron-builder",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:src": "eslint src/",
@@ -31,7 +32,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.1",
     "electron": "^39.2.4",
-    "electron-builder": "^26.0.12",
+    "electron-builder": "26.0.12",
     "electron-rebuild": "^3.2.9",
     "electron-reloader": "^1.2.3",
     "eslint": "^9.39.4",
@@ -64,6 +65,7 @@
   "build": {
     "appId": "com.ipsw.manager",
     "productName": "IPSW Manager",
+    "artifactName": "${name}-${version}-setup.${ext}",
     "directories": {
       "output": "release"
     },
