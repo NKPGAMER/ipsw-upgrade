@@ -9,9 +9,10 @@ import {
 import { formatBytes, formatEta, Spinner } from "./shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ipswClient } from "../init";
-import { parseIPSW, getFileNameFromUrl } from "../core/helper";
+import { parseIPSW, getFileNameFromUrl, waitReady } from "../core/helper";
 import { state as globalState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
+import { BaseDevice, commands, DeviceWithIpsws } from "@/bind";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -392,7 +393,7 @@ export default function IPSWUpdateManager() {
     ]);
 
     const allFiles = ipswClient.getFiles().filter((file => file.name.toLocaleLowerCase().startsWith(prod)));
-    const devices = await window.api.getDevices(prod);
+    const devices = await waitReady<BaseDevice[]>(() => commands.getDevices(prod));
 
     if (!devices || devices.length === 0 || allFiles.length === 0) {
       setScan({ phase: "done", scanned: 0, total: 0 });
@@ -408,7 +409,7 @@ export default function IPSWUpdateManager() {
       const d = devices[i];
 
       try {
-        const modelData: DeviceResponse = await window.api.getModelData(d.identifier);
+        const modelData = await waitReady<DeviceWithIpsws>(() => commands.getModelData(d.identifier));
 
         if (!modelData?.firmwares?.length) {
           setScan((s) => ({ ...s, scanned: i + 1 }));

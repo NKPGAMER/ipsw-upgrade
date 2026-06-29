@@ -267,82 +267,82 @@
     <div class="screen-flood" id="screenFlood"></div>
   </div>
 
-  <script>
-    (function () {
-      const api = window.splashAPI;
+  <script type="module">
+    import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
-      /* ── Helpers ──────────────────────────────────────────── */
-      function raf(fn) { requestAnimationFrame(fn); }
+    const appWindow = getCurrentWebviewWindow();
 
-      function easeInOut(t) {
-        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    /* ── Helpers ──────────────────────────────────────────── */
+    function raf(fn) { requestAnimationFrame(fn); }
+
+    function easeInOut(t) {
+      return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+
+    function animate(duration, onTick, onDone) {
+      const start = performance.now();
+      function frame(now) {
+        const t = Math.min((now - start) / duration, 1);
+        onTick(easeInOut(t), t);
+        if (t < 1) raf(frame);
+        else if (onDone) onDone();
       }
+      raf(frame);
+    }
 
-      function animate(duration, onTick, onDone) {
-        const start = performance.now();
-        function frame(now) {
-          const t = Math.min((now - start) / duration, 1);
-          onTick(easeInOut(t), t);
-          if (t < 1) raf(frame);
-          else if (onDone) onDone();
-        }
-        raf(frame);
-      }
+    /* ── Main exit sequence ───────────────────────────────── */
+    function runAnimation() {
+      const wrapper     = document.getElementById('auroraWrapper');
+      const overlay     = document.getElementById('darkOverlay');
+      const borderSvg   = document.getElementById('borderFillSvg');
+      const borderRect  = document.getElementById('borderRect');
+      const logoGlow    = document.getElementById('logoGlow');
+      const screenFlood = document.getElementById('screenFlood');
+      const statusText  = document.getElementById('statusText');
 
-      /* ── Main exit sequence ───────────────────────────────── */
-      function runAnimation() {
-        const wrapper     = document.getElementById('auroraWrapper');
-        const overlay     = document.getElementById('darkOverlay');
-        const borderSvg   = document.getElementById('borderFillSvg');
-        const borderRect  = document.getElementById('borderRect');
-        const logoGlow    = document.getElementById('logoGlow');
-        const screenFlood = document.getElementById('screenFlood');
-        const statusText  = document.getElementById('statusText');
+      // Update status hint
+      statusText.textContent = 'Đang tắt...';
+      statusText.classList.add('exit');
 
-        // Update status hint
-        statusText.textContent = 'Đang tắt...';
-        statusText.classList.add('exit');
+      /* Phase 1 – Dark overlay (350ms) */
+      overlay.classList.add('in');
 
-        /* Phase 1 – Dark overlay (350ms) */
-        overlay.classList.add('in');
+      overlay.addEventListener('transitionend', function onOverlay(e) {
+        if (e.propertyName !== 'opacity') return;
+        overlay.removeEventListener('transitionend', onOverlay);
 
-        overlay.addEventListener('transitionend', function onOverlay(e) {
-          if (e.propertyName !== 'opacity') return;
-          overlay.removeEventListener('transitionend', onOverlay);
+        /* Stop spinning aurora */
+        wrapper.classList.add('exit-stop');
 
-          /* Stop spinning aurora */
-          wrapper.classList.add('exit-stop');
+        /* Phase 2 – Border fill (650ms) */
+        borderSvg.classList.add('in');
+        animate(650, function (ease) {
+          borderRect.style.strokeDasharray = (ease * 400) + ' ' + ((1 - ease) * 400);
+        }, function () {
 
-          /* Phase 2 – Border fill (650ms), mảnh nhờ stroke-width nhỏ + non-scaling-stroke */
-          borderSvg.classList.add('in');
-          animate(650, function (ease) {
-            borderRect.style.strokeDasharray = (ease * 400) + ' ' + ((1 - ease) * 400);
-          }, function () {
+          /* Phase 3 – Logo glow burst (700ms) */
+          logoGlow.classList.add('in');
 
-            /* Phase 3 – Logo glow burst nhỏ quanh logo (700ms) */
-            logoGlow.classList.add('in');
+          setTimeout(function () {
 
-            setTimeout(function () {
+            /* Phase 4 – Screen flood light */
+            screenFlood.classList.add('in');
 
-              /* Phase 4 – Ánh sáng lan tỏa từ giữa màn hình ra cho đến khi phủ kín */
-              screenFlood.classList.add('in');
+            screenFlood.addEventListener('animationend', function onFlood() {
+              screenFlood.removeEventListener('animationend', onFlood);
+              /* Animation complete — tell Rust to close splash and show main */
+              appWindow.emit('splash:animation-done', {});
+            });
 
-              screenFlood.addEventListener('animationend', function onFlood() {
-                screenFlood.removeEventListener('animationend', onFlood);
-                /* Animation đã hoàn tất hoàn toàn — bây giờ mới báo done */
-                if (api) api.done();
-              });
-
-            }, 320);
-          });
+          }, 320);
         });
-      }
+      });
+    }
 
-      /* ── Entry ────────────────────────────────────────────── */
-      if (api) {
-        api.onReady(runAnimation);
-      }
-    })();
+    /* ── Entry: wait for 'splash:ready' from Rust ────────── */
+    appWindow.listen('splash:ready', () => {
+      runAnimation();
+    });
   </script>
 </body>
 

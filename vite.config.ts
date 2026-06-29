@@ -1,11 +1,13 @@
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 import { resolve } from "path";
 
 export default defineConfig({
     root: "src",
     base: "./",
+    resolve: {
+        tsconfigPaths: true
+    },
     build: {
         outDir: "../dist",
         emptyOutDir: true,
@@ -17,8 +19,7 @@ export default defineConfig({
         }
     },
     plugins: [
-        tailwindcss(),
-        tsconfigPaths()
+        tailwindcss()
     ]
 })
 

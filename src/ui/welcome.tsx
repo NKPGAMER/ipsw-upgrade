@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, ReactNode, JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { state } from "../data";
+import { commands } from "@/bind";
+import { waitReady } from "@/core/helper";
 
 const SETTING_VERSION = "2.0.0";
 export { SETTING_VERSION };
@@ -206,6 +208,14 @@ const Section: React.FC<SectionProps> = ({ icon, title, accent, children }) => (
 
 const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => {
     const { t } = useTranslation();
+    const [version, setVersion] = useState("-");
+
+    useEffect(() => {
+        waitReady<string>(() => commands.getVersion()).then(v => {
+            setVersion(v);
+        })
+    }, [])
+
     return (
         <div className="flex-1 overflow-y-auto px-9! py-8!">
             {/* Hero */}
@@ -222,14 +232,14 @@ const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => {
                         IPSW Manager
                     </h1>
                     <div className="mt-0.75! text-[12px] text-[#666]">
-                        {t('wizard.welcome.version', { version: window.api.getVersion })}
+                        {t('wizard.welcome.version', { version })}
                     </div>
                 </div>
             </div>
 
             {/* Welcome text */}
             <p className="mb-7! max-w-120 text-[13.5px] leading-[1.7] text-[#aaa]">
-                {t('wizard.welcome.text', { version: window.api.getVersion })}
+                {t('wizard.welcome.text', { version })}
             </p>
 
             {/* What's New */}
@@ -519,8 +529,10 @@ export default function App(): JSX.Element {
     }, []);
 
     const handleBrowseSaveDir = useCallback(async () => {
-        const path = await window.api.selectFolder?.();
-        if (path) setSaveDir(path);
+        const path = await commands.pickFolder();
+        if (path.status === "ok") {
+            setSaveDir(path.data || "")
+        }
     }, []);
 
     const finishSetup = useCallback(async () => {
@@ -544,10 +556,10 @@ export default function App(): JSX.Element {
 
         setPage("done");
         await new Promise(r => setTimeout(r, 1500));
-        if (mountedRef.current) window.api.relaunch();
+        if (mountedRef.current) commands.relaunch();
     }, [saveDir, turboMode, skipVerify, parseFileName, linkOutDir, autoRemoveOld, autoRemoveDupe, autoRemoveInvalid]);
 
-     useEffect(() => window.api.ready(), []);
+    //  useEffect(() => window.api.ready(), []);
 
     return (
         <>

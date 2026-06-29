@@ -118,6 +118,7 @@ import visionIcon from "../assets/icon/vision.png";
 import tvIcon from "../assets/icon/tv.png";
 import homepodIcon from "../assets/icon/homepod.png";
 import ipodIcon from "../assets/icon/ipod.png";
+import { commands } from "@/bind";
 
 const PRODUCTS: Product[] = [
   { id: "iphone", name: "iPhone", img: iphoneIcon },
@@ -249,27 +250,33 @@ export default function Home() {
   const mountedRef = useRef(true);
 
   const reloadStats = useCallback(() => {
-    Promise.all([
-      window.api.getDiskSpace(state.currentFolder),
-      Promise.resolve(ipswClient.getFiles()),
-    ]).then(([freeSpace, allFiles]) => {
-      if (!mountedRef.current) return;
-      const pct = freeSpace.percentage;
+    commands.getDriveInfo("D:\\").then((result) => {
+      if (!mountedRef.current || result.status !== "ok") return;
+      const drive = result.data;
+      const allFiles = ipswClient.getFiles();
+      const pct = drive.total_space ? (drive.used_space / drive.total_space) * 100 : 0;
       setStats({
         fileCount: allFiles.length,
         used: utils.formatBytes(allFiles.reduce((sum, f) => sum + f.size, 0)),
         free: {
-          ...utils.formatBytes(freeSpace.available),
+          ...utils.formatBytes(drive.available_space),
           color: pct >= 90 ? "text-red-600" : pct >= 60 ? "text-yellow-500" : "text-green-600",
         },
       });
+
+      console.log("File", allFiles.length, drive)
     }).catch((err) => {
       console.error("[Home] reloadStats phase1 failed:", err);
     });
-
-    window.downloader.getEnvironmentInfo(state.currentFolder).then((env) => {
-      if (!mountedRef.current) return;
-      setEnvInfo(env);
+ 
+    commands.getEnvironmentInfo("D:\\").then((result) => {
+      if (!mountedRef.current || result.status !== "ok") return;
+      const env = result.data;
+      setEnvInfo({
+        environment: env.env,
+        saveDrive: { path: env.save_drive.path, mediaType: env.save_drive.media_type },
+        tmpDrive: env.tmp_drive ? { path: env.tmp_drive.path, mediaType: env.tmp_drive.media_type } : null
+      })
     }).catch((err) => {
       console.error("[Home] reloadStats phase2 failed:", err);
     });
@@ -287,16 +294,16 @@ export default function Home() {
     };
   }, [reloadStats]);
 
-  useEffect(() => {
-    const sub = window.updater.onUpdateAvailable(({ version }) => {
-      setUpdateVersion(version);
-      state.isNewVersion = true;
-    });
-    return () => {
-      sub.unsubscribe();
-      state.isNewVersion = false;
-    };
-  }, []);
+  // useEffect(() => {
+  //   const sub = window.updater.onUpdateAvailable(({ version }) => {
+  //     setUpdateVersion(version);
+  //     state.isNewVersion = true;
+  //   });
+  //   return () => {
+  //     sub.unsubscribe();
+  //     state.isNewVersion = false;
+  //   };
+  // }, []);
 
   // Chỉ rebuild khi stats thay đổi — icons dùng constant references
   const statItems: StatItem[] = useMemo(() => [
@@ -352,7 +359,7 @@ export default function Home() {
   }, [envInfo]);
 
 
-  useEffect(() => window.api.ready(), []);
+  // useEffect(() => window.api.ready(), []);
 
   return (
     <div className="flex flex-col min-h-screen w-full bg-[#0d0d0d] text-[#e5e5e5]">

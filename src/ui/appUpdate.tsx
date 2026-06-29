@@ -1,3 +1,4 @@
+import { commands } from "@/bind";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -140,7 +141,7 @@ function renderMd(src: string): ReactNode[] {
       case "li":
         return (
           <li key={i} className="flex items-start gap-1.5! text-[12.5px]! text-[#999] leading-relaxed ml-2!">
-            <span className="text-[#137fec] shrink-0 mt-[5px]! w-1! h-1! rounded-full bg-[#137fec]" />
+            <span className="text-[#137fec] shrink-0 mt-1.25! w-1! h-1! rounded-full bg-[#137fec]" />
             <span>{n.text}</span>
           </li>
         );
@@ -288,7 +289,7 @@ export default function AppUpdate() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => window.api.relaunch()}
+                  onClick={() => commands.relaunch()}
                   className="
                     mt-3! w-full py-2.5! rounded-lg! text-[13px]! font-semibold
                     bg-[#137fec] text-white cursor-pointer

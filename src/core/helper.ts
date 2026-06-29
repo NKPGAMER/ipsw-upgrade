@@ -2,32 +2,28 @@ import { t } from "i18next";
 import { state } from "../data";
 import { ipswClient } from "../init";
 import utils from "./utils";
+import { commands, type DeviceWithIpsws, type Product, type BaseDevice } from "@/bind";
 
-// ─── Semaphore helper ─────────────────────────────────────────────────────────
-class Semaphore {
-  private queue: Array<() => void> = [];
-  constructor(private slots: number) {}
+export async function waitReady<T>(
+  fn: () => Promise<any>,
+  interval = 300
+): Promise<T> {
+  while (true) {
+    const r = await fn();
 
-  acquire(): Promise<void> {
-    if (this.slots > 0) { this.slots--; return Promise.resolve(); }
-    return new Promise((resolve) => this.queue.push(resolve));
-  }
+    if (r.status === "error") {
+      throw r.error;
+    }
 
-  release() {
-    const next = this.queue.shift();
-    if (next) next();
-    else this.slots++;
-  }
+    if (r.data.status === "ready") {
+      return r.data as T;
+    }
 
-  async run<T>(fn: () => Promise<T>): Promise<T> {
-    await this.acquire();
-    try { return await fn(); }
-    finally { this.release(); }
+    await new Promise(resolve =>
+      setTimeout(resolve, interval)
+    );
   }
 }
-
-// Giới hạn 2 file delete đồng thời — IPSW rất lớn, tránh disk spike
-const deleteSem = new Semaphore(2);
 
 export function parseIPSW(filename: string): {
   id: string;
@@ -51,7 +47,7 @@ export function getFileNameFromUrl(url: Firmware["url"]): string {
 
 export async function getFiles(identifier: Device["identifier"],
 ): Promise<IPSWFile[]> {
-  const modelData = await window.api.getModelData(identifier);
+  const modelData = await waitReady<DeviceWithIpsws>(() => commands.getModelData(identifier));
   const files = ipswClient.getFiles();
   const lastFirmware = modelData.firmwares[0];
   const info = parseIPSW(getFileNameFromUrl(lastFirmware.url));
@@ -73,8 +69,9 @@ export async function getRedundantFiles(
   identifier: Device["identifier"],
   files?: IPSWFile[]
 ): Promise<RedundantFileResponse> {
+
   const [modelData, modelFiles] = await Promise.all([
-    window.api.getModelData(identifier),
+    waitReady<DeviceWithIpsws>(() => commands.getModelData(identifier)),
     files ? Promise.resolve(files) : getFiles(identifier),
   ]);
 
@@ -91,7 +88,7 @@ export async function getRedundantFiles(
 export async function getRedundantFilesFromProduct(
   product: Product
 ): Promise<RedundantFileResponse> {
-  const productData = await window.api.getDevices(product);
+  const productData = await waitReady<BaseDevice[]>(() => commands.getDevices(product));
   const results = await Promise.all(
     productData.map(async (device) => {
       const files = await getFiles(device.identifier);
@@ -143,15 +140,17 @@ interface DeleteFileArgs {
 }
 
 export async function deleteFile({ file, files, identifier }: DeleteFileArgs) {
-  if (file) return deleteSem.run(() => ipswClient.deleteFile(file));
+  const f: IPSWFile[] =
+    file
+      ? [file]
+      : files
+        ? files
+        : identifier
+          ? await getFiles(identifier)
+          : []
+    ;
 
-  if (files?.length)
-    return Promise.all(files.map((f) => deleteSem.run(() => ipswClient.deleteFile(f.path))));
-
-  if (identifier) {
-    const modelFiles = await getFiles(identifier);
-    return Promise.all(modelFiles.map((f) => deleteSem.run(() => ipswClient.deleteFile(f.path))));
-  }
+  return await ipswClient.deleteFile(f);
 }
 
 export async function updateFirmware(
@@ -171,14 +170,14 @@ export async function updateFirmware(
 }
 
 export async function updateFirmwareOfProduct(product: Product) {
-  const devices = await window.api.getDevices(product);
+  const devices = await waitReady<BaseDevice[]>(() => commands.getDevices(product));
 
   // Fetch allFiles một lần cho toàn bộ product
   const allFiles = ipswClient.getFiles();
 
   await Promise.all(
-    devices.map(async (device) => {
-      const modelData = await window.api.getModelData(device.identifier);
+    devices.map(async ({ identifier }) => {
+      const modelData = await waitReady<DeviceWithIpsws>(() => commands.getModelData(identifier));
       const lastFirmware = modelData.firmwares[0];
       const lastFirmwareInfo = parseIPSW(getFileNameFromUrl(lastFirmware.url));
 

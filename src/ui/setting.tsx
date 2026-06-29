@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { state } from "../data";
 import { useAppStore } from "../stores/app-store";
 import utils from "../core/utils";
+import { commands } from "@/bind";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -183,6 +184,7 @@ const defaultSettings = {
 }
 
 export default function SettingsApp(): JSX.Element {
+  const [appVersion, setVersion] = useState<string>("-")
   const [language, setLanguage] = useState<Language>("vi");
 
   const [downloadPath, setDownloadPath] = useState<string>(defaultSettings.downloadPath);
@@ -196,6 +198,12 @@ export default function SettingsApp(): JSX.Element {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
+  // Load Data
+  useEffect(() => {
+    // App Version
+    commands.getVersion().then((v) => setVersion(v));
+  }, []);
+
   useEffect(() => {
     const syncState = () => {
       const s = useAppStore.getState();
@@ -206,12 +214,12 @@ export default function SettingsApp(): JSX.Element {
       setDeleteDuplicate(s.autoRemoveDuplicateFiles);
       setTurboMode(s.turboMode);
 
-      window.store.get('language').then((lang) => {
-        if (lang) setLanguage(lang);
-      });
-      window.store.get('link_out_dir').then((dir) => {
-        if (dir) setLinkOutDir(dir);
-      });
+      // window.store.get('language').then((lang) => {
+      //   if (lang) setLanguage(lang);
+      // });
+      // window.store.get('link_out_dir').then((dir) => {
+      //   if (dir) setLinkOutDir(dir);
+      // });
     };
     syncState();
     const unsub = useAppStore.subscribe((s) => {
@@ -228,7 +236,7 @@ export default function SettingsApp(): JSX.Element {
     })
     if (!warning) return;
     
-    window.api.relaunch();
+    commands.relaunch();
   }, [t]);
 
   const handleSetDownloadPath = (path: string) => {
@@ -315,7 +323,7 @@ export default function SettingsApp(): JSX.Element {
             label={t('app.version.title')}
             right={
               <span className="font-bold text-[12px] text-[#137fec] bg-[#303337] border border-white/[0.07] px-3! py-1! rounded-full tracking-[0.04em]">
-                {window.api.getVersion} - Premium Edition - VIP
+                {appVersion} - Premium Edition - VIP
               </span>
             }
           />
@@ -368,8 +376,10 @@ export default function SettingsApp(): JSX.Element {
             desc={t("app.download.savePath.desc")}
             value={downloadPath}
             onBrowse={async () => {
-              const path = await window.api.selectFolder?.();
-              if (path) handleSetDownloadPath(path);
+              const result = await commands.pickFolder();
+              if (result.status === "ok") {
+                handleSetDownloadPath(result.data ?? "")
+              }
             }}
             onChange={handleSetDownloadPath}
             placeholder="C:\Downloads"

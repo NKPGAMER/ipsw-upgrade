@@ -1,3 +1,6 @@
+import { listen } from '@tauri-apps/api/event';
+import { commands } from '../bind';
+
 type ReloadListener = (files: IPSWFile[]) => void;
 type IncompleteTasksListener = (tasks: IncompleteTaskClient[]) => void;
 
@@ -31,20 +34,27 @@ interface IncompleteTaskFirmware {
  * Client chạy ở renderer process.
  *
  * - Giữ một bản sao local của danh sách file để đọc đồng bộ.
- * - Lắng nghe event `ipsw:reload` từ main để cập nhật list.
- * - Cung cấp API giao tiếp với IPSWWatcher bên main.
+ * - Lắng nghe event `ipsw:reload` từ Rust backend để cập nhật list.
+ * - Cung cấp API giao tiếp với IPSWWatcher bên Rust.
  * - Quản lý danh sách incomplete tasks và tự xóa khi file tương ứng được thêm.
  */
 export class IPSWClient {
     private files: Map<string, IPSWFile> = new Map();
     private listeners: Set<ReloadListener> = new Set();
+    private unlistenReload: (() => void) | null = null;
 
     private incompleteTasks: Map<string, IncompleteTaskClient> = new Map(); // key = task id
     private incompleteListeners: Set<IncompleteTasksListener> = new Set();
 
     constructor() {
-        window.api.file.onReload((f) => this.applyReload(f));
+        this.initListeners();
         void this.init().then(() => this.initIncompleteTasks());
+    }
+
+    private async initListeners(): Promise<void> {
+        this.unlistenReload = await listen<IPSWFile[]>('ipsw:reload', (event) => {
+            this.applyReload(event.payload);
+        });
     }
 
     // ─────────────────────────────────────────
@@ -55,8 +65,10 @@ export class IPSWClient {
      * Gọi một lần sau khi khởi tạo để đồng bộ trạng thái ban đầu từ main.
      */
     async init(): Promise<void> {
-        const files = await window.api.file.getFiles();
-        this.files = new Map(files.map((f) => [f.path, f]));
+        const result = await commands.getFiles();
+        if (result.status === 'ok') {
+            this.files = new Map(result.data.map((f) => [f.path, f]));
+        }
         this.emit(this.getFiles());
     }
 
@@ -65,9 +77,9 @@ export class IPSWClient {
      */
     async initIncompleteTasks(): Promise<void> {
         const load = async () => {
-            const tasks = await window.downloader.getIncompleteTasks() as unknown as IncompleteTaskClient[];
-            if (!Array.isArray(tasks)) return;
-            this.incompleteTasks = new Map(tasks.map((t) => [t.id, t]));
+            // const tasks = await window.downloader.getIncompleteTasks() as unknown as IncompleteTaskClient[];
+            // if (!Array.isArray(tasks)) return;
+            // this.incompleteTasks = new Map(tasks.map((t) => [t.id, t]));
             this.emitIncompleteTasks();
         };
 
@@ -133,7 +145,7 @@ export class IPSWClient {
      * Main sẽ debounce: chờ task hiện tại xong rồi nhảy sang request cuối nhất.
      */
     changeDir(newDir: string): void {
-        window.api.file.changeDir(newDir);
+        commands.changeDir(newDir);
     }
 
     /**
@@ -142,8 +154,18 @@ export class IPSWClient {
      */
     async deleteFile(
         target: string | string[] | IPSWFile | IPSWFile[]
-    ): Promise<void> {
-        await window.api.file.delete(target);
+    ): Promise<"ok" | "error"> {
+        const paths = (Array.isArray(target) ? target : [target]).map(
+            (t) => (typeof t === "string" ? t : t.path)
+        );
+        const result = await commands.deleteFiles(paths);
+        if (result.status === "ok") {
+            for (const path of paths) {
+                this.files.delete(path);
+            }
+            this.emit(this.getFiles());
+        }
+        return result.status;
     }
 
     // ─────────────────────────────────────────
@@ -211,10 +233,12 @@ export class IPSWClient {
             }
             this.emit(this.getFiles());
         } else {
-            window.api.file.getFiles()
-                .then((files: IPSWFile[]) => {
-                    this.files = new Map(files.map((f) => [f.path, f]));
-                    this.emit(this.getFiles());
+            commands.getFiles()
+                .then((result) => {
+                    if (result.status === 'ok') {
+                        this.files = new Map(result.data.map((f) => [f.path, f]));
+                        this.emit(this.getFiles());
+                    }
                 })
                 .catch((err) => console.error("[IPSWClient] sync error:", err));
         }

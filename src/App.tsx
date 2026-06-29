@@ -45,7 +45,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
             </p>
             <button
               onClick={this.handleReload}
-              className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors cursor-pointer"
+              className="px-6! py-2! rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors cursor-pointer"
             >
               Thử lại
             </button>
@@ -79,16 +79,20 @@ export default function App() {
     const [checking, setChecking] = useState(true);
     const [needSetup, setNeedSetup] = useState(false);
 
+    // useEffect(() => {
+    //     window.store.get('settingVersion').then((storedVersion: string) => {
+    //         if (storedVersion !== SETTING_VERSION) {
+    //             setNeedSetup(true);
+    //         }
+    //         setChecking(false);
+    //     }).catch(() => {
+    //         setChecking(false);
+    //     });
+    // }, []);
+
     useEffect(() => {
-        window.store.get('settingVersion').then((storedVersion: string) => {
-            if (storedVersion !== SETTING_VERSION) {
-                setNeedSetup(true);
-            }
-            setChecking(false);
-        }).catch(() => {
-            setChecking(false);
-        });
-    }, []);
+      setChecking(false)
+    }, [])
 
     if (checking) return <LoadingScreen />;
 

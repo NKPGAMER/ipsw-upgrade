@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Task } from "../../../../@types/global";
-import { download, deleteFile, updateFirmware, getRedundantFilesFromProduct, getFileNameFromUrl, parseIPSW } from "@/core/helper";
+import { download, deleteFile, updateFirmware, getRedundantFilesFromProduct, getFileNameFromUrl, parseIPSW, waitReady } from "@/core/helper";
 import { state, DEVICE_GROUPS } from "@/data";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ProductId } from "@/ui/home";
@@ -16,6 +16,8 @@ import { Resizer } from "./Resizer";
 import { TASKBAR_ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
 import { CardSkeleton } from "./CardSkeleton";
+import { listen } from "@tauri-apps/api/event";
+import { commands, type DeviceWithIpsws } from "@/bind";
 
 const PENDING_TIMEOUT_MS = 15000;
 
@@ -153,7 +155,8 @@ export default function IPSWManager() {
   }, [applyTaskMap]);
 
   useEffect(() => {
-    const unsub = window.api.onDeviceDataUpdated(({ identifier, data }) => {
+    const unlisten = listen<{ identifier: string; data: DeviceWithIpsws }>("dh:deviceDataUpdated", (event) => {
+      const { identifier, data } = event.payload;
       setEntries(prev => {
         const group = identifierGroupRef.current.get(identifier);
         if (group && group.size > 1) {
@@ -170,7 +173,8 @@ export default function IPSWManager() {
         );
       });
     });
-    return () => unsub();
+
+    return () => { unlisten.then((unlisten) => unlisten()) }
   }, []);
 
   const handleCardVisible = useCallback(async (identifier: string) => {
@@ -183,213 +187,211 @@ export default function IPSWManager() {
         : e
     ));
 
-    const result = await window.api.getDeviceModelData(identifier);
-    if (result.status === "ready") {
-      const newFirmwares: Firmware[] = result.data.firmwares ?? [];
+    const modelData = await waitReady<DeviceWithIpsws>(() => commands.getModelData(identifier));
+    const newFirmwares: Firmware[] = modelData.firmwares ?? [];
 
-      setEntries(prev => {
-        if (newFirmwares.length === 0) {
-          return prev.map(e =>
-            e.device.identifier === identifier
-              ? { ...e, firmwares: newFirmwares }
-              : e
-          );
-        }
-
-        const targetUrl = newFirmwares[0].url;
-        const idx = prev.findIndex(e => e.device.identifier === identifier);
-        if (idx === -1) {
-          return prev.map(e =>
-            e.device.identifier === identifier
-              ? { ...e, firmwares: newFirmwares }
-              : e
-          );
-        }
-
-        const start = Math.max(0, idx - 4);
-        const end = Math.min(prev.length - 1, idx + 4);
-        const linkedIds = new Set<string>();
-        linkedIds.add(identifier);
-
-        for (let i = start; i <= end; i++) {
-          if (i === idx) continue;
-          const fw = prev[i].firmwares;
-          if (fw && fw.length > 0 && fw[0].url === targetUrl) {
-            linkedIds.add(prev[i].device.identifier);
-          }
-        }
-
-        if (linkedIds.size > 1) {
-          urlToIdentifiersRef.current.set(targetUrl, linkedIds);
-          for (const id of linkedIds) {
-            identifierGroupRef.current.set(id, linkedIds);
-          }
-          setIdentifierToGroup(prevGroups => {
-            const next = new Map(prevGroups);
-            for (const id of linkedIds) next.set(id, linkedIds);
-            return next;
-          });
-
-          for (const id of linkedIds) {
-            if (id !== identifier && !requestedFwRef.current.has(id)) {
-              requestedFwRef.current.add(id);
-              window.api.getDeviceModelData(id).then(reloadResult => {
-                if (reloadResult.status === "ready") {
-                  setEntries(prev2 => prev2.map(e =>
-                    linkedIds.has(e.device.identifier)
-                      ? { ...e, firmwares: reloadResult.data.firmwares ?? [] }
-                      : e
-                  ));
-                }
-              });
-            }
-          }
-
-          return prev.map(e =>
-            linkedIds.has(e.device.identifier)
-              ? { ...e, firmwares: newFirmwares }
-              : e
-          );
-        }
-
+    setEntries(prev => {
+      if (newFirmwares.length === 0) {
         return prev.map(e =>
           e.device.identifier === identifier
             ? { ...e, firmwares: newFirmwares }
             : e
         );
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    const d = window.downloader;
-    if (!d) return;
-
-    const timers = pendingTimersRef.current;
-
-    const refreshIncomplete = () => {
-      ipswClient.refreshIncompleteTasks().then(() => {
-        setIncompleteTasks(ipswClient.getIncompleteTasks());
-      }).catch((err) => {
-        console.error("[IPSWManager] refresh incomplete tasks failed:", err);
-      });
-    };
-
-    const subs = [
-      d.onAdded((_id, task) => {
-        upsertTask(task);
-        clearPendingForGroup(task.firmware.identifier);
-        refreshIncomplete();
-      }),
-      d.onProgress((_id, task) => upsertTask(task)),
-      d.onPaused((_id, task) => {
-        upsertTask(task);
-        clearPendingForGroup(task.firmware.identifier);
-      }),
-      d.onResumed((_id, task) => {
-        if (task) {
-          upsertTask(task);
-          clearPendingForGroup(task.firmware.identifier);
-        }
-      }),
-      d.onCompleted((_id, task) => {
-        upsertTask(task);
-        clearPendingForGroup(task.firmware.identifier);
-        updateAllFiles();
-      }),
-      d.onError((_id, err, task) => {
-        upsertTask(task);
-        clearPendingForGroup(task.firmware.identifier);
-      }),
-      d.onCancelled((id) => {
-        const affected = new Set<string>();
-        for (const [identifier, t] of taskMapRef.current) {
-          if (t.id === id) affected.add(identifier);
-        }
-        removeTaskById(id);
-        for (const identifier of affected) {
-          clearPendingForGroup(identifier);
-        }
-        updateAllFiles();
-        refreshIncomplete();
-      }),
-      d.onIncompleteDeleted((id) => {
-        const task = ipswClient.getIncompleteTasks().find(t => t.id === id);
-        removeTaskById(id);
-        if (task) clearPendingForGroup(task.firmware.identifier);
-        ipswClient.removeIncompleteTask(id);
-        setIncompleteTasks(ipswClient.getIncompleteTasks());
-      }),
-
-      d.onVerifyProgress((info) => {
-        setVerifyStates(prev => {
-          const next = new Map(prev);
-          next.set(info.identifier, {
-            phase: "verifying",
-            progress: { pct: info.pct, speed: info.speed, eta: info.eta },
-          });
-          return next;
-        });
-      }),
-      d.onVerifyCompleted((info) => {
-        verifyRunningRef.current = false;
-        setVerifyStates(prev => {
-          const next = new Map(prev);
-          next.delete(info.identifier);
-          return next;
-        });
-        setPending(info.identifier, null);
-
-        if (info.ok) {
-          utils.showSuccessMessage("Xác minh thành công! Tệp IPSW khớp với checksum.");
-        } else {
-          const algoLabel = info.algo?.toUpperCase() ?? "?";
-          utils.customConfirm(
-            `Tệp IPSW **không khớp** checksum.\n\n` +
-            `**Thuật toán:** ${algoLabel}\n` +
-            `**Mong đợi:** \`${info.expected}\`\n` +
-            `**Thực tế:** \`${info.actual}\`\n\n` +
-            `Xoá tệp bị hỏng?`,
-            { variant: "danger", title: "Xác minh thất bại", confirmText: "Xoá tệp", cancelText: "Giữ lại" }
-          ).then((shouldDelete) => {
-            if (shouldDelete) {
-              deleteFile({ identifier: info.identifier }).then(() => {
-                updateAllFiles();
-              });
-            }
-          });
-        }
-      }),
-      d.onVerifyCancelled((info) => {
-        verifyRunningRef.current = false;
-        setVerifyStates(prev => {
-          const next = new Map(prev);
-          next.delete(info.identifier);
-          return next;
-        });
-        setPending(info.identifier, null);
-      }),
-      d.onVerifyError((info) => {
-        verifyRunningRef.current = false;
-        setVerifyStates(prev => {
-          const next = new Map(prev);
-          next.delete(info.identifier);
-          return next;
-        });
-        setPending(info.identifier, null);
-        utils.showErrorMessage(`Lỗi xác minh: ${info.error}`);
-      }),
-    ];
-
-    return () => {
-      subs.forEach(s => s.unsubscribe());
-      for (const timer of timers.values()) {
-        window.clearTimeout(timer);
       }
-      timers.clear();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+      const targetUrl = newFirmwares[0].url;
+      const idx = prev.findIndex(e => e.device.identifier === identifier);
+      if (idx === -1) {
+        return prev.map(e =>
+          e.device.identifier === identifier
+            ? { ...e, firmwares: newFirmwares }
+            : e
+        );
+      }
+
+      const start = Math.max(0, idx - 4);
+      const end = Math.min(prev.length - 1, idx + 4);
+      const linkedIds = new Set<string>();
+      linkedIds.add(identifier);
+
+      for (let i = start; i <= end; i++) {
+        if (i === idx) continue;
+        const fw = prev[i].firmwares;
+        if (fw && fw.length > 0 && fw[0].url === targetUrl) {
+          linkedIds.add(prev[i].device.identifier);
+        }
+      }
+
+      if (linkedIds.size > 1) {
+        urlToIdentifiersRef.current.set(targetUrl, linkedIds);
+        for (const id of linkedIds) {
+          identifierGroupRef.current.set(id, linkedIds);
+        }
+        setIdentifierToGroup(prevGroups => {
+          const next = new Map(prevGroups);
+          for (const id of linkedIds) next.set(id, linkedIds);
+          return next;
+        });
+
+        for (const id of linkedIds) {
+          if (id !== identifier && !requestedFwRef.current.has(id)) {
+            requestedFwRef.current.add(id);
+
+            waitReady<DeviceWithIpsws>(() => commands.getModelData(id))
+              .then((data) => {
+                setEntries(prev2 => prev2.map(e =>
+                  linkedIds.has(e.device.identifier)
+                    ? { ...e, firmwares: data.firmwares ?? [] }
+                    : e
+                ));
+              });
+          }
+        }
+
+        return prev.map(e =>
+          linkedIds.has(e.device.identifier)
+            ? { ...e, firmwares: newFirmwares }
+            : e
+        );
+      }
+
+      return prev.map(e =>
+        e.device.identifier === identifier
+          ? { ...e, firmwares: newFirmwares }
+          : e
+      );
+    });
   }, []);
+
+  // useEffect(() => {
+  //   const d = window.downloader;
+  //   if (!d) return;
+
+  //   const timers = pendingTimersRef.current;
+
+  //   const refreshIncomplete = () => {
+  //     ipswClient.refreshIncompleteTasks().then(() => {
+  //       setIncompleteTasks(ipswClient.getIncompleteTasks());
+  //     }).catch((err) => {
+  //       console.error("[IPSWManager] refresh incomplete tasks failed:", err);
+  //     });
+  //   };
+
+  //   const subs = [
+  //     d.onAdded((_id, task) => {
+  //       upsertTask(task);
+  //       clearPendingForGroup(task.firmware.identifier);
+  //       refreshIncomplete();
+  //     }),
+  //     d.onProgress((_id, task) => upsertTask(task)),
+  //     d.onPaused((_id, task) => {
+  //       upsertTask(task);
+  //       clearPendingForGroup(task.firmware.identifier);
+  //     }),
+  //     d.onResumed((_id, task) => {
+  //       if (task) {
+  //         upsertTask(task);
+  //         clearPendingForGroup(task.firmware.identifier);
+  //       }
+  //     }),
+  //     d.onCompleted((_id, task) => {
+  //       upsertTask(task);
+  //       clearPendingForGroup(task.firmware.identifier);
+  //       updateAllFiles();
+  //     }),
+  //     d.onError((_id, err, task) => {
+  //       upsertTask(task);
+  //       clearPendingForGroup(task.firmware.identifier);
+  //     }),
+  //     d.onCancelled((id) => {
+  //       const affected = new Set<string>();
+  //       for (const [identifier, t] of taskMapRef.current) {
+  //         if (t.id === id) affected.add(identifier);
+  //       }
+  //       removeTaskById(id);
+  //       for (const identifier of affected) {
+  //         clearPendingForGroup(identifier);
+  //       }
+  //       updateAllFiles();
+  //       refreshIncomplete();
+  //     }),
+  //     d.onIncompleteDeleted((id) => {
+  //       const task = ipswClient.getIncompleteTasks().find(t => t.id === id);
+  //       removeTaskById(id);
+  //       if (task) clearPendingForGroup(task.firmware.identifier);
+  //       ipswClient.removeIncompleteTask(id);
+  //       setIncompleteTasks(ipswClient.getIncompleteTasks());
+  //     }),
+
+  //     d.onVerifyProgress((info) => {
+  //       setVerifyStates(prev => {
+  //         const next = new Map(prev);
+  //         next.set(info.identifier, {
+  //           phase: "verifying",
+  //           progress: { pct: info.pct, speed: info.speed, eta: info.eta },
+  //         });
+  //         return next;
+  //       });
+  //     }),
+  //     d.onVerifyCompleted((info) => {
+  //       verifyRunningRef.current = false;
+  //       setVerifyStates(prev => {
+  //         const next = new Map(prev);
+  //         next.delete(info.identifier);
+  //         return next;
+  //       });
+  //       setPending(info.identifier, null);
+
+  //       if (info.ok) {
+  //         utils.showSuccessMessage("Xác minh thành công! Tệp IPSW khớp với checksum.");
+  //       } else {
+  //         const algoLabel = info.algo?.toUpperCase() ?? "?";
+  //         utils.customConfirm(
+  //           `Tệp IPSW **không khớp** checksum.\n\n` +
+  //           `**Thuật toán:** ${algoLabel}\n` +
+  //           `**Mong đợi:** \`${info.expected}\`\n` +
+  //           `**Thực tế:** \`${info.actual}\`\n\n` +
+  //           `Xoá tệp bị hỏng?`,
+  //           { variant: "danger", title: "Xác minh thất bại", confirmText: "Xoá tệp", cancelText: "Giữ lại" }
+  //         ).then((shouldDelete) => {
+  //           if (shouldDelete) {
+  //             deleteFile({ identifier: info.identifier }).then(() => {
+  //               updateAllFiles();
+  //             });
+  //           }
+  //         });
+  //       }
+  //     }),
+  //     d.onVerifyCancelled((info) => {
+  //       verifyRunningRef.current = false;
+  //       setVerifyStates(prev => {
+  //         const next = new Map(prev);
+  //         next.delete(info.identifier);
+  //         return next;
+  //       });
+  //       setPending(info.identifier, null);
+  //     }),
+  //     d.onVerifyError((info) => {
+  //       verifyRunningRef.current = false;
+  //       setVerifyStates(prev => {
+  //         const next = new Map(prev);
+  //         next.delete(info.identifier);
+  //         return next;
+  //       });
+  //       setPending(info.identifier, null);
+  //       utils.showErrorMessage(`Lỗi xác minh: ${info.error}`);
+  //     }),
+  //   ];
+
+  //   return () => {
+  //     subs.forEach(s => s.unsubscribe());
+  //     for (const timer of timers.values()) {
+  //       window.clearTimeout(timer);
+  //     }
+  //     timers.clear();
+  //   };
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, []);
 
   useEffect(() => {
     if (loadedProductRef.current === product) return;
@@ -409,13 +411,17 @@ export default function IPSWManager() {
     setIdentifierToGroup(new Map());
 
     async function load() {
-      const devices: Device[] = (await window.api.getDevices())
-        .filter(d => d.identifier.toLocaleLowerCase().startsWith(product))
-        .reverse();
+      const devices = (await commands.getDevices(product));
+
+      if (devices.status === "error") {
+        return;
+      }
+      devices.data.reverse();
 
       const [initialFiles, activeTasks] = await Promise.all([
         ipswClient.getFiles(),
-        window.downloader.getAllTask().catch(() => [] as Task[]),
+        Promise.resolve([] as Task[])
+        // window.downloader.getAllTask().catch(() => [] as Task[]),
       ]);
 
       if (cancelled) return;
@@ -424,7 +430,7 @@ export default function IPSWManager() {
       for (const t of activeTasks) taskMap.set(t.firmware.identifier, t);
       taskMapRef.current = taskMap;
 
-      const builtEntries: DeviceEntry[] = devices.map(device => ({
+      const builtEntries: DeviceEntry[] = devices.data.map(device => ({
         device,
         firmwares: null,
         task: taskMap.get(device.identifier),
@@ -602,15 +608,15 @@ export default function IPSWManager() {
           break;
 
         case "delete":
-          await deleteFile({ identifier: deviceIdentifier });
           {
+            await deleteFile({ identifier: deviceIdentifier });
             updateAllFiles();
             const nextMap = new Map(taskMapRef.current);
             nextMap.delete(deviceIdentifier);
             applyTaskMap(nextMap);
+            setPending(deviceIdentifier, null);
+            break;
           }
-          setPending(deviceIdentifier, null);
-          break;
 
         case "verify": {
           if (verifyRunningRef.current) {
@@ -833,12 +839,12 @@ export default function IPSWManager() {
                 </button>
               </Tooltip>
 
-                <button
-                  onClick={() => navigate("/")}
-                  className="w-10 h-8 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 flex items-center justify-center transition-all"
-                >
-                  {TASKBAR_ICON.close}
-                </button>
+              <button
+                onClick={() => navigate("/")}
+                className="w-10 h-8 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 flex items-center justify-center transition-all"
+              >
+                {TASKBAR_ICON.close}
+              </button>
             </div>
           </div>
 
