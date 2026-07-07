@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./animations.css";
 
 @theme {
   --animate-marquee: marquee 3s ease-in-out 0.2s forwards;
@@ -15,13 +16,7 @@
   50%      { background: rgba(19, 127, 236, 0.18); }
 }
 
-@keyframes marquee-slide {
-  0%   { transform: translateX(0); }
-  10%  { transform: translateX(0); }
-  80%  { transform: translateX(var(--scroll-dist)); }
-  90%  { transform: translateX(var(--scroll-dist)); }
-  100% { transform: translateX(0); }
-}
+
 
 * {
   margin: 0;
@@ -83,30 +78,6 @@ html, body {
   to {
     opacity: 0;
     transform: scale(0.95);
-  }
-}
-
-@keyframes slideInFromRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes pulse {
-
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.05);
   }
 }
 
@@ -341,73 +312,15 @@ code, pre, .mono {
   to {opacity:0;transform:translateY(10px) scale(.97)}
 }
 
-.backdrop-in  { animation: backdropIn .2s ease forwards }
-.backdrop-out { animation: backdropOut .18s ease forwards }
+.backdrop-in  { animation: backdropIn .2s var(--ease-decelerate) forwards }
+.backdrop-out { animation: backdropOut .18s var(--ease-accelerate) forwards }
 
 .dialog-in {
-  animation: dialogIn .25s cubic-bezier(.34,1.56,.64,1) forwards
+  animation: dialogIn .25s var(--ease-primary) forwards
 }
 
 .dialog-out {
   animation: dialogOut .18s ease forwards
-}
-
-.highlight-glow {
-  position: relative;
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.highlight-glow::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  background: linear-gradient(45deg, #00d4ff, #7b2ff7, #f106a3, #00d4ff);
-  background-size: 400% 400%;
-  border-radius: inherit;
-  z-index: -1;
-  filter: blur(12px);
-  opacity: 0.8;
-  animation: gradient-shift 3s ease infinite;
-}
-
-.highlight-glow::after {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  background: linear-gradient(45deg, #00d4ff, #7b2ff7, #f106a3, #00d4ff);
-  background-size: 400% 400%;
-  border-radius: inherit;
-  z-index: -1;
-  filter: blur(4px);
-  opacity: 0.6;
-  animation: gradient-shift 3s ease infinite reverse;
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    filter: brightness(1) drop-shadow(0 0 10px rgba(0, 212, 255, 0.5)) drop-shadow(0 0 20px rgba(123, 47, 247, 0.3));
-  }
-  50% {
-    filter: brightness(1.15) drop-shadow(0 0 20px rgba(0, 212, 255, 0.8)) drop-shadow(0 0 30px rgba(123, 47, 247, 0.5));
-  }
-}
-
-@keyframes gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
 }
 
 .topbar-search {
@@ -713,7 +626,7 @@ code, pre, .mono {
 .hero-section {
   text-align: center;
   margin-bottom: 60px;
-  animation: fadeIn 0.8s ease;
+  animation: fadeIn 0.3s ease;
 }
 
 .loading {
@@ -758,7 +671,7 @@ code, pre, .mono {
 }
 
 .device-card:hover {
-  transform: translateY(-8px) scale(1.02);
+  transform: translateY(-2px) scale(1.01);
   background: rgba(255, 255, 255, 0.18);
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
   border-color: rgba(102, 126, 234, 0.5);
@@ -835,7 +748,6 @@ code, pre, .mono {
   background: rgba(33, 150, 243, 0.2);
   color: #90caf9;
   border: 1px solid rgba(33, 150, 243, 0.4);
-  animation: pulse 2s infinite;
 }
 
 .status-update-available::before {
@@ -925,7 +837,7 @@ code, pre, .mono {
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all var(--dur-hover) var(--ease-smooth);
   backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
@@ -1143,18 +1055,6 @@ code, pre, .mono {
   to {
     transform: translateX(0);
     opacity: 1;
-  }
-}
-
-@keyframes slideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-
-  to {
-    transform: translateX(400px);
-    opacity: 0;
   }
 }
 

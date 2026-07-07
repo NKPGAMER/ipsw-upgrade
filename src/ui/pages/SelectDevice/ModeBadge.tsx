@@ -1,4 +1,6 @@
-export function ModeBadge({ mode, flash }: { mode?: "turbo" | "normal"; flash?: boolean }) {
+import { memo } from "react";
+
+export const ModeBadge = memo(function ModeBadge({ mode, flash }: { mode?: "turbo" | "normal"; flash?: boolean }) {
   if (!mode) return null;
   return (
     <span
@@ -10,4 +12,4 @@ export function ModeBadge({ mode, flash }: { mode?: "turbo" | "normal"; flash?: 
       {mode === "turbo" ? "TURBO" : "NORMAL"}
     </span>
   );
-}
+});

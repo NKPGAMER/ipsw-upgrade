@@ -1,6 +1,6 @@
-import { useId } from "react";
+import { useId, memo } from "react";
 
-export function CardBorderProgress({
+export const CardBorderProgress = memo(function CardBorderProgress({
   value,
   colorClass,
   radius = 14,
@@ -66,9 +66,9 @@ export function CardBorderProgress({
           strokeLinecap="round"
           pathLength={100}
           strokeDasharray={`${clamped} 100`}
-          style={{ transition: "stroke-dasharray 0.5s ease-out" }}
+          style={{ transition: "stroke-dasharray 150ms linear" }}
         />
       </svg>
     </div>
   );
-}
+});

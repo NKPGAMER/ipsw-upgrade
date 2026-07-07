@@ -10,40 +10,53 @@ interface DownloadStoreState {
   tasksById: TaskMap;
   filter: DownloadFilter;
   hydrated: boolean;
+  activeUrls: Set<string>;
   setTasks: (tasks: Task[]) => void;
   upsertTask: (task: Task) => void;
   removeTask: (id: string) => void;
   setFilter: (filter: DownloadFilter) => void;
   markHydrated: () => void;
   patchTask: (id: string, patch: Partial<Task>) => void;
+  updateProgress: (id: string, progress: number, speed: number, eta?: number) => void;
   getActiveDownloadUrls: () => string[];
 }
 
 const mergeTask = (task: Task, patch: Partial<Task>): Task => ({ ...task, ...patch });
+
+function buildActiveUrls(taskIds: string[], tasksById: TaskMap): Set<string> {
+  const urls = new Set<string>();
+  for (const id of taskIds) {
+    const url = tasksById[id]?.firmware.url;
+    if (url) urls.add(url);
+  }
+  return urls;
+}
 
 export const useDownloadStore = create<DownloadStoreState>((set, get) => ({
   taskIds: [],
   tasksById: {},
   filter: "all",
   hydrated: false,
+  activeUrls: new Set<string>(),
   setTasks: (tasks) =>
-    set(() => ({
-      taskIds: tasks.map((task) => task.id),
-      tasksById: Object.fromEntries(tasks.map((task) => [task.id, task])),
-    })),
+    set(() => {
+      const taskIds = tasks.map((task) => task.id);
+      const tasksById = Object.fromEntries(tasks.map((task) => [task.id, task]));
+      return { taskIds, tasksById, activeUrls: buildActiveUrls(taskIds, tasksById) };
+    }),
   upsertTask: (task) =>
-    set((state) => ({
-      taskIds: state.tasksById[task.id] ? state.taskIds : [...state.taskIds, task.id],
-      tasksById: { ...state.tasksById, [task.id]: task },
-    })),
+    set((state) => {
+      const exists = !!state.tasksById[task.id];
+      const taskIds = exists ? state.taskIds : [...state.taskIds, task.id];
+      const tasksById = { ...state.tasksById, [task.id]: task };
+      return { taskIds, tasksById, activeUrls: buildActiveUrls(taskIds, tasksById) };
+    }),
   removeTask: (id) =>
     set((state) => {
       if (!state.tasksById[id]) return state;
       const { [id]: _, ...tasksById } = state.tasksById;
-      return {
-        taskIds: state.taskIds.filter((taskId) => taskId !== id),
-        tasksById,
-      };
+      const taskIds = state.taskIds.filter((taskId) => taskId !== id);
+      return { taskIds, tasksById, activeUrls: buildActiveUrls(taskIds, tasksById) };
     }),
   setFilter: (filter) => set({ filter }),
   markHydrated: () => set({ hydrated: true }),
@@ -51,17 +64,22 @@ export const useDownloadStore = create<DownloadStoreState>((set, get) => ({
     set((state) => {
       const task = state.tasksById[id];
       if (!task) return state;
+      const newTask = mergeTask(task, patch);
+      const tasksById = { ...state.tasksById, [id]: newTask };
+      return { tasksById, activeUrls: buildActiveUrls(state.taskIds, tasksById) };
+    }),
+  updateProgress: (id, progress, speed, eta) =>
+    set((state) => {
+      const task = state.tasksById[id];
+      if (!task) return state;
       return {
         tasksById: {
           ...state.tasksById,
-          [id]: mergeTask(task, patch),
+          [id]: { ...task, progress, speed, eta },
         },
       };
     }),
   getActiveDownloadUrls: () => {
-    const state = get();
-    return state.taskIds
-      .map((id) => state.tasksById[id]?.firmware.url)
-      .filter((url): url is string => Boolean(url));
+    return [...get().activeUrls];
   },
 }));

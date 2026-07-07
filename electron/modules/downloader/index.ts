@@ -6,6 +6,7 @@ export { StateManager } from "./state-manager";
 export { ChunkManager } from "./chunk-manager";
 export { Scheduler } from "./scheduler";
 export { IntegrityChecker } from "./integrity";
+export { driveKey } from "./utils";
 
 export type {
   Task,

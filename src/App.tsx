@@ -1,6 +1,9 @@
 import { lazy, memo, Suspense, useState, useEffect, Component } from "react";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { motion, AnimatePresence } from "motion/react";
+import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { SETTING_VERSION } from "./ui/welcome";
+import { useNetworkStatus } from "./core/useNetworkStatus";
+import { ErrorBoundarySection } from "./ui/ErrorBoundarySection";
 
 const Home = lazy(() => import("./ui/home"));
 const Settings = lazy(() => import("./ui/setting"));
@@ -75,38 +78,70 @@ const LoadingScreen = memo(() => (
 
 LoadingScreen.displayName = "LoadingScreen";
 
-export default function App() {
-    const [checking, setChecking] = useState(true);
-    const [needSetup, setNeedSetup] = useState(false);
+function AppContent() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const online = useNetworkStatus();
+    const [needSetup, setNeedSetup] = useState<boolean | null>(null);
 
     useEffect(() => {
         window.store.get('settingVersion').then((storedVersion: string) => {
-            if (storedVersion !== SETTING_VERSION) {
-                setNeedSetup(true);
-            }
-            setChecking(false);
-        }).catch(() => {
-            setChecking(false);
-        });
+            setNeedSetup(storedVersion !== SETTING_VERSION);
+        }).catch(() => setNeedSetup(false));
     }, []);
 
-    if (checking) return <LoadingScreen />;
+    useEffect(() => {
+        const handleKey = (e: KeyboardEvent) => {
+            const mod = e.ctrlKey || e.metaKey;
+            if (mod && e.key === "d") { e.preventDefault(); navigate("/downloads"); }
+            if (mod && e.key === ",") { e.preventDefault(); navigate("/settings"); }
+            if (mod && e.key === "f") { e.preventDefault(); document.querySelector<HTMLInputElement>("[role='searchbox']")?.focus(); }
+            if (e.key === "Escape") navigate(-1);
+        };
+        window.addEventListener("keydown", handleKey);
+        return () => window.removeEventListener("keydown", handleKey);
+    }, [navigate]);
+
+    if (needSetup === null) return <LoadingScreen />;
 
     return (
-        <HashRouter>
+        <>
+            {!online && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500/90 text-black text-center py-2 text-[13px] font-semibold">
+                    Không có kết nối mạng. Một số chức năng có thể không hoạt động.
+                </div>
+            )}
             <Suspense fallback={<LoadingScreen />}>
                 <ErrorBoundary>
-                    <Routes>
-                        <Route path="/" element={needSetup ? <Navigate to="/welcome" replace /> : <Home />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/downloads" element={<Downloads />} />
-                        <Route path="/selectDevice" element={<SelectDevice />} />
-                        <Route path="/ipswUpdate" element={<IPSWUpdateManager />} />
-                        <Route path="/appUpdate" element={<AppUpdate />} />
-                        <Route path="/welcome" element={<Welcome />} />
-                    </Routes>
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={location.pathname}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1, transition: { duration: 0.18, ease: [0.4, 0, 0.2, 1] } }}
+                            exit={{ opacity: 0, transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } }}
+                            style={{ minHeight: '100%' }}
+                        >
+                            <Routes location={location}>
+                                <Route path="/" element={needSetup ? <Navigate to="/welcome" replace /> : <Home />} />
+                                <Route path="/settings" element={<Settings />} />
+                                <Route path="/downloads" element={<Downloads />} />
+                                <Route path="/selectDevice" element={<ErrorBoundarySection><SelectDevice /></ErrorBoundarySection>} />
+                                <Route path="/ipswUpdate" element={<ErrorBoundarySection><IPSWUpdateManager /></ErrorBoundarySection>} />
+                                <Route path="/appUpdate" element={<AppUpdate />} />
+                                <Route path="/welcome" element={<Welcome />} />
+                            </Routes>
+                        </motion.div>
+                    </AnimatePresence>
                 </ErrorBoundary>
             </Suspense>
+        </>
+    );
+}
+
+export default function App() {
+    return (
+        <HashRouter>
+            <AppContent />
         </HashRouter>
     )
 }

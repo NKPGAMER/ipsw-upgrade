@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  memo,
   type ReactNode,
   type CSSProperties,
 } from "react";
@@ -162,7 +163,7 @@ interface LayoutState {
   ready: boolean; // đã đo xong, có thể hiển thị
 }
 
-export function Tooltip({
+export const Tooltip = memo(function Tooltip({
   children,
   label,
   position = "bottom",
@@ -313,4 +314,4 @@ export function Tooltip({
       {createPortal(tooltipEl, document.body)}
     </div>
   );
-}
+});

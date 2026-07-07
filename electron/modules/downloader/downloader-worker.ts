@@ -61,7 +61,7 @@ parentPort.on("message", async (msg: MainToWorker) => {
       break;
 
     case "getIncompleteTasks":
-      reply(msg.reqId, dl.getIncompleteTasks());
+      reply(msg.reqId, await dl.getIncompleteTasks());
       break;
 
     case "resumeIncomplete":
@@ -74,6 +74,12 @@ parentPort.on("message", async (msg: MainToWorker) => {
 
     case "getEnvironmentInfo":
       reply(msg.reqId, await dl.getEnvironmentInfo(msg.savePath));
+      break;
+
+    case "destroy":
+      // Graceful shutdown — flush all active task states for recovery, then exit
+      dl.flushAllStates();
+      parentPort?.close();
       break;
 
     default:

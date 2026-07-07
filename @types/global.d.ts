@@ -36,6 +36,10 @@ export interface DownloadState {
   updatedAt: number;
   mode: DownloadMode;
   movedChunks: number[];
+  activeOperation: "download" | "verify" | "move";
+  lastCheckpoint: number;
+  lastWriteTime: number;
+  taskStatus: TaskStatus;
 }
 
 export interface AddResult {
@@ -86,6 +90,7 @@ export interface DownloaderConfig {
   diskBufferGB?: number;
   bandwidthLimitBps?: number;
   tmpDir?: string;
+  autoResume?: boolean;
 }
 
 export interface DriveEnvInfo {

@@ -6,6 +6,7 @@ import type { CardTask, ControlAction, DeviceEntry, VerifyState } from "./types"
 import { STATUS_CONFIG, STATUS_LABEL, STATUS_COLOR } from "./constants";
 import { ProgressBar } from "./ProgressBar";
 import type { TaskStatus } from "../../../../@types/global"
+import utils from "@/core/utils";
 
 export const ControlButtons = memo(function ControlButtons({
   entry,
@@ -30,12 +31,20 @@ export const ControlButtons = memo(function ControlButtons({
   const busy = pendingAction !== null;
   const { t } = useTranslation();
 
+  const confirmAction = async (message: string, action: ControlAction, fw?: Firmware, variant?: string) => {
+    try {
+      await utils.customConfirm(message, variant ? { variant: variant as any } : undefined);
+    } catch { return; }
+    onAction(action, fw);
+  };
+
   // ── Chưa tải (none) ──────────────────────────────────────────────────────
   if (status === "none") {
     return (
       <button
         disabled={busy}
         onClick={() => onAction("download", latestFw)}
+        aria-label={t("pages.selectDevice.control.button.download")}
         className="w-full py-2.5! rounded-xl bg-[#137fec] hover:bg-[#1a8fff] active:bg-[#0f6fd8] disabled:opacity-60 text-white text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
       >
         {pendingAction === "download"
@@ -99,14 +108,14 @@ export const ControlButtons = memo(function ControlButtons({
         <div className="flex gap-2!">
           <button
             disabled={busy}
-            onClick={() => onAction("delete")}
+            onClick={() => confirmAction("Xoá tệp lỗi này?", "delete")}
             className="flex-1 py-2! rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/18 text-red-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "delete" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang xoá…</> : "Xoá tệp lỗi"}
           </button>
           <button
             disabled={busy}
-            onClick={() => onAction("redownload", latestFw)}
+            onClick={() => confirmAction("Tải lại từ đầu? Tệp hiện tại sẽ bị xoá.", "redownload", latestFw)}
             className="flex-1 py-2! rounded-xl bg-[#137fec]/10 hover:bg-[#137fec]/20 border border-[#137fec]/18 text-[#4fa8f5] text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "redownload" ? <><Spinner className="w-3 h-3" /> Đang xử lý…</> : "Tải lại từ đầu"}
@@ -167,7 +176,7 @@ export const ControlButtons = memo(function ControlButtons({
           </button>
           <button
             disabled={busy}
-            onClick={() => onAction("delete_incomplete")}
+            onClick={() => confirmAction("Xoá tệp tải dở dang?", "delete_incomplete")}
             className="px-4! py-2.5! rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/18 text-red-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "delete_incomplete" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang xoá…</> : "Xoá"}
@@ -200,7 +209,7 @@ export const ControlButtons = memo(function ControlButtons({
         <div className="flex gap-2">
           <button
             disabled={busy}
-            onClick={() => onAction("delete")}
+            onClick={() => confirmAction("Xoá tệp firmware cũ?", "delete")}
             className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "delete" ? <><Spinner className="w-3 h-3" /> Đang xoá…</> : "Xoá tệp cũ"}
@@ -246,7 +255,7 @@ export const ControlButtons = memo(function ControlButtons({
       <div className="space-y-2!">
         <button
           disabled={busy}
-          onClick={() => onAction("delete")}
+          onClick={() => confirmAction("Xoá vĩnh viễn tệp IPSW này?", "delete", undefined, "danger")}
           className="w-full py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {pendingAction === "delete"
@@ -292,7 +301,7 @@ export const ControlButtons = memo(function ControlButtons({
           )}
           <button
             disabled={busy}
-            onClick={() => onAction("redownload", latestFw)}
+            onClick={() => confirmAction("Tải lại từ đầu? Tệp hiện tại sẽ bị xoá.", "redownload", latestFw)}
             className="flex-1 py-2! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "redownload" ? <><Spinner className="w-3 h-3" /> Đang xử lý…</> : "Tải lại"}
@@ -314,14 +323,14 @@ export const ControlButtons = memo(function ControlButtons({
         <div className="flex gap-2">
           <button
             disabled={busy}
-            onClick={() => onAction("redownload", latestFw)}
+            onClick={() => confirmAction("Tải lại từ đầu? Tệp hiện tại sẽ bị xoá.", "redownload", latestFw)}
             className="flex-1 py-2.5! rounded-xl bg-[#137fec]/12 hover:bg-[#137fec]/22 border border-[#137fec]/22 text-[#4fa8f5] text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "redownload" ? <><Spinner className="w-3 h-3" /> Đang xử lý…</> : "Thử lại"}
           </button>
           <button
             disabled={busy}
-            onClick={() => onAction("cancel")}
+            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel")}
             className="px-4! py-2.5! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "cancel" ? <><Spinner className="w-3 h-3" /> Đang huỷ…</> : "Huỷ"}
@@ -398,7 +407,7 @@ export const ControlButtons = memo(function ControlButtons({
           )}
           <button
             disabled={busy}
-            onClick={() => onAction("cancel")}
+            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel")}
             className="px-4! py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "cancel" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang huỷ…</> : "Huỷ"}
@@ -413,7 +422,7 @@ export const ControlButtons = memo(function ControlButtons({
       <div className="flex">
         <button
             disabled={busy}
-            onClick={() => onAction("cancel")}
+            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel")}
             className="flex-1 px-4! py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "cancel" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang huỷ…</> : "Huỷ"}

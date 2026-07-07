@@ -1,43 +1,40 @@
 import * as fs from "fs";
 import * as path from "path";
-import { execFile } from "child_process";
-import { promisify } from "util";
 import { DiskInfo, DiskEnvironmentInfo, DriveEnvInfo } from "./types";
-
-const execFileAsync = promisify(execFile);
+import { nativeBridge, DiskType } from "./native-bridge";
+import { driveKey } from "./utils";
 
 const GB = 1024 ** 3;
 
 export class DiskManager {
   private usageTracker = new Map<string, number>();
 
-  // Cache SSD detection per drive — only needs to run once per session
-  private ssdCache = new Map<string, boolean>();
-  // Cache disk space per dir — valid for 5 seconds
-  private spaceCache = new Map<string, { result: { available: number; total: number }; ts: number }>();
-  private readonly SPACE_CACHE_TTL = 5000;
-  // Cache full drive enumeration — drives don't change during a session (30s TTL)
+  // The native calls are synchronous, in-process, and cheap (no subprocess
+  // spawn like the old PowerShell/fsutil implementation), so these caches
+  // exist only to dedupe bursts of calls within the same tick/short window,
+  // not to hide slow I/O the way they used to.
+  private diskInfoCache = new Map<string, { result: DiskInfo; ts: number }>();
+  private readonly DISK_INFO_CACHE_TTL = 3000;
   private drivesCache: { result: DiskInfo[]; ts: number } | null = null;
-  private readonly DRIVES_CACHE_TTL = 30000;
+  private readonly DRIVES_CACHE_TTL = 15000;
 
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   async getDiskInfo(targetPath: string): Promise<DiskInfo> {
     const resolved = path.resolve(targetPath);
     const dir = this.resolveDir(resolved);
-    const [stats, isSSd] = await Promise.all([
-      this.getStatfs(dir),
-      this.detectSSD(dir),
-    ]);
-    return { path: dir, available: stats.available, total: stats.total, isSSd };
+
+    const cached = this.diskInfoCache.get(dir);
+    if (cached && Date.now() - cached.ts < this.DISK_INFO_CACHE_TTL) return cached.result;
+
+    const result = this.toDiskInfo(this.getNativeDiskInfoSafe(dir));
+    this.diskInfoCache.set(dir, { result, ts: Date.now() });
+    return result;
   }
 
   async detectSSD(targetPath: string): Promise<boolean> {
-    const key = this.driveKey(targetPath);
-    if (this.ssdCache.has(key)) return this.ssdCache.get(key)!;
-    const result = await this.detectSSDUncached(targetPath);
-    this.ssdCache.set(key, result);
-    return result;
+    const info = await this.getDiskInfo(targetPath);
+    return info.isSSd;
   }
 
   /**
@@ -78,7 +75,7 @@ export class DiskManager {
 
     if (ssdCandidates.length === 0) return null;
 
-    const saveDriveKey = this.driveKey(savePath);
+    const saveDriveKey = driveKey(savePath);
 
     const scored = ssdCandidates.map(d => ({
       dir: d.path,
@@ -122,7 +119,7 @@ export class DiskManager {
     const saveDir = this.resolveDir(saveResolved);
     const isSSD = await this.detectSSD(saveDir);
 
-    const saveMount = this.driveKey(saveDir);
+    const saveMount = driveKey(saveDir);
     const saveDrive: DriveEnvInfo = {
       path: saveMount,
       mediaType: isSSD ? "SSD" : "HDD",
@@ -137,7 +134,7 @@ export class DiskManager {
       const tmpDir = await this.chooseTmpDir(savePath, 1 * GB, 1 * GB);
       if (tmpDir !== null) {
         environment = "hdd_ssd_tmp";
-        tmpDrive = { path: this.driveKey(tmpDir), mediaType: "SSD" };
+        tmpDrive = { path: driveKey(tmpDir), mediaType: "SSD" };
       } else {
         environment = "hdd_only";
       }
@@ -146,120 +143,59 @@ export class DiskManager {
     return { environment, saveDrive, tmpDrive };
   }
 
-  // ─── Async disk space ────────────────────────────────────────────────────────
+  // ─── Native disk queries ────────────────────────────────────────────────────
+  // Both getDiskInfo/getAllDisk are synchronous native calls (no subprocess
+  // spawn), so a single call now gives us space + media type together —
+  // the old implementation needed two separate PowerShell round-trips
+  // (Get-PSDrive for space, Get-PhysicalDisk/fsutil for SSD/HDD) per drive.
 
-  private async getStatfs(dir: string): Promise<{ available: number; total: number }> {
-    const cached = this.spaceCache.get(dir);
-    if (cached && Date.now() - cached.ts < this.SPACE_CACHE_TTL) return cached.result;
-    const result = await this.getStatfsUncached(dir);
-    this.spaceCache.set(dir, { result, ts: Date.now() });
-    return result;
+  private getNativeDiskInfoSafe(dir: string) {
+    let info: ReturnType<typeof nativeBridge.getDiskInfo> = null;
+    try {
+      info = nativeBridge.getDiskInfo(dir);
+    } catch {
+      info = null;
+    }
+    // native.getDiskInfo resolves to null (not a throw) when the drive
+    // can't be resolved — fall back to a conservative "unknown" result
+    // rather than propagating null, to match the old degrade-gracefully behaviour.
+    return info ?? {
+      id: "", name: "", mountPoint: dir, busType: "", filesystem: "",
+      totalSpace: 0, freeSpace: 0, usedSpace: 0, temperature: 0,
+      isRemovable: false, isReadonly: false, diskType: DiskType.Unknown,
+    };
   }
 
-  private async getStatfsUncached(dir: string): Promise<{ available: number; total: number }> {
-    // Try native fs.statfs first (Node 19+, truly non-blocking)
-    try {
-      const s = await (fs.promises as any).statfs(dir);
-      return { available: s.bavail * s.bsize, total: s.blocks * s.bsize };
-    } catch { /* older Node — fall back to PowerShell */ }
-
-    // PowerShell fallback
-    const result = await this.getStatfsWindows(dir);
-    return result;
+  private toDiskInfo(native: ReturnType<typeof this.getNativeDiskInfoSafe>): DiskInfo {
+    return {
+      path: native.mountPoint,
+      available: native.freeSpace,
+      total: native.totalSpace,
+      isSSd: native.diskType === DiskType.Ssd,
+    };
   }
-
-  private async getStatfsWindows(dir: string): Promise<{ available: number; total: number }> {
-    const driveLetter = path.parse(dir).root.replace(/\\/g, "").replace(":", "");
-    const { stdout } = await execFileAsync(
-      "powershell",
-      ["-NoProfile", "-NonInteractive", "-Command",
-       `$d=Get-PSDrive ${driveLetter};Write-Output "$($d.Free) $($d.Used)"`],
-      { timeout: 8000 }
-    );
-    const [freeStr, usedStr] = stdout.trim().split(" ");
-    const free = parseInt(freeStr);
-    const used = parseInt(usedStr);
-    if (!isNaN(free) && !isNaN(used)) return { available: free, total: free + used };
-    throw new Error("PowerShell parse failed");
-  }
-
-  // ─── SSD detection (Windows-only) ───────────────────────────────────────────
-
-  private async detectSSDUncached(targetPath: string): Promise<boolean> {
-    try {
-      return await this.detectSSDWindows(targetPath);
-    } catch { /* fall through */ }
-    return false;
-  }
-
-  private async detectSSDWindows(targetPath: string): Promise<boolean> {
-    const driveLetter = path.parse(path.resolve(targetPath)).root.replace(/\\/g, "").replace(":", "");
-
-    // Primary: Get-PhysicalDisk via Storage module (most reliable)
-    try {
-      const { stdout } = await execFileAsync(
-        "powershell",
-        ["-NoProfile", "-NonInteractive", "-Command",
-         `$p=Get-Partition -DriveLetter '${driveLetter}' -ErrorAction SilentlyContinue;` +
-         `if($p){$d=Get-PhysicalDisk -DeviceNumber $p.DiskNumber -ErrorAction SilentlyContinue;` +
-         `if($d.MediaType){Write-Output $d.MediaType}}`],
-        { timeout: 8000 }
-      );
-      const trimmed = stdout.trim();
-      if (trimmed === "SSD") return true;
-      if (trimmed === "HDD") return false;
-    } catch { /* fall through to fsutil */ }
-
-    // Fallback: fsutil sectorinfo (no admin needed on Win10+)
-    try {
-      const { stdout } = await execFileAsync(
-        "fsutil", ["fsinfo", "sectorinfo", `${driveLetter}:`],
-        { timeout: 5000 }
-      );
-      // fsutil outputs "SSD" for SSDs, "Not SSD" for HDDs
-      // "Not SSD" contains "SSD" as substring, so check for it first
-      if (/not\s+ssd/i.test(stdout)) return false;
-      if (/^\s*SSD\s*$/im.test(stdout)) return true;
-    } catch { /* fall through */ }
-
-    // Last resort: check model name via WMI for NVMe/SSD keywords
-    try {
-      const { stdout } = await execFileAsync(
-        "powershell",
-        ["-NoProfile", "-NonInteractive", "-Command",
-         `$p=Get-Partition -DriveLetter '${driveLetter}' -ErrorAction SilentlyContinue;` +
-         `if($p){$d=Get-CimInstance Win32_DiskDrive | Where-Object Index -eq $p.DiskNumber;` +
-         `if($d){Write-Output "$($d.Model) $($d.MediaType)"}}`],
-        { timeout: 8000 }
-      );
-      const lower = stdout.toLowerCase();
-      if (lower.includes("ssd") || lower.includes("nvme")) return true;
-    } catch { /* give up */ }
-
-    return false;
-  }
-
-  // ─── Drive enumeration ──────────────────────────────────────────────────────
 
   private async getAllDrives(): Promise<DiskInfo[]> {
-    // Return fresh cache — drives don't change during a session
     if (this.drivesCache && Date.now() - this.drivesCache.ts < this.DRIVES_CACHE_TTL) {
       return this.drivesCache.result;
     }
 
-    // Collect existing drive roots first (sync existsSync is fast)
-    const roots: string[] = [];
-    for (let letter = 67; letter <= 90; letter++) {
-      const root = `${String.fromCharCode(letter)}:\\`;
-      if (fs.existsSync(root)) roots.push(root);
+    // One native call enumerates every drive directly — no more looping
+    // C:\ through Z:\ with fs.existsSync and spawning a PowerShell process
+    // per drive to fetch its space/media type.
+    let native: ReturnType<typeof nativeBridge.getAllDisk>;
+    try {
+      native = nativeBridge.getAllDisk();
+    } catch {
+      native = [];
     }
 
-    // Query all drives in parallel — each getDiskInfo does getStatfs + detectSSD concurrently
-    const settled = await Promise.allSettled(roots.map(r => this.getDiskInfo(r)));
-    const drives: DiskInfo[] = [];
-    for (const s of settled) {
-      if (s.status === "fulfilled") drives.push(s.value);
-    }
+    // Exclude removable (e.g. USB) and read-only volumes as tmp-dir
+    // candidates — the old implementation didn't filter these out because
+    // it never had the metadata to do so cheaply.
+    const drives = native
+      .filter(d => !d.isRemovable && !d.isReadonly)
+      .map(d => this.toDiskInfo(d));
 
     this.drivesCache = { result: drives, ts: Date.now() };
     return drives;
@@ -277,7 +213,7 @@ export class DiskManager {
     if (!drive.path.toUpperCase().startsWith("C:")) score += 30;
 
     // Same drive as savePath bonus (20 pts) — rename is instant on same volume
-    if (this.driveKey(drive.path) === saveDriveKey) score += 20;
+    if (driveKey(drive.path) === saveDriveKey) score += 20;
 
     // Larger total capacity hints at better controller / more channels (0–20 pts)
     const totalGB = drive.total / GB;
@@ -293,12 +229,5 @@ export class DiskManager {
       return fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()
         ? resolved : path.dirname(resolved);
     } catch { return path.dirname(resolved); }
-  }
-
-  private driveKey(filePath: string): string {
-    const resolved = path.resolve(filePath);
-    if (process.platform === "win32") return path.parse(resolved).root.toUpperCase();
-    const parts = resolved.split(path.sep).filter(Boolean);
-    return path.sep + (parts[0] ?? "");
   }
 }

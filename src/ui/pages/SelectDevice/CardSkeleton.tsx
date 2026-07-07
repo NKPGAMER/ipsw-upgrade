@@ -1,4 +1,6 @@
-export function CardSkeleton() {
+import { memo } from "react";
+
+export const CardSkeleton = memo(function CardSkeleton() {
   return (
     <div className="px-4! py-4.5! flex flex-col gap-0" style={{ minHeight: 168 }}>
       <div className="flex items-start gap-2.5">
@@ -16,4 +18,4 @@ export function CardSkeleton() {
       </div>
     </div>
   );
-}
+});

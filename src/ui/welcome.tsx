@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef, ReactNode, JSX } from "react";
+import { useState, useEffect, useCallback, useRef, ReactNode, JSX, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { state } from "../data";
+import "./welcome.css";
 
 const SETTING_VERSION = "2.0.0";
 export { SETTING_VERSION };
@@ -41,80 +42,93 @@ interface WhatsNewItem {
 
 // ─── Icons (SVG) ─────────────────────────────────────────────────────────────
 
+const IcoDownload = memo(() => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+));
+const IcoFirmware = memo(() => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+        <path d="M7 7h2v2H7zM11 7h2v2h-2zM15 7h2v2h-2z" />
+    </svg>
+));
+const IcoFolder = memo(() => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+));
+const IcoZap = memo(() => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+));
+const IcoShield = memo(() => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+));
+const IcoFile = memo(() => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+    </svg>
+));
+const IcoTrash = memo(() => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+));
+const IcoCopy = memo(() => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+));
+const IcoCheck = memo(() => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+    </svg>
+));
+const IcoSparkle = memo(() => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
+    </svg>
+));
+const IcoArrow = memo(() => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12" />
+        <polyline points="12 5 19 12 12 19" />
+    </svg>
+));
+const IcoChevronLeft = memo(() => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="15 18 9 12 15 6" />
+    </svg>
+));
+
 const Ico = {
-    Download: () => (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-    ),
-    Firmware: () => (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="3" width="20" height="14" rx="2" />
-            <path d="M8 21h8M12 17v4" />
-            <path d="M7 7h2v2H7zM11 7h2v2h-2zM15 7h2v2h-2z" />
-        </svg>
-    ),
-    Folder: () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-        </svg>
-    ),
-    Zap: () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-        </svg>
-    ),
-    Shield: () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-    ),
-    File: () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-        </svg>
-    ),
-    Trash: () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-        </svg>
-    ),
-    Copy: () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="9" y="9" width="13" height="13" rx="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
-    ),
-    Check: () => (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-        </svg>
-    ),
-    Sparkle: () => (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
-        </svg>
-    ),
-    Arrow: () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-        </svg>
-    ),
-    ChevronLeft: () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-        </svg>
-    ),
+    Download: IcoDownload,
+    Firmware: IcoFirmware,
+    Folder: IcoFolder,
+    Zap: IcoZap,
+    Shield: IcoShield,
+    File: IcoFile,
+    Trash: IcoTrash,
+    Copy: IcoCopy,
+    Check: IcoCheck,
+    Sparkle: IcoSparkle,
+    Arrow: IcoArrow,
+    ChevronLeft: IcoChevronLeft,
 };
 
 // ─── Toggle ──────────────────────────────────────────────────────────────────
 
-const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false }) => (
+const Toggle: React.FC<ToggleProps> = memo(({ checked, onChange, disabled = false }) => (
     <button
         role="switch"
         aria-checked={checked}
@@ -133,11 +147,11 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false }) 
             ].join(" ")}
         />
     </button>
-);
+));
 
 // ─── DirPicker ───────────────────────────────────────────────────────────────
 
-const DirPicker: React.FC<DirPickerProps> = ({ value, onChange, onBrowse }) => (
+const DirPicker: React.FC<DirPickerProps> = memo(({ value, onChange, onBrowse }) => (
     <div className="mt-2! flex w-full items-center gap-1.5">
         <div className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded bg-[#1a1a1a] border border-[#3a3a3a] px-2.5! py-1.5! font-mono text-[11.5px] text-[#e8e8e8] empty:text-[#666]">
             {value}
@@ -149,11 +163,11 @@ const DirPicker: React.FC<DirPickerProps> = ({ value, onChange, onBrowse }) => (
             <Ico.Folder /> Browse…
         </button>
     </div>
-);
+));
 
 // ─── SettingRow ───────────────────────────────────────────────────────────────
 
-const SettingRow: React.FC<SettingRowProps> = ({ icon, label, desc, badge, children }) => {
+const SettingRow: React.FC<SettingRowProps> = memo(({ icon, label, desc, badge, children }) => {
     const isDirPicker = (children as any)?.type === DirPicker;
     return (
         <div className="flex items-start gap-3 border-b border-[#222] px-5! py-3.25! transition-colors duration-100 hover:bg-[#1e1e1e]">
@@ -177,11 +191,11 @@ const SettingRow: React.FC<SettingRowProps> = ({ icon, label, desc, badge, child
             )}
         </div>
     );
-};
+});
 
 // ─── Section ─────────────────────────────────────────────────────────────────
 
-const Section: React.FC<SectionProps> = ({ icon, title, accent, children }) => (
+const Section: React.FC<SectionProps> = memo(({ icon, title, accent, children }) => (
     <div className="mb-3! overflow-hidden rounded-md border border-[#2a2a2a] bg-[#161616]">
         <div className="flex items-center gap-2.5 border-b border-[#2a2a2a] bg-[#1c1c1c] px-5! py-2.5!">
             <div
@@ -200,7 +214,7 @@ const Section: React.FC<SectionProps> = ({ icon, title, accent, children }) => (
         </div>
         <div>{children}</div>
     </div>
-);
+));
 
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
@@ -438,7 +452,7 @@ const PageDone: React.FC = () => {
     const { t } = useTranslation();
     return (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-10!">
-            <div className="flex size-15 animate-[popIn_0.4s_cubic-bezier(.34,1.56,.64,1)_both] items-center justify-center rounded-full bg-[#0078d4]">
+            <div className="flex size-15 animate-[welcome-pop-in_0.25s_var(--ease-decelerate)_both] items-center justify-center rounded-full bg-[#0078d4]">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                 </svg>
@@ -453,23 +467,23 @@ const PageDone: React.FC = () => {
 
 // ─── Shared Button Primitives ─────────────────────────────────────────────────
 
-const BtnBack: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
+const BtnBack: React.FC<{ onClick: () => void; label: string }> = memo(({ onClick, label }) => (
     <button
         onClick={onClick}
         className="flex cursor-pointer items-center gap-1.5 rounded border border-[#3a3a3a] bg-transparent px-4.5! py-2! text-[13px] font-medium text-[#aaa] transition-all duration-120 hover:border-[#555] hover:bg-[#1e1e1e]"
     >
         <Ico.ChevronLeft /> {label}
     </button>
-);
+));
 
-const BtnNext: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
+const BtnNext: React.FC<{ onClick: () => void; label: string }> = memo(({ onClick, label }) => (
     <button
         onClick={onClick}
         className="flex cursor-pointer items-center gap-2 rounded border-none bg-[#0078d4] px-5! py-2! text-[13px] font-medium text-white transition-colors duration-120 hover:bg-[#1a86d8]"
     >
         {label} <Ico.Arrow />
     </button>
-);
+));
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
@@ -551,25 +565,6 @@ export default function App(): JSX.Element {
 
     return (
         <>
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
-                html, body, #root { height: 100%; background: #111; scrollbar-color: rgba(19,127,236,0.5) transparent; scrollbar-width: thin; }
-                ::-webkit-scrollbar { width: 4px; }
-                ::-webkit-scrollbar-track { background: transparent; }
-                ::-webkit-scrollbar-thumb { background: rgba(19,127,236,0.5); border-radius: 2px; }
-                ::-webkit-scrollbar-thumb:hover { background: rgba(19,127,236,0.8); }
-                @keyframes popIn {
-                    0% { transform: scale(0); opacity: 0; }
-                    70% { transform: scale(1.15); }
-                    100% { transform: scale(1); opacity: 1; }
-                }
-                @keyframes fadeSlide {
-                    from { opacity: 0; transform: translateY(10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .page-enter { animation: fadeSlide 0.22s ease both; }
-            `}</style>
-
             <div className="flex h-screen min-h-140 flex-col overflow-hidden rounded-lg border border-[#2a2a2a] bg-[#111]">
                 <div className="flex flex-1 overflow-hidden">
                     <div className="flex flex-1 flex-col overflow-hidden bg-[#111]">

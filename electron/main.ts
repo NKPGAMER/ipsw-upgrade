@@ -18,7 +18,6 @@ import { DownloaderMain } from "./modules/downloader";
 // Config
 import config from "./config";
 import { setWin, selectFolder, selectFile } from "./utils/system";
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type IpcHandler = [string, (event: IpcMainInvokeEvent, ...args: any[]) => any];
@@ -69,15 +68,15 @@ const storeGet = (key: string, fallback?: any) => s.get(key) ?? fallback;
 
 function createSplashWindow(width: number, height: number): BrowserWindow {
   const win = new BrowserWindow({
-    width: Math.round(width * 0.92),
-    height: Math.round(height * 0.95),
+    width: 400,
+    height: 400,
     frame: false,
     alwaysOnTop: true,
     transparent: true,
     resizable: false,
-    hasShadow: false,           // ⬅ thêm: tắt shadow mặc định của Windows OS — shadow này là hình chữ nhật và sẽ "lộ" rìa vuông quanh phần bo góc
+    hasShadow: false,
     backgroundColor: '#00000000',
-    thickFrame: false,          // ⬅ thêm: tắt frame dày của Windows (Aero) hay can thiệp vào alpha blending ở viền
+    thickFrame: false,
     webPreferences: {
       preload: join(__dirname, "preload.splash.js"),
       contextIsolation: true,
@@ -201,11 +200,16 @@ app.whenReady().then(async () => {
   setTimeout(() => initAutoUpdater(), UPDATER_INIT_DELAY);
 });
 
-app.on("window-all-closed", () => {
+app.on("window-all-closed", async () => {
   if (process.platform !== "darwin") {
-    void dl?.destroy();
+    await dl?.destroy();
     app.quit();
   }
+});
+
+// Flush downloader state before the app quits (covers Ctrl+C, taskkill, etc.)
+app.on("before-quit", () => {
+  dl?.destroy();
 });
 
 app.on("activate", () => {
@@ -292,7 +296,7 @@ const handlers: IpcHandler[] = [
   }],
 
   // Disk
-  ["getDiskSpace", (_, targetPath?: string) => getDiskSpace(targetPath)],
+  ["getDiskSpace", (_, targetPath: string) => getDiskSpace(targetPath)],
   ["formatBytes", (_, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
 
   // Updater

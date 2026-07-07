@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { formatBytes } from "./shared";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -86,8 +87,8 @@ const ProgressBar = memo(function ProgressBar({ progress, status }: ProgressBarP
   return (
     <div className="w-full h-0.75 bg-white/6 rounded-full overflow-hidden">
       <div
-        className={`h-full rounded-full transition-[width] duration-500 ease-out ${colorMap[status]} ${isAnim ? "animate-pulse" : ""}`}
-        style={{ width: `${Math.min(100, progress)}%` }}
+        className={`h-full rounded-full ${colorMap[status]} ${isAnim ? "animate-pulse" : ""}`}
+        style={{ width: `${Math.min(100, progress)}%`, transition: "width 150ms linear" }}
       />
     </div>
   );
@@ -394,6 +395,7 @@ export default function DownloadPage() {
   }, [patchTask, t]);
 
   const handleCancel = useCallback(async (id: string) => {
+    try { await utils.customConfirm("Huỷ tác vụ này? Tiến độ tải sẽ bị mất."); } catch { return; }
     removeTask(id);
     const result = await window.downloader.cancel(id);
     if (!result.success) {
@@ -529,28 +531,36 @@ export default function DownloadPage() {
               <div className="text-[13px]">{t("empty.message")}</div>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {filtered.map((task) => (
-                <DownloadCard
-                  key={task.id}
-                  task={task}
-                  onPause={handlePause}
-                  onResume={handleResume}
-                  onCancel={handleCancel}
-                />
-              ))}
-            </div>
+            <motion.div
+              className="flex flex-col gap-2"
+              initial="hidden"
+              animate="show"
+              variants={{ hidden: {}, show: { transition: { staggerChildren: 0.035, delayChildren: 0.02 } } }}
+            >
+              <AnimatePresence mode="popLayout">
+                {filtered.map((task) => (
+                  <motion.div
+                    key={task.id}
+                    layout
+                    variants={{
+                      hidden: { opacity: 0, y: 8, scale: 0.985 },
+                      show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.28, ease: [0, 0, 0.2, 1] } },
+                    }}
+                    exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } }}
+                  >
+                    <DownloadCard
+                      task={task}
+                      onPause={handlePause}
+                      onResume={handleResume}
+                      onCancel={handleCancel}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
           )}
         </div>
       </div>
-      <style>{`
-        @keyframes turboFlash {
-          0%   { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
-          30%  { box-shadow: 0 0 0 4px rgba(224,139,26,0.5); }
-          100% { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
-        }
-        .animate-turbo-flash { animation: turboFlash 0.6s ease-out 3; }
-      `}</style>
     </div>
   );
 }

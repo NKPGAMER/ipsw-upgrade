@@ -1,12 +1,21 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, memo } from "react";
 
-export function Resizer({ onResize }: { onResize: (dx: number) => void }) {
+export const Resizer = memo(function Resizer({
+  onResize,
+  onDragStart,
+  onDragEnd,
+}: {
+  onResize: (dx: number) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}) {
   const dragging = useRef(false);
   const lastX = useRef(0);
 
   const onMouseDown = (e: React.MouseEvent) => {
     dragging.current = true;
     lastX.current = e.clientX;
+    onDragStart?.();
     e.preventDefault();
   };
 
@@ -16,14 +25,17 @@ export function Resizer({ onResize }: { onResize: (dx: number) => void }) {
       onResize(e.clientX - lastX.current);
       lastX.current = e.clientX;
     };
-    const onUp = () => { dragging.current = false; };
+    const onUp = () => {
+      dragging.current = false;
+      onDragEnd?.();
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [onResize]);
+  }, [onResize, onDragStart, onDragEnd]);
 
   return (
     <div onMouseDown={onMouseDown}
@@ -37,4 +49,4 @@ export function Resizer({ onResize }: { onResize: (dx: number) => void }) {
       </div>
     </div>
   );
-}
+});

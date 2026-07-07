@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { formatBytes, formatDate } from "@/ui/shared";
 import { useTranslation } from "react-i18next";
 
-export function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]; onDownload: (fw: Firmware) => void }) {
+export const FirmwareTable = memo(function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]; onDownload: (fw: Firmware) => void }) {
   const [page, setPage] = useState(0);
   const PER_PAGE = 5;
   const totalPages = Math.ceil(firmwares.length / PER_PAGE);
@@ -71,4 +71,4 @@ export function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]
       )}
     </div>
   );
-}
+});

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
+import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { ipswClient } from "../init";
 import utils from "../core/utils";
@@ -145,7 +146,7 @@ const ICONS = {
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
 
-const StatCard = ({ label, value, unit, iconSm, iconLg, color }: StatItem) => (
+const StatCard = memo(({ label, value, unit, iconSm, iconLg, color }: StatItem) => (
   <div className="relative overflow-hidden rounded-xl! bg-[#161616] border border-[#1e1e1e] p-4! flex flex-col gap-2!">
     <div className="absolute top-0 left-0 right-0 h-0.5! bg-[#137fec] opacity-50" />
     <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-[0.6] pointer-events-none">
@@ -168,20 +169,16 @@ const StatCard = ({ label, value, unit, iconSm, iconLg, color }: StatItem) => (
       </span>
     }
   </div>
-);
+));
 
 // ── StatCardSkeleton — shimmer khi đang tải ───────────────────────────────────
 
-const StatCardSkeleton = () => (
+const StatCardSkeleton = memo(() => (
   <div className="relative overflow-hidden rounded-xl! bg-[#161616] border border-[#1e1e1e] p-4! flex flex-col gap-2!">
     <div className="absolute top-0 left-0 right-0 h-0.5! bg-[#137fec] opacity-30" />
-    {/* shimmer overlay */}
-    <div
-      className="absolute inset-0 pointer-events-none"
+    <div className="absolute inset-0 pointer-events-none animate-ld-shimmer"
       style={{
         background: "linear-gradient(90deg, transparent 0%, #ffffff08 50%, transparent 100%)",
-        backgroundSize: "200% 100%",
-        animation: "shimmer 1.6s infinite",
       }}
     />
     <div className="flex items-center gap-1.5!">
@@ -189,18 +186,12 @@ const StatCardSkeleton = () => (
       <div className="h-2.5! w-24! rounded! bg-[#2a2a2a]" />
     </div>
     <div className="h-6! w-16! rounded! bg-[#2a2a2a]" />
-    <style>{`
-      @keyframes shimmer {
-        0%   { background-position: -200% 0; }
-        100% { background-position:  200% 0; }
-      }
-    `}</style>
   </div>
-);
+));
 
 // ── ProductCard ───────────────────────────────────────────────────────────────
 
-const ProductCard = ({ product, onClick }: { product: Product; onClick: () => void }) => (
+const ProductCard = memo(({ product, onClick }: { product: Product; onClick: () => void }) => (
   <button
     type="button"
     onClick={onClick}
@@ -233,7 +224,7 @@ const ProductCard = ({ product, onClick }: { product: Product; onClick: () => vo
       <span className="text-[10.5px]! text-[#555]">{product.sub}</span>
     )}
   </button>
-);
+));
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 
@@ -405,41 +396,50 @@ export default function Home() {
       <main className="flex-1 p-6! md:px-8! md:py-7! overflow-y-auto">
 
         {/* Stats row — skeleton khi chưa load xong */}
-        <div className="grid grid-cols-3 gap-3! mb-3!">
+        <motion.div
+          className="grid grid-cols-3 gap-3! mb-3!"
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.01 } } }}
+        >
           {stats === null
             ? Array.from({ length: 3 }, (_, i) => <StatCardSkeleton key={i} />)
             : statItems.map((s) => (
-              <div
+              <motion.div
                 key={s.label}
-                style={{ animation: "fadeSlideIn 0.25s ease both" }}
+                variants={{
+                  hidden: { opacity: 0, y: 8 },
+                  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0, 0, 0.2, 1] } },
+                }}
               >
                 <StatCard {...s} />
-              </div>
+              </motion.div>
             ))
           }
-        </div>
+        </motion.div>
 
         {/* Environment row */}
-        <div className="grid grid-cols-3 gap-3! mb-7!">
+        <motion.div
+          className="grid grid-cols-3 gap-3! mb-7!"
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.06 } } }}
+        >
           {envInfo === null
             ? Array.from({ length: 3 }, (_, i) => <StatCardSkeleton key={i} />)
             : envStatItems.map((s) => (
-              <div
+              <motion.div
                 key={s.label}
-                style={{ animation: "fadeSlideIn 0.35s ease both" }}
+                variants={{
+                  hidden: { opacity: 0, y: 8 },
+                  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0, 0, 0.2, 1] } },
+                }}
               >
                 <StatCard {...s} />
-              </div>
+              </motion.div>
             ))
           }
-        </div>
-
-        <style>{`
-          @keyframes fadeSlideIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0);   }
-          }
-        `}</style>
+        </motion.div>
 
         {/* Section label */}
         <p className="text-[11px]! text-[#555] uppercase tracking-[0.07em] font-medium mb-3.5!">
@@ -447,15 +447,27 @@ export default function Home() {
         </p>
 
         {/* Products grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3!">
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3!"
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.12 } } }}
+        >
           {PRODUCTS.map((p) => (
-            <ProductCard
+            <motion.div
               key={p.id}
-              product={p}
-              onClick={() => navigate("/selectDevice", { state: { product: p.id } })}
-            />
+              variants={{
+                hidden: { opacity: 0, y: 10, scale: 0.985 },
+                show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.28, ease: [0, 0, 0.2, 1] } },
+              }}
+            >
+              <ProductCard
+                product={p}
+                onClick={() => navigate("/selectDevice", { state: { product: p.id } })}
+              />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
       </main>
     </div>

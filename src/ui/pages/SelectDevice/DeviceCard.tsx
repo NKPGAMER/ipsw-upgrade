@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, memo } from "react";
+import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { formatBytes, formatEta, Spinner } from "@/ui/shared";
@@ -10,6 +11,19 @@ import { CardBorderProgress } from "./CardBorderProgress";
 import { DeviceName } from "./DeviceName";
 import { CardSkeleton } from "./CardSkeleton";
 import { PRODUCT_ICON } from "./icons";
+
+// ── Shared IntersectionObserver (firmware lazy-load only) ──
+let _sharedIO: IntersectionObserver | null = null;
+const _ioCallbacks = new Map<Element, (visible: boolean) => void>();
+
+function getSharedIO(): IntersectionObserver {
+  if (!_sharedIO) {
+    _sharedIO = new IntersectionObserver((entries) => {
+      for (const e of entries) _ioCallbacks.get(e.target)?.(e.isIntersecting);
+    }, { threshold: 0.1 });
+  }
+  return _sharedIO;
+}
 
 export const DeviceCard = memo(function DeviceCard({
   entry,
@@ -58,12 +72,17 @@ export const DeviceCard = memo(function DeviceCard({
     prevMode.current = currentMode;
   }, [entry.task?.mode, entry.device.name]);
 
+  // IntersectionObserver for firmware lazy-load
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.1 });
-    obs.observe(el);
-    return () => obs.disconnect();
+    const io = getSharedIO();
+    _ioCallbacks.set(el, setVisible);
+    io.observe(el);
+    return () => {
+      _ioCallbacks.delete(el);
+      io.unobserve(el);
+    };
   }, []);
 
   const signalledRef = useRef(false);
@@ -122,15 +141,20 @@ export const DeviceCard = memo(function DeviceCard({
   })();
 
   return (
-    <div
+    <motion.div
       ref={cardRef}
       onClick={onClick}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0) scale(1)" : "translateY(8px) scale(0.985)",
-        transition: "opacity 0.35s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1), background 0.15s, border-color 0.15s",
-        willChange: "transform, opacity",
+      variants={{
+        hidden: { opacity: 0, y: 10, scale: 0.985 },
+        show: {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          transition: { duration: 0.28, ease: [0, 0, 0.2, 1] },
+        },
       }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.08 }}
       className={`
         group h-50 relative cursor-pointer rounded-[14px] border select-none
         ${selected && !borderProgress
@@ -144,6 +168,9 @@ export const DeviceCard = memo(function DeviceCard({
         ${selected && borderProgress ? "ring-1 ring-white/8" : ""}
         ${flash ? "animate-card-flash" : ""}
       `}
+      style={{
+        transition: "background 120ms var(--ease-smooth), border-color 120ms var(--ease-smooth)",
+      }}
     >
       {pending && (
         <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-[14px]">
@@ -209,7 +236,7 @@ export const DeviceCard = memo(function DeviceCard({
               <div className="flex items-end justify-between">
                 <div className="flex items-baseline gap-1">
                   <span className={`text-[24px] font-bold font-mono tabular-nums leading-none ${cfg.textClass}`}>
-                    {entry.task!.progress}
+                    {Math.floor(entry.task!.progress)}
                   </span>
                   <span className={`text-[12px] font-medium ${cfg.textClass} opacity-60`}>%</span>
                 </div>
@@ -262,6 +289,6 @@ export const DeviceCard = memo(function DeviceCard({
           )}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 });

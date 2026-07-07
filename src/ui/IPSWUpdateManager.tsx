@@ -6,6 +6,7 @@ import {
   useMemo,
   memo,
 } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { formatBytes, formatEta, Spinner } from "./shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ipswClient } from "../init";
@@ -99,15 +100,13 @@ const ProgressBar = ({ value, status }: { value: number; status: EntryStatus }) 
   return (
     <div className="h-0.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
       <div
-        className={`h-full rounded-full transition-all duration-500 relative ${anim ? "overflow-hidden" : ""}`}
-        style={{ width: `${Math.max(0, Math.min(100, value))}%`, background: c }}
+        className={`h-full rounded-full relative ${anim ? "overflow-hidden" : ""}`}
+        style={{ width: `${Math.max(0, Math.min(100, value))}%`, background: c, transition: "width 150ms linear" }}
       >
         {anim && (
-          <div
-            className="absolute inset-0"
+          <div className="absolute inset-0 animate-ld-shimmer"
             style={{
               background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)",
-              animation: "shimmer 1.6s linear infinite",
             }}
           />
         )}
@@ -766,30 +765,47 @@ export default function IPSWUpdateManager() {
         ) : scan.phase === "done" && entries.length === 0 ? (
           <EmptyState product={product} />
         ) : (
-          <div className="flex-1 overflow-y-auto px-3! py-3! space-y-1.5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(19,127,236,0.5) transparent" }}>
-            {entries.map((entry, idx) => {
-              const st = entryStates.get(entry.firmware.url) ?? {
-                status: "pending" as EntryStatus,
-                progress: 0,
-                speed: 0,
-              };
-              return (
-                <UpdateRow
-                  key={entry.firmware.url}
-                  entry={entry}
-                  index={idx}
-                  entryState={st}
-                  isDragging={dragIndex === idx}
-                  isOver={overIndex === idx}
-                  running={running}
-                  onDragStart={handleDragStart}
-                  onDragEnter={handleDragEnter}
-                  onDragEnd={handleDragEnd}
-                  onRemove={handleRemove}
-                />
-              );
-            })}
-          </div>
+          <motion.div
+            className="flex-1 overflow-y-auto px-3! py-3! space-y-1.5"
+            style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(19,127,236,0.5) transparent" }}
+            initial="hidden"
+            animate="show"
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.03, delayChildren: 0.02 } } }}
+          >
+            <AnimatePresence mode="popLayout">
+              {entries.map((entry, idx) => {
+                const st = entryStates.get(entry.firmware.url) ?? {
+                  status: "pending" as EntryStatus,
+                  progress: 0,
+                  speed: 0,
+                };
+                return (
+                  <motion.div
+                    key={entry.firmware.url}
+                    layout
+                    variants={{
+                      hidden: { opacity: 0, y: 8 },
+                      show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0, 0, 0.2, 1] } },
+                    }}
+                    exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } }}
+                  >
+                    <UpdateRow
+                      entry={entry}
+                      index={idx}
+                      entryState={st}
+                      isDragging={dragIndex === idx}
+                      isOver={overIndex === idx}
+                      running={running}
+                      onDragStart={handleDragStart}
+                      onDragEnter={handleDragEnter}
+                      onDragEnd={handleDragEnd}
+                      onRemove={handleRemove}
+                    />
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
         )}
       </div>
 
@@ -813,10 +829,11 @@ export default function IPSWUpdateManager() {
               </div>
               <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
                 <div
-                  className="h-full rounded-full transition-all duration-500"
+                  className="h-full rounded-full"
                   style={{
                     width: `${((stats.done + stats.failed) / stats.total) * 100}%`,
                     background: "linear-gradient(90deg, #1565c0, #2196f3)",
+                    transition: "width 150ms linear",
                   }}
                 />
               </div>
@@ -874,17 +891,6 @@ export default function IPSWUpdateManager() {
         </div>
       )}
 
-      {/* CSS */}
-      <style>{`
-        @keyframes shimmer {
-          0%   { transform: translateX(-100%); }
-          100% { transform: translateX(250%); }
-        }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
-      `}</style>
     </div>
   );
 }

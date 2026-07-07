@@ -1,0 +1,72 @@
+/* SelectDevice component styles */
+
+@property --aurora-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.aurora-border::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 17px;
+  padding: 3px;
+  background: conic-gradient(from var(--aurora-angle), #137fec, #8b5cf6, #06b6d4, #137fec);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  z-index: -1;
+  animation: ld-aurora-rotate 3s linear infinite;
+}
+
+.aurora-border::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 17px;
+  padding: 3px;
+  background: conic-gradient(from var(--aurora-angle), #137fec, #8b5cf6, #06b6d4, #137fec);
+  filter: blur(10px);
+  opacity: 0.45;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  z-index: -2;
+  animation: ld-aurora-rotate 3s linear infinite;
+}
+
+.animate-ld-card-flash {
+  animation: ld-flash 0.6s ease-out;
+}
+
+.scrollbar-thin {
+  scrollbar-color: rgba(19, 127, 236, 0.5) transparent;
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(19, 127, 236, 0.5); border-radius: 2px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(19, 127, 236, 0.8); }
+
+/* Shimmer progress bar effect */
+@keyframes select-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.animate-shimmer {
+  animation: select-shimmer 1.8s linear infinite;
+}
+
+/* Card enter — uses ld-card-enter from animations.css */
+.animate-card-enter {
+  animation: ld-card-enter 280ms var(--ease-decelerate) both;
+}
+
+/* Card flash — uses ld-flash from animations.css */
+.animate-card-flash {
+  animation: ld-flash 0.6s ease-out;
+}

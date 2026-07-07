@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { Task } from "../../../../@types/global";
 import { download, deleteFile, updateFirmware, getRedundantFilesFromProduct, getFileNameFromUrl, parseIPSW } from "@/core/helper";
@@ -16,6 +17,7 @@ import { Resizer } from "./Resizer";
 import { TASKBAR_ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
 import { CardSkeleton } from "./CardSkeleton";
+import "./styles.css";
 
 const PENDING_TIMEOUT_MS = 15000;
 
@@ -35,6 +37,8 @@ export default function IPSWManager() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const isResizingRef = useRef(false);
+  const [isResizing, setIsResizing] = useState(false);
   const loadedProductRef = useRef<Product | null>(null);
   const taskMapRef = useRef<Map<string, Task>>(new Map());
   const entriesRef = useRef<DeviceEntry[]>([]);
@@ -777,7 +781,7 @@ export default function IPSWManager() {
           className="flex flex-col overflow-hidden shrink-0"
           style={{
             width: selectedEntry ? `${listWidthPct}%` : "100%",
-            transition: "width 0.15s ease",
+            transition: isResizing ? "none" : "width 220ms cubic-bezier(0.2, 0, 0, 1)",
           }}
         >
           <div className="flex items-center gap-2 px-3! h-11 border-b border-white/7 shrink-0 bg-[#0e0e12]">
@@ -794,6 +798,8 @@ export default function IPSWManager() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Tìm thiết bị…"
+                  role="searchbox"
+                  aria-label="Tìm kiếm thiết bị"
                   className="flex-1 bg-transparent text-[11px] text-white placeholder-gray-600 outline-none min-w-0"
                 />
                 {search && (
@@ -844,18 +850,28 @@ export default function IPSWManager() {
 
           <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-3! scrollbar-thin">
             {loading ? (
-              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}>
+              <motion.div
+                className="grid gap-2"
+                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}
+                initial="hidden"
+                animate="show"
+                variants={{ hidden: {}, show: { transition: { staggerChildren: 0.03, delayChildren: 0.01 } } }}
+              >
                 {[...Array(8)].map((_, i) => (
-                  <div
+                  <motion.div
                     key={i}
+                    variants={{
+                      hidden: { opacity: 0, y: 8 },
+                      show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0, 0, 0.2, 1] } },
+                    }}
                     className="h-50 relative rounded-[14px] cursor-default select-none overflow-visible aurora-border"
                   >
                     <div className="relative w-full h-full rounded-[14px] border border-transparent bg-[#0c0c0f] overflow-hidden">
                       <CardSkeleton />
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 gap-2 text-gray-600">
                 <svg className="w-6 h-6 opacity-40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
@@ -872,7 +888,13 @@ export default function IPSWManager() {
                       <h3 className="text-[18px] font-bold text-gray-200">{ungroupedTitle}</h3>
                       <span className="text-[12px] text-gray-400">{groupedEntries.ungroupedEntries.length} models</span>
                     </div>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}>
+                    <motion.div
+                      className="grid gap-2"
+                      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}
+                      initial="hidden"
+                      animate="show"
+                      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.035, delayChildren: 0.02 } } }}
+                    >
                       {groupedEntries.ungroupedEntries.map(entry => (
                         <DeviceCard
                           key={entry.device.identifier}
@@ -891,7 +913,7 @@ export default function IPSWManager() {
                           onVisible={handleCardVisible}
                         />
                       ))}
-                    </div>
+                    </motion.div>
                   </div>
                 )}
 
@@ -902,7 +924,13 @@ export default function IPSWManager() {
                       <h3 className="text-[16px] font-semibold text-gray-200">{group.name}</h3>
                       <span className="text-[12px] text-gray-400">{group.entries.length} models</span>
                     </div>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}>
+                    <motion.div
+                      className="grid gap-2"
+                      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))" }}
+                      initial="hidden"
+                      animate="show"
+                      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.035, delayChildren: 0.02 } } }}
+                    >
                       {group.entries.map(entry => (
                         <DeviceCard
                           key={entry.device.identifier}
@@ -921,7 +949,7 @@ export default function IPSWManager() {
                           onVisible={handleCardVisible}
                         />
                       ))}
-                    </div>
+                    </motion.div>
                   </div>
                 ))}
               </div>
@@ -929,103 +957,41 @@ export default function IPSWManager() {
           </div>
         </div>
 
-        {selectedEntry && (
-          <>
-            <Resizer onResize={handleResize} />
-            <div
-              className="flex-1 min-w-0 border-l border-white/7 bg-[#0e0e12] overflow-hidden"
-              style={{ animation: "slideIn 0.2s cubic-bezier(0.22,1,0.36,1)" }}
-            >
-              <DetailPanel
-                entry={selectedEntry}
-                product={product}
-                allFiles={allFiles}
-                incompleteTasks={incompleteTasks}
-                pendingAction={pendingActions.get(selectedEntry.device.identifier) ?? null}
-                verifyState={verifyStates.get(selectedEntry.device.identifier)}
-                onClose={() => setSelectedId(null)}
-                onAction={(action, fw) => handleAction(selectedEntry.device.identifier, action, fw)}
-                linkedDevices={linkedEntries}
-                linkedGroup={identifierToGroup.get(selectedEntry.device.identifier)}
+        {/* Panel open/close animation — stable key so switching cards doesn't remount */}
+        <AnimatePresence mode="wait">
+          {selectedEntry && (
+            <>
+              <Resizer
+                key="resizer"
+                onResize={handleResize}
+                onDragStart={() => { isResizingRef.current = true; setIsResizing(true); }}
+                onDragEnd={() => { isResizingRef.current = false; setIsResizing(false); }}
               />
-            </div>
-          </>
-        )}
+              <motion.div
+                key="detail-panel"
+                className="flex-1 min-w-0 border-l border-white/7 bg-[#0e0e12] overflow-hidden"
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: [0.2, 0, 0, 1] } }}
+                exit={{ opacity: 0, x: 20, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } }}
+              >
+                <DetailPanel
+                  entry={selectedEntry}
+                  product={product}
+                  allFiles={allFiles}
+                  incompleteTasks={incompleteTasks}
+                  pendingAction={pendingActions.get(selectedEntry.device.identifier) ?? null}
+                  verifyState={verifyStates.get(selectedEntry.device.identifier)}
+                  onClose={() => setSelectedId(null)}
+                  onAction={(action, fw) => handleAction(selectedEntry.device.identifier, action, fw)}
+                  linkedDevices={linkedEntries}
+                  linkedGroup={identifierToGroup.get(selectedEntry.device.identifier)}
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
 
-      <style>{`
-        @property --aurora-angle {
-          syntax: '<angle>';
-          initial-value: 0deg;
-          inherits: false;
-        }
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(20px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes shimmer {
-          0%   { transform: translateX(-100%); }
-          100% { transform: translateX(200%); }
-        }
-        @keyframes toastIn {
-          from { opacity: 0; transform: translateY(8px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes cardFlash {
-          0%   { box-shadow: 0 0 0 0 rgba(19,127,236,0); }
-          30%  { box-shadow: 0 0 0 3px rgba(19,127,236,0.35); }
-          100% { box-shadow: 0 0 0 0 rgba(19,127,236,0); }
-        }
-        .animate-card-flash { animation: cardFlash 0.6s ease-out; }
-        .animate-shimmer { animation: shimmer 1.8s linear infinite; }
-        @keyframes turboFlash {
-          0%   { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
-          30%  { box-shadow: 0 0 0 4px rgba(224,139,26,0.5); }
-          100% { box-shadow: 0 0 0 0 rgba(224,139,26,0); }
-        }
-        .animate-turbo-flash { animation: turboFlash 0.6s ease-out 3; }
-        @keyframes cardEnter {
-          from { opacity: 0; transform: translateY(10px) scale(0.985); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .animate-card-enter { animation: cardEnter 0.35s cubic-bezier(0.22,1,0.36,1) both; }
-        .aurora-border::before {
-          content: "";
-          position: absolute;
-          inset: -3px;
-          border-radius: 17px;
-          padding: 3px;
-          background: conic-gradient(from var(--aurora-angle), #137fec, #8b5cf6, #06b6d4, #137fec);
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          mask-composite: exclude;
-          z-index: -1;
-          animation: aurora-rotate 3s linear infinite;
-        }
-        .aurora-border::after {
-          content: "";
-          position: absolute;
-          inset: -3px;
-          border-radius: 17px;
-          padding: 3px;
-          background: conic-gradient(from var(--aurora-angle), #137fec, #8b5cf6, #06b6d4, #137fec);
-          filter: blur(10px);
-          opacity: 0.45;
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          mask-composite: exclude;
-          z-index: -2;
-          animation: aurora-rotate 3s linear infinite;
-        }
-        @keyframes aurora-rotate { to { --aurora-angle: 360deg; } }
-        .scrollbar-thin { scrollbar-color: rgba(19,127,236,0.5) transparent; scrollbar-width: thin; }
-        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(19,127,236,0.5); border-radius: 2px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(19,127,236,0.8); }
-      `}</style>
     </div>
   );
 }

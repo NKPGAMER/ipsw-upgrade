@@ -1,0 +1,240 @@
+/* ===== Linux Desktop Animation System =====
+ * GNOME 46+ / KDE Plasma 6 motion language
+ * Aligned with src/lib/motion.ts Framer Motion tokens
+ */
+
+/* ── Easing tokens ── */
+:root {
+  --ease-primary: cubic-bezier(0.2, 0, 0, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+  --dur-instant: 80ms;
+  --dur-hover: 120ms;
+  --dur-press: 100ms;
+  --dur-tooltip: 150ms;
+  --dur-menu: 180ms;
+  --dur-dropdown: 180ms;
+  --dur-sidebar: 220ms;
+  --dur-dialog: 250ms;
+  --dur-page: 280ms;
+  --dur-layout: 300ms;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 50ms !important;
+    transition-duration: 50ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ── Keyframes ── */
+
+@keyframes ld-enter-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ld-exit-fade-up {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes ld-dialog-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes ld-dialog-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.98); }
+}
+
+@keyframes ld-toast-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ld-toast-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes ld-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes ld-card-enter {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ld-panel-slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ld-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(19, 127, 236, 0); }
+  50%      { box-shadow: 0 0 8px 2px rgba(19, 127, 236, 0.4); }
+}
+
+/* ── Utility classes ── */
+
+.animate-ld-shimmer {
+  background-size: 200% 100%;
+  animation: ld-shimmer 1.4s linear infinite;
+}
+
+.animate-ld-card-enter {
+  animation: ld-card-enter 280ms var(--ease-decelerate) both;
+}
+
+.animate-ld-panel-slide-in {
+  animation: ld-panel-slide-in 220ms var(--ease-primary) both;
+}
+
+.animate-ld-enter-fade-up {
+  animation: ld-enter-fade-up 280ms var(--ease-primary) both;
+}
+
+/* ── Card hover / press ── */
+
+.card-hover {
+  transition: transform var(--dur-hover) var(--ease-smooth),
+              box-shadow var(--dur-hover) var(--ease-smooth),
+              border-color var(--dur-hover) var(--ease-smooth),
+              background-color var(--dur-hover) var(--ease-smooth);
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.card-press:active {
+  transform: scale(0.98);
+  transition: transform var(--dur-press) var(--ease-smooth);
+}
+
+/* ── Button press ── */
+
+.btn-press:active {
+  transform: scale(0.98);
+  transition: transform var(--dur-press) var(--ease-smooth);
+}
+
+/* ── Turbo flash ── */
+
+@keyframes turbo-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(224, 139, 26, 0); }
+  30%  { box-shadow: 0 0 0 4px rgba(224, 139, 26, 0.5); }
+  100% { box-shadow: 0 0 0 0 rgba(224, 139, 26, 0); }
+}
+
+.animate-turbo-flash {
+  animation: turbo-flash 0.6s ease-out 3;
+}
+
+/* ── Progress bar ── */
+
+.progress-bar-fill {
+  transition: width 150ms linear;
+}
+
+/* ── Tooltip ── */
+
+.tooltip-enter {
+  animation: tooltip-in 180ms var(--ease-decelerate) both;
+}
+
+.tooltip-exit {
+  animation: tooltip-out 150ms var(--ease-accelerate) both;
+}
+
+@keyframes tooltip-in {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes tooltip-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.98); }
+}
+
+/* ── Skeleton shimmer (smooth) ── */
+
+@keyframes ld-skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-ld-skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: ld-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Button press (scale down) ── */
+
+.btn-press-sm:active {
+  transform: scale(0.97);
+  transition: transform var(--dur-instant) linear;
+}
+
+/* ── Card group header fade-in ── */
+
+@keyframes ld-section-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-ld-section-enter {
+  animation: ld-section-enter 280ms var(--ease-primary) both;
+}
+
+/* ── Download card exit ── */
+
+@keyframes ld-card-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.97); }
+}
+
+.animate-ld-card-exit {
+  animation: ld-card-exit 150ms var(--ease-accelerate) both;
+}
+
+/* ── Stagger delay utilities (for CSS-only stagger when Framer Motion not needed) ── */
+
+.stagger-1 { animation-delay: 35ms; }
+.stagger-2 { animation-delay: 70ms; }
+.stagger-3 { animation-delay: 105ms; }
+.stagger-4 { animation-delay: 140ms; }
+.stagger-5 { animation-delay: 175ms; }
+.stagger-6 { animation-delay: 210ms; }
+.stagger-7 { animation-delay: 245ms; }
+.stagger-8 { animation-delay: 280ms; }
+
+/* ── Will-change hints for animated elements ── */
+
+.will-change-transform-opacity {
+  will-change: transform, opacity;
+}
+
+/* ── Sidebar navigation active indicator ── */
+
+@keyframes ld-nav-indicator {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+.animate-ld-nav-indicator {
+  animation: ld-nav-indicator 200ms var(--ease-decelerate) both;
+  transform-origin: center;
+}
