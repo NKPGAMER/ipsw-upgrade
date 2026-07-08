@@ -3,7 +3,6 @@ import { URL } from "url";
 import { Pool, type Dispatcher } from "undici";
 import { ChunkState, DownloadState } from "./types";
 import { StateManager } from "./state-manager";
-import type { StreamHasher } from "./stream-hash";
 
 export interface ChunkManagerOptions {
   maxConnections?: number;
@@ -25,8 +24,6 @@ export interface ChunkManagerOptions {
   hddDiskAvailable?: number;
   /** Allow TLS connections with invalid certificates (for development). */
   insecureTLS?: boolean;
-  /** Incremental hash computed during download (stream verify). */
-  streamHasher?: StreamHasher;
 }
 
 export interface TurboMoveInfo {
@@ -228,10 +225,6 @@ class IOWriteQueue {
     return this.queue.length > 0 || this.activeCount > 0;
   }
 
-  get isStopped(): boolean {
-    return this.stopped;
-  }
-
   getTotalMovedBytes(): number {
     return this.totalMovedBytes;
   }
@@ -244,7 +237,7 @@ class IOWriteQueue {
 // ─── ChunkManager ──────────────────────────────────────────────────────────────
 
 export class ChunkManager {
-  private opts: Required<Omit<ChunkManagerOptions, "turboHddSsd" | "tmpDiskAvailable" | "hddDiskAvailable" | "insecureTLS" | "streamHasher">>;
+  private opts: Required<Omit<ChunkManagerOptions, "turboHddSsd" | "tmpDiskAvailable" | "hddDiskAvailable" | "insecureTLS">>;
   private stateManager: StateManager;
   private state: DownloadState;
   private fd: number = -1;
@@ -264,14 +257,13 @@ export class ChunkManager {
   private maxSeenSpeed = 0;
   private previousSpeed = 0;
 
+  private stateFlushTimer: NodeJS.Timeout | null = null;
+  private pendingStateUpdates: { index: number; downloaded: number; completed: boolean }[] = [];
   private pool!: Pool;
   private totalDownloaded = 0;
 
   // ── TLS / security ──────────────────────────────────────────────────────
   private insecureTLS: boolean;
-
-  // ── Stream hash ─────────────────────────────────────────────────────────
-  private streamHasher: StreamHasher | undefined;
 
   // ── Turbo / promotion state ─────────────────────────────────────────────
   private ioWriteQueue: IOWriteQueue | null = null;
@@ -310,7 +302,6 @@ export class ChunkManager {
 
     this.turboHddSsd = opts.turboHddSsd;
     this.insecureTLS = opts.insecureTLS ?? false;
-    this.streamHasher = opts.streamHasher;
   }
 
   on<K extends keyof ChunkManagerEvents>(event: K, handler: ChunkManagerEvents[K]): this {
@@ -385,7 +376,7 @@ export class ChunkManager {
     try {
       // Pre-allocate to avoid fragmentation
     if (flags === "w" && this.state.totalSize > 0) {
-      await this.setFileExtent(this.fd, this.state.totalSize);
+      await this.fallocate(this.fd, this.state.totalSize);
     }
 
     // ── Set up turbo HDD+SSD progressive write ─────────────────────────────
@@ -396,7 +387,7 @@ export class ChunkManager {
       if (!fs.existsSync(this.turboPath)) {
         const turboFd = fs.openSync(this.turboPath, "w");
         if (this.state.totalSize > 0) {
-          await this.setFileExtent(turboFd, this.state.totalSize);
+          await this.fallocate(turboFd, this.state.totalSize);
         }
         fs.closeSync(turboFd);
       }
@@ -487,6 +478,7 @@ export class ChunkManager {
           }
 
           if (this.activeCount === 0 && this.pendingQueue.length === 0) {
+            this.flushStateNow();
             fs.closeSync(this.fd);
             this.fd = -1;
             this.triggerTick = null;
@@ -584,9 +576,10 @@ export class ChunkManager {
 
     if (start > end) {
       chunk.completed = true;
+      this.queueStateUpdate(chunk.index, chunk.downloaded, true);
       this.emit("chunkComplete", chunk.index);
       // Enqueue for HDD write if turboHddSsd is active
-      if (this.ioWriteQueue && !this.ioWriteQueue.isStopped) {
+      if (this.ioWriteQueue && !this.ioWriteQueue["stopped"]) {
         this.ioWriteQueue.enqueue({
           chunkIndex: chunk.index,
           start: chunk.start,
@@ -687,7 +680,7 @@ export class ChunkManager {
       this.totalDownloaded   += combined.length;
 
       this.updateSpeed();
-      if (this.streamHasher) this.streamHasher.update(combined);
+      this.queueStateUpdate(chunk.index, chunk.downloaded, false);
       this.emit("progress", {
         chunkIndex:   chunk.index,
         bytesWritten: this.totalDownloaded,
@@ -728,10 +721,11 @@ export class ChunkManager {
     }
 
     chunk.completed = true;
+    this.queueStateUpdate(chunk.index, chunk.downloaded, true);
     this.emit("chunkComplete", chunk.index);
 
     // ── Enqueue for HDD write (turbo HDD+SSD progressive move) ──────────
-    if (this.ioWriteQueue && !this.ioWriteQueue.isStopped) {
+    if (this.ioWriteQueue && !this.ioWriteQueue["stopped"]) {
       this.ioWriteQueue.enqueue({
         chunkIndex: chunk.index,
         start: chunk.start,
@@ -793,7 +787,7 @@ export class ChunkManager {
     if (!fs.existsSync(turboPath)) {
       const turboFd = fs.openSync(turboPath, "w");
       if (this.state.totalSize > 0) {
-        await this.setFileExtent(turboFd, this.state.totalSize);
+        await this.fallocate(turboFd, this.state.totalSize);
       }
       fs.closeSync(turboFd);
     }
@@ -896,13 +890,7 @@ export class ChunkManager {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  /**
-   * Extend the file to `size` bytes via ftruncate.
-   * On Windows this calls SetEndOfFile — the OS allocates blocks on demand
-   * during writes, so this is not a true fallocate/pre-reserve, but it does
-   * set the logical file size and avoids metadata reallocation per write.
-   */
-  private setFileExtent(fd: number, size: number): Promise<void> {
+  private fallocate(fd: number, size: number): Promise<void> {
     return new Promise((resolve, reject) => {
       fs.ftruncate(fd, size, err => (err ? reject(err) : resolve()));
     });
@@ -993,6 +981,25 @@ export class ChunkManager {
     if (this.fd !== -1) {
       try { fs.closeSync(this.fd); } catch { }
       this.fd = -1;
+    }
+    this.flushStateNow();
+  }
+
+  private queueStateUpdate(index: number, downloaded: number, completed: boolean): void {
+    const existing = this.pendingStateUpdates.find(u => u.index === index);
+    if (existing) { existing.downloaded = downloaded; existing.completed = completed; }
+    else this.pendingStateUpdates.push({ index, downloaded, completed });
+
+    if (!this.stateFlushTimer) {
+      this.stateFlushTimer = setTimeout(() => this.flushStateNow(), 2000);
+    }
+  }
+
+  private flushStateNow(): void {
+    if (this.stateFlushTimer) { clearTimeout(this.stateFlushTimer); this.stateFlushTimer = null; }
+    if (this.pendingStateUpdates.length > 0) {
+      this.stateManager.batchUpdateChunks(this.state.id, this.pendingStateUpdates);
+      this.pendingStateUpdates = [];
     }
   }
 

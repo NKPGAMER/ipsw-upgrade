@@ -40,9 +40,9 @@ export const Resizer = memo(function Resizer({
   return (
     <div onMouseDown={onMouseDown}
       className="w-4 shrink-0 flex items-center justify-center cursor-col-resize group relative z-10 select-none">
-      <div className="w-px h-full bg-white/8 group-hover:bg-[#137fec]/40 transition-colors" />
-      <div className="absolute w-4 h-10 rounded-full bg-white/5 group-hover:bg-[#137fec]/12 border border-white/10 group-hover:border-[#137fec]/28 flex items-center justify-center transition-all">
-        <svg className="w-2.5 h-2.5 text-gray-600 group-hover:text-[#137fec] transition-colors" fill="currentColor" viewBox="0 0 8 16">
+      <div className="w-px h-full bg-white/8 group-hover:bg-[#0066cc]/40 transition-colors" />
+      <div className="absolute w-4 h-10 rounded-full bg-white/5 group-hover:bg-[#0066cc]/12 border border-white/10 group-hover:border-[#0066cc]/28 flex items-center justify-center transition-all">
+        <svg className="w-2.5 h-2.5 text-gray-600 group-hover:text-[#0066cc] transition-colors" fill="currentColor" viewBox="0 0 8 16">
           <rect x="1" y="3" width="1.5" height="10" rx="0.75" />
           <rect x="5" y="3" width="1.5" height="10" rx="0.75" />
         </svg>

@@ -24,8 +24,6 @@ export interface ChunkState {
   completed: boolean;
 }
 
-export type ActiveOperation = "download" | "verify" | "move";
-
 export interface DownloadState {
   id: string;
   firmware: Firmware;
@@ -38,11 +36,6 @@ export interface DownloadState {
   updatedAt: number;
   mode: DownloadMode;
   movedChunks: number[];
-  activeOperation: ActiveOperation;
-  lastCheckpoint: number;
-  lastWriteTime: number;
-  /** Task status at the time state was last saved (for recovery). */
-  taskStatus: TaskStatus;
 }
 
 export interface AddResult {
@@ -112,8 +105,6 @@ export interface DownloaderConfig {
   turboChunkSizeMultiplier?: number;
   /** Allow TLS connections with invalid certificates (development only). */
   insecureTLS?: boolean;
-  /** Auto-resume recovered tasks on startup (default: true). */
-  autoResume?: boolean;
 }
 
 export interface DownloadEvents {
@@ -124,5 +115,4 @@ export interface DownloadEvents {
   resumed: (taskId: string, task: Task) => void;
   added: (taskId: string, task: Task) => void;
   cancelled: (taskId: string) => void;
-  log: (taskId: string, message: string) => void;
 }

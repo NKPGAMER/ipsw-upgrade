@@ -187,24 +187,7 @@ export class DownloaderMain {
     if (!this.worker) return;
     const worker = this.worker;
     this.worker = null;
-
-    // Send destroy message for graceful shutdown
-    try {
-      worker.postMessage({ type: "destroy" } as MainToWorker);
-      // Wait briefly for the worker to flush state, then force terminate
-      await new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => resolve(), 2000);
-        worker.on("exit", () => {
-          clearTimeout(timeout);
-          resolve();
-        });
-      });
-    } catch {
-      // Worker may have already exited
-    }
-
-    // Force terminate if still running
-    try { await worker.terminate(); } catch {}
+    await worker.terminate();
   }
 
   // ─── Renderer bridge ─────────────────────────────────────────────────────

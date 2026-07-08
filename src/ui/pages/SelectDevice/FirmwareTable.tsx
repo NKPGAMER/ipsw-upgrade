@@ -40,7 +40,7 @@ export const FirmwareTable = memo(function FirmwareTable({ firmwares, onDownload
                 <td className="px-3! py-2!">
                   <button
                     onClick={() => onDownload(fw)}
-                    className="px-2.5! py-1! rounded-lg bg-[#137fec]/12 hover:bg-[#137fec]/25 text-[#4fa8f5] text-[10px] font-semibold border border-[#137fec]/20 transition-colors"
+                    className="px-2.5! py-1! rounded-lg bg-[#0066cc]/12 hover:bg-[#0066cc]/25 text-[#2997ff] text-[10px] font-semibold border border-[#0066cc]/20 transition-colors"
                   >
                     Tải xuống
                   </button>

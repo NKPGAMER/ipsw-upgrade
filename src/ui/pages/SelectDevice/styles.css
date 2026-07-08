@@ -12,7 +12,7 @@
   inset: -3px;
   border-radius: 17px;
   padding: 3px;
-  background: conic-gradient(from var(--aurora-angle), #137fec, #8b5cf6, #06b6d4, #137fec);
+  background: conic-gradient(from var(--aurora-angle), #0066cc, #af52de, #06b6d4, #0066cc);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -27,7 +27,7 @@
   inset: -3px;
   border-radius: 17px;
   padding: 3px;
-  background: conic-gradient(from var(--aurora-angle), #137fec, #8b5cf6, #06b6d4, #137fec);
+  background: conic-gradient(from var(--aurora-angle), #0066cc, #af52de, #06b6d4, #0066cc);
   filter: blur(10px);
   opacity: 0.45;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -43,14 +43,14 @@
 }
 
 .scrollbar-thin {
-  scrollbar-color: rgba(19, 127, 236, 0.5) transparent;
+  scrollbar-color: rgba(0, 102, 204, 0.5) transparent;
   scrollbar-width: thin;
 }
 
 .scrollbar-thin::-webkit-scrollbar { width: 4px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(19, 127, 236, 0.5); border-radius: 2px; }
-.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(19, 127, 236, 0.8); }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(0, 102, 204, 0.5); border-radius: 2px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(0, 102, 204, 0.8); }
 
 /* Shimmer progress bar effect */
 @keyframes select-shimmer {

@@ -78,17 +78,6 @@ export class Scheduler extends EventEmitter {
     this.drain();
   }
 
-  /**
-   * Enqueue a task in paused state — task sits in the queue but drain() skips it.
-   * Used during recovery for tasks that were paused when the app closed.
-   */
-  enqueuePaused(task: SchedulerTask): void {
-    if (this.active.has(task.id) || this.queue.some(t => t.id === task.id)) return;
-    this.tasks.set(task.id, task);
-    this.queue.push(task);
-    this.paused.add(task.id);
-  }
-
   /** Update the turboPriority flag and onSlotOpen callback on a queued task. */
   updateQueueEntry(id: string, patch: { turboPriority?: boolean; onSlotOpen?: (slotType: DownloadMode) => void }): void {
     const stored = this.tasks.get(id);

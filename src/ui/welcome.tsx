@@ -135,7 +135,7 @@ const Toggle: React.FC<ToggleProps> = memo(({ checked, onChange, disabled = fals
         onClick={() => !disabled && onChange(!checked)}
         className={[
             "relative h-7 w-12 rounded-full transition-colors duration-200",
-            checked ? "bg-[#0078d4]" : "bg-[#404040]",
+            checked ? "bg-[#0066cc]" : "bg-white/[0.1]",
             disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer",
         ].join(" ")}
     >
@@ -153,12 +153,12 @@ const Toggle: React.FC<ToggleProps> = memo(({ checked, onChange, disabled = fals
 
 const DirPicker: React.FC<DirPickerProps> = memo(({ value, onChange, onBrowse }) => (
     <div className="mt-2! flex w-full items-center gap-1.5">
-        <div className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded bg-[#1a1a1a] border border-[#3a3a3a] px-2.5! py-1.5! font-mono text-[11.5px] text-[#e8e8e8] empty:text-[#666]">
+        <div className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-lg bg-white/[0.04] border border-white/[0.06] px-2.5! py-1.5! font-mono text-[11.5px] text-white empty:text-[#7a7a7a]">
             {value}
         </div>
         <button
             onClick={onBrowse || (() => onChange(""))}
-            className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded border border-[#3a3a3a] bg-[#2d2d2d] px-3! py-1.5! text-[12px] text-[#ccc] transition-colors duration-120 hover:border-[#0078d4] hover:bg-[#383838]"
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/[0.06] bg-white/[0.04] px-3! py-1.5! text-[12px] text-white transition-colors duration-120 hover:border-[#0066cc] hover:bg-white/[0.08]"
         >
             <Ico.Folder /> Browse…
         </button>
@@ -170,13 +170,13 @@ const DirPicker: React.FC<DirPickerProps> = memo(({ value, onChange, onBrowse })
 const SettingRow: React.FC<SettingRowProps> = memo(({ icon, label, desc, badge, children }) => {
     const isDirPicker = (children as any)?.type === DirPicker;
     return (
-        <div className="flex items-start gap-3 border-b border-[#222] px-5! py-3.25! transition-colors duration-100 hover:bg-[#1e1e1e]">
+        <div className="flex items-start gap-3 border-b border-white/[0.06] px-5! py-3.25! transition-colors duration-100 hover:bg-white/[0.02]">
             <div className="mt-px! shrink-0 text-[#666]">{icon}</div>
             <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[13px] font-normal text-[#e8e8e8]">{label}</span>
+                    <span className="text-[13px] font-normal text-white">{label}</span>
                     {badge && (
-                        <span className="rounded-sm border border-[#0078d440] bg-[#0078d420] px-1.5! py-0.5! text-[9px] font-semibold uppercase tracking-[0.07em] text-[#0078d4]">
+                        <span className="rounded-md border border-[#0066cc]/25 bg-[#0066cc]/10 px-1.5! py-0.5! text-[9px] font-semibold uppercase tracking-[0.07em] text-[#2997ff]">
                             {badge}
                         </span>
                     )}
@@ -196,8 +196,8 @@ const SettingRow: React.FC<SettingRowProps> = memo(({ icon, label, desc, badge, 
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 const Section: React.FC<SectionProps> = memo(({ icon, title, accent, children }) => (
-    <div className="mb-3! overflow-hidden rounded-md border border-[#2a2a2a] bg-[#161616]">
-        <div className="flex items-center gap-2.5 border-b border-[#2a2a2a] bg-[#1c1c1c] px-5! py-2.5!">
+    <div className="mb-3! overflow-hidden rounded-xl border border-white/[0.06] bg-[#272729]">
+        <div className="flex items-center gap-2.5 border-b border-white/[0.06] bg-white/[0.02] px-5! py-2.5!">
             <div
                 className="flex size-6 shrink-0 items-center justify-center rounded-[3px] border"
                 style={{
@@ -224,15 +224,15 @@ const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => {
         <div className="flex-1 overflow-y-auto px-9! py-8!">
             {/* Hero */}
             <div className="mb-7! flex items-center gap-4.5">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-lg border border-[#0078d440] bg-linear-to-br from-[#0a1a30] to-[#0d2040] shadow-[0_0_20px_#0078d420]">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-[#0066cc]/25 bg-[#0066cc]/10">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0066cc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 2L2 7l10 5 10-5-10-5z" />
                         <path d="M2 17l10 5 10-5" />
                         <path d="M2 12l10 5 10-5" />
                     </svg>
                 </div>
                 <div>
-                    <h1 className="m-0! font-[\'Segoe_UI_Variable_Display\',\'Segoe_UI\',sans-serif] text-[22px] font-semibold leading-[1.15] tracking-[-0.01em] text-[#f0f0f0]">
+                    <h1 className="m-0! text-[22px] font-semibold leading-[1.15] tracking-[-0.022em] text-white">
                         IPSW Manager
                     </h1>
                     <div className="mt-0.75! text-[12px] text-[#666]">
@@ -242,7 +242,7 @@ const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => {
             </div>
 
             {/* Welcome text */}
-            <p className="mb-7! max-w-120 text-[13.5px] leading-[1.7] text-[#aaa]">
+            <p className="mb-7! max-w-120 text-[13.5px] leading-[1.7] text-[#cccccc]">
                 {t('wizard.welcome.text', { version: window.api.getVersion })}
             </p>
 
@@ -282,7 +282,7 @@ const PageWelcome: React.FC<{ onNext: () => void }> = ({ onNext }) => {
 
             <button
                 onClick={onNext}
-                className="flex cursor-pointer items-center gap-2 rounded border-none bg-[#0078d4] px-5.5! py-2.25! font-['Segoe_UI',sans-serif] text-[13px] font-medium text-white shadow-[0_2px_8px_#0078d440] transition-colors duration-120 hover:bg-[#1a86d8]"
+                className="flex cursor-pointer items-center gap-2 rounded-full border-none bg-[#0066cc] px-5.5! py-2.25! text-[13px] font-medium text-white transition-colors duration-120 hover:bg-[#0071e3]"
             >
                 {t('wizard.getStarted')} <Ico.Arrow />
             </button>
@@ -315,7 +315,7 @@ const PageDownload: React.FC<DownloadPageProps> = ({
                 <p className="m-0! text-[12.5px] text-[#666]">{t('wizard.download.subtitle')}</p>
             </div>
 
-            <Section icon={<Ico.Download />} title={t('wizard.download.section.storage')} accent="#0078d4">
+            <Section icon={<Ico.Download />} title={t('wizard.download.section.storage')} accent="#0066cc">
                 <SettingRow icon={<Ico.Folder />} label={t('wizard.download.saveDir.label')} desc={t('wizard.download.saveDir.desc')}>
                     <DirPicker value={saveDir} onChange={setSaveDir} onBrowse={onBrowseSaveDir} />
                 </SettingRow>
@@ -378,7 +378,7 @@ const PageFirmware: React.FC<FirmwarePageProps> = ({
                 <p className="m-0! text-[12.5px] text-[#666]">{t('wizard.firmware.subtitle')}</p>
             </div>
 
-            <Section icon={<Ico.File />} title={t('wizard.firmware.section.parsing')} accent="#0078d4">
+            <Section icon={<Ico.File />} title={t('wizard.firmware.section.parsing')} accent="#0066cc">
                 <SettingRow
                     icon={<Ico.File />}
                     label={t('wizard.firmware.parse.label')}
@@ -397,7 +397,7 @@ const PageFirmware: React.FC<FirmwarePageProps> = ({
                             value={linkOutDir}
                             onChange={e => setLinkOutDir(e.target.value)}
                             placeholder="IPSW_FILES"
-                            className="w-full rounded border border-[#3a3a3a] bg-[#1a1a1a] px-2.5! py-1.5! font-mono text-[12px] text-[#e8e8e8] outline-none transition-colors focus:border-[#0078d4]"
+                            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-2.5! py-1.5! font-mono text-[12px] text-white outline-none transition-colors focus:border-[#0066cc]"
                         />
                         <div className="mt-1! text-[11px] text-[#666]">
                             {t('wizard.firmware.linkOutDir.desc')}
@@ -437,7 +437,7 @@ const PageFirmware: React.FC<FirmwarePageProps> = ({
                 <BtnBack onClick={onBack} label={t('wizard.btn.back')} />
                 <button
                     onClick={onFinish}
-                    className="flex cursor-pointer items-center gap-2 rounded border-none bg-[#0078d4] px-5.5! py-2! text-[13px] font-medium text-white shadow-[0_2px_10px_#0078d440] transition-colors duration-120 hover:bg-[#1a86d8]"
+                    className="flex cursor-pointer items-center gap-2 rounded-full border-none bg-[#0066cc] px-5.5! py-2! text-[13px] font-medium text-white transition-colors duration-120 hover:bg-[#0071e3]"
                 >
                     {t('wizard.firmware.btn.finish')} <Ico.Check />
                 </button>
@@ -452,14 +452,14 @@ const PageDone: React.FC = () => {
     const { t } = useTranslation();
     return (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-10!">
-            <div className="flex size-15 animate-[welcome-pop-in_0.25s_var(--ease-decelerate)_both] items-center justify-center rounded-full bg-[#0078d4]">
+            <div className="flex size-15 animate-[welcome-pop-in_0.25s_var(--ease-decelerate)_both] items-center justify-center rounded-full bg-[#34c759]">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                 </svg>
             </div>
             <div className="text-center">
-                <div className="mb-1.5! text-[18px] font-semibold text-[#f0f0f0]">{t('wizard.done.title')}</div>
-                <div className="text-[12.5px] text-[#666]">{t('wizard.done.subtitle')}</div>
+                <div className="mb-1.5! text-[18px] font-semibold text-white">{t('wizard.done.title')}</div>
+                <div className="text-[12.5px] text-[#7a7a7a]">{t('wizard.done.subtitle')}</div>
             </div>
         </div>
     );
@@ -470,7 +470,7 @@ const PageDone: React.FC = () => {
 const BtnBack: React.FC<{ onClick: () => void; label: string }> = memo(({ onClick, label }) => (
     <button
         onClick={onClick}
-        className="flex cursor-pointer items-center gap-1.5 rounded border border-[#3a3a3a] bg-transparent px-4.5! py-2! text-[13px] font-medium text-[#aaa] transition-all duration-120 hover:border-[#555] hover:bg-[#1e1e1e]"
+        className="flex cursor-pointer items-center gap-1.5 rounded-full border border-white/[0.06] bg-transparent px-4.5! py-2! text-[13px] font-medium text-[#cccccc] transition-all duration-120 hover:border-white/[0.1] hover:bg-white/[0.04]"
     >
         <Ico.ChevronLeft /> {label}
     </button>
@@ -479,7 +479,7 @@ const BtnBack: React.FC<{ onClick: () => void; label: string }> = memo(({ onClic
 const BtnNext: React.FC<{ onClick: () => void; label: string }> = memo(({ onClick, label }) => (
     <button
         onClick={onClick}
-        className="flex cursor-pointer items-center gap-2 rounded border-none bg-[#0078d4] px-5! py-2! text-[13px] font-medium text-white transition-colors duration-120 hover:bg-[#1a86d8]"
+        className="flex cursor-pointer items-center gap-2 rounded-full border-none bg-[#0066cc] px-5! py-2! text-[13px] font-medium text-white transition-colors duration-120 hover:bg-[#0071e3]"
     >
         {label} <Ico.Arrow />
     </button>
@@ -565,9 +565,9 @@ export default function App(): JSX.Element {
 
     return (
         <>
-            <div className="flex h-screen min-h-140 flex-col overflow-hidden rounded-lg border border-[#2a2a2a] bg-[#111]">
+            <div className="flex h-screen min-h-140 flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-[#272729]">
                 <div className="flex flex-1 overflow-hidden">
-                    <div className="flex flex-1 flex-col overflow-hidden bg-[#111]">
+                    <div className="flex flex-1 flex-col overflow-hidden bg-[#272729]">
                         <div key={page} className="page-enter flex flex-1 flex-col overflow-y-auto">
                             {page === "welcome" && (
                                 <PageWelcome onNext={() => setPage("download")} />
@@ -598,9 +598,9 @@ export default function App(): JSX.Element {
 
                         {/* Bottom progress bar */}
                         {page !== "done" && (
-                            <div className="h-0.5 shrink-0 bg-[#1e1e1e]">
+                            <div className="h-0.5 shrink-0 bg-white/[0.06]">
                                 <div
-                                    className="h-full bg-[#0078d4] transition-[width] duration-350 ease-in-out"
+                                    className="h-full bg-[#0066cc] transition-[width] duration-350 ease-in-out"
                                     style={{ width: PROGRESS[page] }}
                                 />
                             </div>

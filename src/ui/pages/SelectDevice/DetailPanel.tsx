@@ -85,11 +85,13 @@ export const DetailPanel = memo(function DetailPanel({
   const { t } = useTranslation();
   const [showContent, setShowContent] = useState(false);
 
-  // Skeleton-first: show skeleton briefly, then crossfade to content
   useEffect(() => {
-    setShowContent(false);
+    const reset = setTimeout(() => setShowContent(false), 0);
     const timer = setTimeout(() => setShowContent(true), 180);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(reset);
+      clearTimeout(timer);
+    };
   }, [entry.device.identifier]);
 
   const latest = entry.firmwares?.[0] ?? null;
@@ -147,7 +149,7 @@ export const DetailPanel = memo(function DetailPanel({
             animate={{ opacity: 1, transition: { duration: 0.2, delay: 0.05 } }}
             className="flex items-center gap-3 px-5! py-3! border-b border-white/8 shrink-0"
           >
-            <div className="text-[#137fec] shrink-0">{PRODUCT_ICON[product]}</div>
+            <div className="text-apple-primary shrink-0">{PRODUCT_ICON[product]}</div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-white truncate">{entry.device.name}</p>
               <p className="text-[10px] text-gray-500 font-mono">{entry.device.identifier}</p>
@@ -178,7 +180,7 @@ export const DetailPanel = memo(function DetailPanel({
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0, transition: { duration: 0.2, delay: 0.04 } }}
               >
-                <div className="w-0.75 h-3 rounded-full bg-[#137fec]" />
+                <div className="w-0.75 h-3 rounded-full bg-apple-primary" />
                 <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-widest">Phiên bản mới nhất</p>
               </motion.div>
 
@@ -232,8 +234,6 @@ export const DetailPanel = memo(function DetailPanel({
                       <div className="grid grid-cols-2 gap-2">
                         {latestFirmwareItem({ title: "Name", content: getFileNameFromUrl(latest.url) || "-" })}
                         {latestFirmwareItem({ title: "Size", content: formatBytes(latest.filesize) || "-" })}
-                        {latestFirmwareItem({ title: "SHA-256", content: latest.sha256sum || "-" })}
-                        {latestFirmwareItem({ title: "MD5", content: latest.md5sum || "-" })}
                       </div>
                     </div>
 
@@ -266,11 +266,11 @@ export const DetailPanel = memo(function DetailPanel({
 
                     {linkedDevices.length > 0 && (
                       <motion.div
-                        className="mt-3! bg-[#137fec]/6 border border-[#137fec]/15 rounded-xl px-3! py-2.5!"
+                        className="mt-3! bg-[#0066cc]/06 border border-apple-primary/15 rounded-xl px-3! py-2.5!"
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0, transition: { duration: 0.18, delay: 0.1 } }}
                       >
-                        <p className="text-[10px] font-semibold text-[#137fec] mb-2! flex items-center gap-1.5">
+                        <p className="text-[10px] font-semibold text-apple-primary mb-2! flex items-center gap-1.5">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" strokeLinecap="round" strokeLinejoin="round" />
                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" strokeLinecap="round" strokeLinejoin="round" />
@@ -279,8 +279,8 @@ export const DetailPanel = memo(function DetailPanel({
                         </p>
                         <div className="space-y-1!">
                           {linkedDevices.map(le => (
-                            <div key={le.device.identifier} className="flex items-center gap-2 text-[10px] text-[#137fec]/70">
-                              <span className="w-1 h-1 rounded-full bg-[#137fec]/50 shrink-0" />
+                            <div key={le.device.identifier} className="flex items-center gap-2 text-[10px] text-apple-primary/70">
+                              <span className="w-1 h-1 rounded-full bg-apple-primary/50 shrink-0" />
                               <span className="truncate">{le.device.name}</span>
                               <span className="text-gray-600 font-mono shrink-0">{le.device.identifier}</span>
                             </div>

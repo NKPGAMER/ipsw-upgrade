@@ -80,7 +80,7 @@ const STATUS_CFG: Record<EntryStatus, {
 }> = {
   pending: { label: "Chờ tải", pill: "bg-[#2a2a3a]", dot: "bg-gray-500", text: "text-gray-400" },
   queued: { label: "Trong hàng", pill: "bg-amber-400/10", dot: "bg-amber-400", text: "text-amber-400" },
-  downloading: { label: "Đang tải", pill: "bg-[#0d47a1]/20", dot: "bg-[#2196f3]", text: "text-[#2196f3]", animate: true },
+  downloading: { label: "Đang tải", pill: "bg-[#0d47a1]/20", dot: "bg-[#0066cc]", text: "text-[#0066cc]", animate: true },
   paused: { label: "Tạm dừng", pill: "bg-orange-500/10", dot: "bg-orange-400", text: "text-orange-400" },
   verifying: { label: "Xác minh", pill: "bg-purple-500/12", dot: "bg-purple-400", text: "text-purple-400", animate: true },
   moving: { label: "Di chuyển", pill: "bg-cyan-500/10", dot: "bg-cyan-400", text: "text-cyan-400", animate: true },
@@ -92,10 +92,10 @@ const STATUS_CFG: Record<EntryStatus, {
 
 const ProgressBar = ({ value, status }: { value: number; status: EntryStatus }) => {
   const clr: Partial<Record<EntryStatus, string>> = {
-    downloading: "#2196f3", paused: "#f97316", verifying: "#a855f7",
+    downloading: "#0066cc", paused: "#f97316", verifying: "#a855f7",
     moving: "#06b6d4", completed: "#10b981", error: "#ef4444",
   };
-  const c = clr[status] ?? "#2196f3";
+  const c = clr[status] ?? "#0066cc";
   const anim = ["downloading", "verifying", "moving"].includes(status);
   return (
     <div className="h-0.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
@@ -163,7 +163,7 @@ const UpdateRow = memo(function UpdateRow({
       {isOver && !isDragging && (
         <div
           className="absolute -top-px left-4 right-4 h-0.5 rounded-full z-10"
-          style={{ background: "#2196f3" }}
+          style={{ background: "#0066cc" }}
         />
       )}
 
@@ -171,10 +171,10 @@ const UpdateRow = memo(function UpdateRow({
         className="flex items-center gap-3 px-3! py-2.5! rounded-xl border transition-all duration-150"
         style={{
           background: isOver && !isDragging
-            ? "rgba(33,150,243,0.06)"
-            : "rgba(255,255,255,0.025)",
+            ? "rgba(0,102,204,0.06)"
+            : "#272729",
           borderColor: isOver && !isDragging
-            ? "rgba(33,150,243,0.3)"
+            ? "rgba(0,102,204,0.3)"
             : "rgba(255,255,255,0.06)",
         }}
       >
@@ -208,7 +208,7 @@ const UpdateRow = memo(function UpdateRow({
             <span className="text-[13px] font-semibold text-white truncate max-w-50">
               {entry.deviceName}
             </span>
-            <span className="text-[10px] font-mono px-1.5! py-0.5! rounded-md" style={{ background: "rgba(33,150,243,0.12)", color: "#64b5f6" }}>
+            <span className="text-[10px] font-mono px-1.5! py-0.5! rounded-md" style={{ background: "rgba(0,102,204,0.12)", color: "#2997ff" }}>
               {osLabel} {fw.version}
             </span>
             <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
@@ -226,7 +226,7 @@ const UpdateRow = memo(function UpdateRow({
             {/* Progress % */}
             {active && entryState.progress > 0 && (
               <span className="text-[10px] font-mono tabular-nums" style={{ color: "rgba(255,255,255,0.4)" }}>
-                {entryState.progress}%
+                {Math.round(entryState.progress)}%
               </span>
             )}
 
@@ -309,9 +309,9 @@ const ScanOverlay = ({ scan, product }: { scan: ScanState; product: Product }) =
     <div className="relative">
       <div
         className="w-16 h-16 rounded-2xl flex items-center justify-center"
-        style={{ background: "rgba(33,150,243,0.08)", border: "1px solid rgba(33,150,243,0.15)" }}
+        style={{ background: "rgba(0,102,204,0.08)", border: "1px solid rgba(0,102,204,0.15)" }}
       >
-        <Spinner className="w-7 h-7 text-[#2196f3]" />
+        <Spinner className="w-7 h-7 text-[#2997ff]" />
       </div>
     </div>
     <div className="text-center space-y-1!">
@@ -669,23 +669,22 @@ export default function IPSWUpdateManager() {
     <div
       className="fixed inset-0 z-1000 flex flex-col overflow-hidden"
       style={{
-        background: "#0a0a0f",
-        fontFamily: "'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif",
+        background: "#252527",
         color: "white",
       }}
     >
       {/* ── Top bar ── */}
       <div
         className="shrink-0 flex items-center gap-3 px-4! h-12 border-b"
-        style={{ background: "#0d0d14", borderColor: "rgba(255,255,255,0.06)" }}
+        style={{ background: "#252527", borderColor: "rgba(255,255,255,0.06)" }}
       >
         {/* Icon + Title */}
         <div className="flex items-center gap-2 shrink-0">
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: "rgba(33,150,243,0.12)", border: "1px solid rgba(33,150,243,0.2)" }}
+            style={{ background: "rgba(0,102,204,0.12)", border: "1px solid rgba(0,102,204,0.2)" }}
           >
-            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#2196f3]" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#0066cc]" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2v13m-5-5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M4 20h16" strokeLinecap="round" />
             </svg>
@@ -694,7 +693,7 @@ export default function IPSWUpdateManager() {
           {/* Product badge */}
           <div
             className="text-[10px] font-semibold px-2! py-0.5! rounded-full"
-            style={{ background: "rgba(33,150,243,0.1)", color: "#64b5f6", border: "1px solid rgba(33,150,243,0.2)" }}
+            style={{ background: "rgba(0,102,204,0.1)", color: "#2997ff", border: "1px solid rgba(0,102,204,0.2)" }}
           >
             {PRODUCT_NAME[product]}
           </div>
@@ -726,13 +725,13 @@ export default function IPSWUpdateManager() {
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150"
           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.12)";
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.25)";
-            (e.currentTarget as HTMLElement).style.color = "#f87171";
+            (e.currentTarget as HTMLElement).style.background = "rgba(255,59,48,0.12)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,59,48,0.25)";
+            (e.currentTarget as HTMLElement).style.color = "#ff453a";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)";
             (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)";
           }}
         >
@@ -767,7 +766,7 @@ export default function IPSWUpdateManager() {
         ) : (
           <motion.div
             className="flex-1 overflow-y-auto px-3! py-3! space-y-1.5"
-            style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(19,127,236,0.5) transparent" }}
+            style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,102,204,0.5) transparent" }}
             initial="hidden"
             animate="show"
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.03, delayChildren: 0.02 } } }}
@@ -813,7 +812,7 @@ export default function IPSWUpdateManager() {
       {(entries.length > 0 || running) && (
         <div
           className="shrink-0 border-t px-4! py-3! flex items-center gap-3"
-          style={{ background: "#0d0d14", borderColor: "rgba(255,255,255,0.06)" }}
+          style={{ background: "#252527", borderColor: "rgba(255,255,255,0.06)" }}
         >
           {/* Overall progress bar when running */}
           {running && stats.total > 0 && (
@@ -832,7 +831,7 @@ export default function IPSWUpdateManager() {
                   className="h-full rounded-full"
                   style={{
                     width: `${((stats.done + stats.failed) / stats.total) * 100}%`,
-                    background: "linear-gradient(90deg, #1565c0, #2196f3)",
+                    background: "#0066cc",
                     transition: "width 150ms linear",
                   }}
                 />
@@ -860,7 +859,7 @@ export default function IPSWUpdateManager() {
           {/* Running indicator */}
           {running && (
             <div className="flex items-center gap-2 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>
-              <Spinner className="w-3.5 h-3.5 text-[#2196f3]" />
+              <Spinner className="w-3.5 h-3.5 text-[#0066cc]" />
               <span className="text-[12px]">Đang xử lý…</span>
             </div>
           )}
@@ -871,14 +870,13 @@ export default function IPSWUpdateManager() {
               onClick={handleStart}
               className="shrink-0 flex items-center gap-2 h-9 px-5! rounded-xl text-[13px] font-bold text-white transition-all duration-150"
               style={{
-                background: "linear-gradient(135deg, #1565c0 0%, #2196f3 100%)",
-                boxShadow: "0 0 20px rgba(33,150,243,0.25)",
+                background: "#0066cc",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 0 28px rgba(33,150,243,0.4)";
+                (e.currentTarget as HTMLElement).style.background = "#0071e3";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(33,150,243,0.25)";
+                (e.currentTarget as HTMLElement).style.background = "#0066cc";
               }}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">

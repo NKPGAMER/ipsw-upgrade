@@ -112,7 +112,7 @@ function inlineNodes(text: string): ReactNode[] {
       if (link) {
         nodes.push(
           <a key={m.index} href={link[2]} target="_blank" rel="noopener noreferrer"
-            className="text-[#137fec] underline underline-offset-2">
+            className="text-[#0066cc] underline underline-offset-2">
             {link[1]}
           </a>
         );
@@ -140,7 +140,7 @@ function renderMd(src: string): ReactNode[] {
       case "li":
         return (
           <li key={i} className="flex items-start gap-1.5! text-[12.5px]! text-[#999] leading-relaxed ml-2!">
-            <span className="text-[#137fec] shrink-0 mt-[5px]! w-1! h-1! rounded-full bg-[#137fec]" />
+            <span className="text-[#0066cc] shrink-0 mt-[5px]! w-1! h-1! rounded-full bg-[#0066cc]" />
             <span>{n.text}</span>
           </li>
         );
@@ -199,23 +199,23 @@ export default function AppUpdate() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[#0d0d0d] text-[#e5e5e5]">
+    <div className="flex flex-col min-h-screen w-full bg-[#252527] text-white">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="
         sticky top-0 z-10 shrink-0
         flex items-center gap-3!
-        bg-[#111] border-b border-[#1e1e1e]
-        px-6! h-13!
+        bg-[#252527] border-b border-white/[0.06]
+        px-6! h-11!
       ">
         <button
           type="button"
           onClick={() => navigate("/")}
           className="
             w-8.5! h-8.5! rounded-lg! flex items-center justify-center
-            bg-transparent border border-[#2a2a2a] text-[#999] cursor-pointer
+            bg-transparent border border-white/[0.06] text-[#7a7a7a] cursor-pointer
             transition-all duration-150
-            hover:bg-[#1a1a1a] hover:border-[#137fec44] hover:text-[#137fec]
+            hover:bg-white/[0.06] hover:border-[#0066cc44] hover:text-[#2997ff]
           "
         >
           <ArrowLeftIcon />
@@ -230,13 +230,13 @@ export default function AppUpdate() {
 
         {!data && phase === "idle" && (
           <div className="flex items-center justify-center py-20!">
-            <div className="w-8 h-8 animate-spin rounded-full border-3 border-[#1e1e1e] border-t-[#137fec]" />
+            <div className="w-8 h-8 animate-spin rounded-full border-3 border-[#1e1e1e] border-t-[#0066cc]" />
           </div>
         )}
 
         {phase === "no-update" && (
           <div className="flex flex-col items-center justify-center py-20! text-center">
-            <div className="w-14! h-14! rounded-full bg-[#111] border border-[#1e1e1e] flex items-center justify-center mb-4!">
+            <div className="w-14! h-14! rounded-full bg-[#272729] border border-white/[0.06] flex items-center justify-center mb-4!">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}
                 strokeLinecap="round" strokeLinejoin="round" className="w-7! h-7! text-[#555]">
                 <circle cx="12" cy="12" r="10" />
@@ -252,8 +252,8 @@ export default function AppUpdate() {
           <>
             {/* Version badge */}
             <div className="flex items-center gap-3! mb-5!">
-              <div className="w-11! h-11! rounded-xl! bg-[#137fec18] border border-[#137fec30] flex items-center justify-center">
-                <span className="text-[#137fec] text-[17px]! font-bold">v</span>
+              <div className="w-11! h-11! rounded-xl! bg-[#0066cc]/10 border border-[#0066cc]/20 flex items-center justify-center">
+                <span className="text-[#2997ff] text-[17px]! font-bold">v</span>
               </div>
               <div>
                 <p className="text-[13px]! text-[#888]">Có phiên bản mới</p>
@@ -268,9 +268,9 @@ export default function AppUpdate() {
                   <span>Đang tải bản cập nhật</span>
                   <span>{progress.percent}% — {progress.transferred}/{progress.total} MB</span>
                 </div>
-                <div className="h-1.5! rounded-full bg-[#1e1e1e] overflow-hidden">
+                <div className="h-1.5! rounded-full bg-white/[0.06] overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-[#137fec] transition-all duration-300"
+                    className="h-full rounded-full bg-[#0066cc] transition-all duration-300"
                     style={{ width: `${progress.percent}%` }}
                   />
                 </div>
@@ -280,7 +280,7 @@ export default function AppUpdate() {
             {/* Ready action */}
             {phase === "ready" && (
               <div className="mb-5!">
-                <div className="flex items-center gap-3! p-4! rounded-xl! bg-[#137fec10] border border-[#137fec30]">
+                <div className="flex items-center gap-3! p-4! rounded-xl! bg-[#0066cc]/06 border border-[#0066cc]/20">
                   <div className="w-2! h-2! rounded-full bg-green-500 shrink-0" />
                   <p className="text-[13px]! text-[#aaa]">
                     Bản cập nhật đã tải xong. Khởi động lại ứng dụng để áp dụng.
@@ -290,9 +290,9 @@ export default function AppUpdate() {
                   type="button"
                   onClick={() => window.api.relaunch()}
                   className="
-                    mt-3! w-full py-2.5! rounded-lg! text-[13px]! font-semibold
-                    bg-[#137fec] text-white cursor-pointer
-                    transition-all duration-150 hover:bg-[#137fecdd] active:scale-[0.98]
+                    mt-3! w-full py-2.5! rounded-full! text-[13px]! font-semibold
+                    bg-[#0066cc] text-white cursor-pointer
+                    transition-all duration-150 hover:bg-[#0071e3] active:scale-[0.98]
                   "
                 >
                   Khởi động lại ngay
@@ -306,7 +306,7 @@ export default function AppUpdate() {
                 <p className="text-[11px]! text-[#555] uppercase tracking-[0.07em] font-medium mb-3!">
                   Thay đổi
                 </p>
-                <div className="rounded-xl! bg-[#111] border border-[#1e1e1e] p-4! max-h-[60vh] overflow-y-auto">
+                <div className="rounded-xl! bg-[#272729] border border-white/[0.06] p-4! max-h-[60vh] overflow-y-auto">
                   {renderMd(notes)}
                 </div>
               </section>

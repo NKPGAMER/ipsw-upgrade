@@ -27,7 +27,7 @@ export const STATUS_LABEL: Record<CardTask, string> = {
 export const STATUS_COLOR: Record<CardTask, string> = {
   none:          "text-gray-500",
   queued:        "text-yellow-400",
-  downloading:   "text-[#137fec]",
+  downloading:   "text-[#0066cc]",
   paused:        "text-orange-400",
   completed:     "text-emerald-400",
   downloaded:    "text-emerald-400",
@@ -76,9 +76,9 @@ export const STATUS_CONFIG: Record<CardTask, StatusConfig> = {
 
   downloading: {
     labelId: "status_config.downloading",
-    pillClass: "bg-[#137fec]/15",
-    dotClass: "bg-[#137fec]",
-    textClass: "text-[#137fec]",
+    pillClass: "bg-[#0066cc]/15",
+    dotClass: "bg-[#0066cc]",
+    textClass: "text-[#0066cc]",
     animated: true,
   },
 

@@ -158,12 +158,12 @@ export const DeviceCard = memo(function DeviceCard({
       className={`
         group h-50 relative cursor-pointer rounded-[14px] border select-none
         ${selected && !borderProgress
-          ? "overflow-hidden border-[#137fec]/50 bg-[#137fec]/8 shadow-[0_0_0_1px_rgba(19,127,236,0.18)]"
+          ? "overflow-hidden border-[#0066cc]/50 bg-[#0066cc]/8"
           : borderProgress
-            ? "overflow-visible border-transparent bg-[#0c0c0f] hover:bg-white/[0.03]"
+            ? "overflow-visible border-transparent bg-[#272729] hover:bg-[#2a2a2c]"
             : showAurora
-              ? "overflow-visible aurora-border border-transparent bg-[#0c0c0f]"
-              : "overflow-hidden border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15"
+              ? "overflow-hidden border-white/[0.06] bg-[#272729]"
+              : "overflow-hidden border-white/[0.06] bg-[#272729] hover:bg-[#2a2a2c] hover:border-white/[0.1]"
         }
         ${selected && borderProgress ? "ring-1 ring-white/8" : ""}
         ${flash ? "animate-card-flash" : ""}
@@ -186,7 +186,7 @@ export const DeviceCard = memo(function DeviceCard({
       )}
 
       {selected && !borderProgress && (
-        <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r-full bg-[#137fec]" />
+        <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r-full bg-[#2997ff]" />
       )}
 
       {!firmwaresLoaded ? (
@@ -214,9 +214,9 @@ export const DeviceCard = memo(function DeviceCard({
 
           {latestFw && (
             <div className="mt-2!">
-              <div className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5! py-1! font-mono text-[13px]">
-                <p className="text-gray-200 font-medium tracking-wide">{osLabel}</p>
-                <span className="text-[#137fec] font-bold">{latestFw.version}</span>
+              <div className="inline-flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5! py-1! font-mono text-[13px]">
+                <p className="text-white font-medium tracking-wide">{osLabel}</p>
+                <span className="text-[#0066cc] font-bold">{latestFw.version}</span>
               </div>
             </div>
           )}

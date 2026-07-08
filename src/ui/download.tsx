@@ -44,12 +44,12 @@ const StatusBadge = memo(function StatusBadge({ status }: StatusBadgeProps) {
   const { t } = useTranslation();
 
   const cfg: Record<TaskStatus, { labelKey: any; cls: string }> = {
-    downloading: { labelKey: "status.downloading", cls: "bg-[#137fec]/15 text-[#137fec] border-[#137fec]/30" },
+    downloading: { labelKey: "status.downloading", cls: "bg-[#0066cc]/15 text-[#0066cc] border-[#0066cc]/30" },
     paused: { labelKey: "status.paused", cls: "bg-[#7a96b0]/10 text-[#7a96b0] border-[#7a96b0]/25" },
     completed: { labelKey: "status.completed", cls: "bg-[#1aab6d]/12 text-[#1aab6d] border-[#1aab6d]/30" },
     error: { labelKey: "status.error", cls: "bg-[#e04a4a]/12 text-[#e04a4a] border-[#e04a4a]/30" },
     queued: { labelKey: "status.queued", cls: "bg-white/5 text-[#4a6478] border-white/10" },
-    verifying: { labelKey: "status.verifying", cls: "bg-[#8b5cf6]/12 text-[#8b5cf6] border-[#8b5cf6]/30" },
+    verifying: { labelKey: "status.verifying", cls: "bg-[#af52de]/12 text-[#af52de] border-[#af52de]/30" },
     moving: { labelKey: "status.moving", cls: "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30" },
     cancelled: { labelKey: "status.cancelled", cls: "bg-white/5 text-[#4a6478] border-white/10" },
   };
@@ -58,10 +58,10 @@ const StatusBadge = memo(function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-widest uppercase border ${cls}`}>
       {status === "downloading" && (
-        <span className="mr-1.5! inline-block w-1.5 h-1.5 rounded-full bg-[#137fec] animate-pulse" />
+        <span className="mr-1.5! inline-block w-1.5 h-1.5 rounded-full bg-apple-primary animate-pulse" />
       )}
       {status === "verifying" && (
-        <span className="mr-1.5! inline-block w-1.5 h-1.5 rounded-full bg-[#8b5cf6] animate-pulse" />
+        <span className="mr-1.5! inline-block w-1.5 h-1.5 rounded-full bg-[#af52de] animate-pulse" />
       )}
       {t(labelKey)}
     </span>
@@ -74,12 +74,12 @@ interface ProgressBarProps {
 }
 const ProgressBar = memo(function ProgressBar({ progress, status }: ProgressBarProps) {
   const colorMap: Record<TaskStatus, string> = {
-    downloading: "bg-[#137fec]",
+    downloading: "bg-[#0066cc]",
     paused: "bg-[#7a96b0]",
     completed: "bg-[#1aab6d]",
     error: "bg-[#e04a4a]",
     queued: "bg-[#4a6478]",
-    verifying: "bg-[#8b5cf6]",
+    verifying: "bg-[#af52de]",
     moving: "bg-[#e08b1a]",
     cancelled: "bg-[#4a6478]",
   };
@@ -164,12 +164,12 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
   }, [mode]);
 
   const accentMap: Record<TaskStatus, string> = {
-    downloading: "border-l-[#137fec]",
+    downloading: "border-l-[#0066cc]",
     paused: "border-l-[#7a96b0]",
     completed: "border-l-[#1aab6d]",
     error: "border-l-[#e04a4a]",
     queued: "border-l-[#4a6478]",
-    verifying: "border-l-[#8b5cf6]",
+    verifying: "border-l-[#af52de]",
     moving: "border-l-[#e08b1a]",
     cancelled: "border-l-[#4a6478]",
   };
@@ -178,10 +178,10 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
     <div
       className={`
         group relative flex flex-col gap-2.5
-        bg-[#121212] hover:bg-[#171717]
-        border border-[#137fec]/12 hover:border-[#137fec]/30
+        bg-apple-tile-1 hover:bg-apple-tile-2
+        border border-white/6 hover:border-white/10
         border-l-2 ${accentMap[status]}
-        rounded-lg px-4! py-3!
+        rounded-xl px-4! py-3!
         transition-all duration-200
       `}
     >
@@ -199,7 +199,7 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-[11px] text-[#137fec]">{firmware.version}</span>
+            <span className="font-mono text-[11px] text-apple-primary">{firmware.version}</span>
             <span className="text-[#4a6478] text-[9px]">·</span>
             <span className="font-mono text-[11px] text-[#4a6478]">{firmware.buildid}</span>
             <span className="text-[#4a6478] text-[9px]">·</span>
@@ -214,7 +214,7 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
             {canPause && (
               <button
                 onClick={() => onPause(id)}
-                className="w-7 h-7 flex items-center justify-center rounded bg-white/4 border border-[#137fec]/18 text-[#8ba6ba] hover:bg-[#137fec]/18 hover:border-[#137fec]/45 hover:text-[#137fec] transition-all duration-150"
+                className="w-7 h-7 flex items-center justify-center rounded bg-white/4 border border-apple-primary/18 text-[#8ba6ba] hover:bg-apple-primary/18 hover:border-apple-primary/45 hover:text-apple-primary transition-all duration-150"
                 title={t("action.pause")}
               >
                 <IconPause />
@@ -223,7 +223,7 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
             {canResume && (
               <button
                 onClick={() => onResume(id)}
-                className="w-7 h-7 flex items-center justify-center rounded bg-white/4 border border-[#137fec]/18 text-[#8ba6ba] hover:bg-[#137fec]/18 hover:border-[#137fec]/45 hover:text-[#137fec] transition-all duration-150"
+                className="w-7 h-7 flex items-center justify-center rounded bg-white/4 border border-apple-primary/18 text-[#8ba6ba] hover:bg-apple-primary/18 hover:border-apple-primary/45 hover:text-apple-primary transition-all duration-150"
                 title={status === "error" ? t("action.retry") : t("action.resume")}
               >
                 {status === "error" ? <IconRetry /> : <IconPlay />}
@@ -254,8 +254,8 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
               {t("card.eta")} {isActive ? fmtEta(eta) : "—"}
             </span>
           </div>
-          <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-[#137fec]" : "text-[#4a6478]"}`}>
-            {progress.toFixed(1)}%
+          <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-apple-primary" : "text-[#4a6478]"}`}>
+            {Math.round(progress)}%
           </span>
         </div>
       </div>
@@ -284,7 +284,7 @@ const Sidebar = memo(function Sidebar({ active, completed, paused, queued, error
   const { t } = useTranslation();
 
   const statItems: Array<{ labelKey: string; value: number; color: string }> = [
-    { labelKey: "sidebar.stat.active", value: active, color: "text-[#137fec]" },
+    { labelKey: "sidebar.stat.active", value: active, color: "text-[#0066cc]" },
     { labelKey: "sidebar.stat.completed", value: completed, color: "text-[#1aab6d]" },
     { labelKey: "sidebar.stat.paused", value: paused, color: "text-[#7a96b0]" },
     { labelKey: "sidebar.stat.queued", value: queued, color: "text-[#4a6478]" },
@@ -293,10 +293,10 @@ const Sidebar = memo(function Sidebar({ active, completed, paused, queued, error
 
   return (
     <aside className="w-55 shrink-0 flex flex-col gap-4">
-      <div className="pb-4! border-b border-[#137fec]/15">
-        <div className="text-[15px] font-semibold tracking-tight text-[#f5f7fb]">
+      <div className="pb-4! border-b border-white/6">
+        <div className="text-[15px] font-semibold tracking-tight text-white">
           IPSW{" "}
-          <span className="text-[#137fec]">Downloads</span>
+          <span className="text-apple-primary">Downloads</span>
         </div>
         <div className="text-[11px] text-[#6b7f92] mt-0.5! font-mono">
           {total} total task{total !== 1 ? "s" : ""}
@@ -307,7 +307,7 @@ const Sidebar = memo(function Sidebar({ active, completed, paused, queued, error
         {statItems.map(({ labelKey, value, color }) => (
           <div
             key={labelKey}
-            className="flex items-center justify-between px-3! py-2! rounded-md bg-[#121212] border border-[#137fec]/12"
+            className="flex items-center justify-between px-3! py-2! rounded-md bg-apple-tile-1 border border-white/6"
           >
             <span className="text-[11px] text-[#6b7f92] uppercase tracking-wider">
               {t(labelKey as any)}
@@ -469,17 +469,17 @@ export default function DownloadPage() {
   return (
     <div
       className="flex h-screen w-screen overflow-hidden"
-      style={{ background: "#0d0d0d", fontFamily: "'Syne', 'JetBrains Mono', sans-serif" }}
+      style={{ background: "#252527" }}
     >
       {/* Sidebar */}
-      <div className="h-full px-5! py-5! border-r border-[#137fec]/20 flex flex-col">
+      <div className="h-full px-5! py-5! border-r border-white/6 flex flex-col">
         <Sidebar {...stats} />
       </div>
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Toolbar */}
-        <div className="shrink-0 flex items-center gap-2 px-5! py-3! border-b border-[#137fec]/20 bg-[#0d0d0d]/80 backdrop-blur-sm">
+        <div className="shrink-0 flex items-center gap-2 px-5! py-3! border-b border-white/6 bg-apple-tile-3">
           {filterTabs.map(({ key, labelKey }) => {
             const count = statusCounts[key];
             const active = filter === key;
@@ -491,8 +491,8 @@ export default function DownloadPage() {
                   flex items-center gap-1.5 px-3! py-1.5! rounded text-[11px] font-semibold uppercase tracking-widest
                   border transition-all duration-150
                   ${active
-                    ? "bg-[#137fec]/18 border-[#137fec]/45 text-[#137fec] shadow-[0_0_0_1px_rgba(19,127,236,0.12)]"
-                    : "bg-transparent border-transparent text-[#5d7284] hover:text-[#9fb4c4] hover:border-white/10"
+                    ? "bg-apple-primary/18 border-apple-primary/45 text-apple-primary-on-dark"
+                    : "bg-transparent border-transparent text-apple-ink-muted-48 hover:text-white hover:border-white/10"
                   }
                 `}
               >
@@ -500,7 +500,7 @@ export default function DownloadPage() {
                 {count > 0 && (
                   <span
                     className={`font-mono text-[10px] px-1! py-0.5! rounded leading-none ${active
-                        ? "bg-[#137fec]/22 text-[#137fec]"
+                        ? "bg-apple-primary/22 text-apple-primary"
                         : "bg-white/6 text-[#5d7284]"
                       }`}
                   >
@@ -526,7 +526,7 @@ export default function DownloadPage() {
         {/* List */}
         <div className="flex-1 overflow-y-auto px-5! py-4!">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-[#4a6478]">
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-apple-ink-muted-48">
               <div className="text-4xl opacity-20">↓</div>
               <div className="text-[13px]">{t("empty.message")}</div>
             </div>

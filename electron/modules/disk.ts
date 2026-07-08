@@ -1,7 +1,3 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import { platform } from 'os';
-import { parse, resolve } from "path";
 import { getDiskInfo } from '../i10r-addon';
 
 interface DiskSpace {

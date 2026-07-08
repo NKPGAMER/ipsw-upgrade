@@ -80,8 +80,3 @@ The eslint config has **separate rule sets** for frontend (`src/`), backend (`el
 - No test suite exists — there are no `.test.` or `.spec.` files.
 - The app enforces single-instance lock (second launches focus existing window).
 - Default save directory: user's Downloads folder (overridden via `ipswFolder` setting).
-- `plan.md` at root tracks in-progress feature work (currently: incomplete task recovery mechanism).
-
-## Commands
-- Use `cmd.exe` to run command
-- ex: `cmd.exe npm run build:main`

@@ -45,7 +45,7 @@ export const ControlButtons = memo(function ControlButtons({
         disabled={busy}
         onClick={() => onAction("download", latestFw)}
         aria-label={t("pages.selectDevice.control.button.download")}
-        className="w-full py-2.5! rounded-xl bg-[#137fec] hover:bg-[#1a8fff] active:bg-[#0f6fd8] disabled:opacity-60 text-white text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
+        className="w-full py-2.5! rounded-full bg-apple-primary hover:bg-apple-primary-focus active:bg-[#0055b3] disabled:opacity-60 text-white text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
       >
         {pendingAction === "download"
           ? <><Spinner /> Đang thêm vào hàng…</>
@@ -116,7 +116,7 @@ export const ControlButtons = memo(function ControlButtons({
           <button
             disabled={busy}
             onClick={() => confirmAction("Tải lại từ đầu? Tệp hiện tại sẽ bị xoá.", "redownload", latestFw)}
-            className="flex-1 py-2! rounded-xl bg-[#137fec]/10 hover:bg-[#137fec]/20 border border-[#137fec]/18 text-[#4fa8f5] text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="flex-1 py-2! rounded-xl bg-apple-primary/10 hover:bg-apple-primary/20 border border-apple-primary/18 text-apple-primary-on-dark text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "redownload" ? <><Spinner className="w-3 h-3" /> Đang xử lý…</> : "Tải lại từ đầu"}
           </button>
@@ -324,7 +324,7 @@ export const ControlButtons = memo(function ControlButtons({
           <button
             disabled={busy}
             onClick={() => confirmAction("Tải lại từ đầu? Tệp hiện tại sẽ bị xoá.", "redownload", latestFw)}
-            className="flex-1 py-2.5! rounded-xl bg-[#137fec]/12 hover:bg-[#137fec]/22 border border-[#137fec]/22 text-[#4fa8f5] text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+            className="flex-1 py-2.5! rounded-xl bg-apple-primary/12 hover:bg-apple-primary/22 border border-apple-primary/22 text-apple-primary-on-dark text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "redownload" ? <><Spinner className="w-3 h-3" /> Đang xử lý…</> : "Thử lại"}
           </button>
@@ -359,7 +359,7 @@ export const ControlButtons = memo(function ControlButtons({
         <div className="bg-white/4 rounded-xl p-3! border border-white/6 space-y-1.5">
           <div className="flex justify-between text-[11px]">
             <span className={STATUS_COLOR[status]}>{t(STATUS_LABEL[status] as any)}</span>
-            <span className="text-white font-semibold">{entry.task!.progress}%</span>
+            <span className="text-white font-semibold">{Math.floor(entry.task!.progress)}%</span>
           </div>
           <ProgressBar value={entry.task!.progress} status={status as TaskStatus} />
           {status === "downloading" && entry.task!.speed > 0 && (
@@ -392,7 +392,7 @@ export const ControlButtons = memo(function ControlButtons({
             <button
               disabled={busy}
               onClick={() => onAction("resume")}
-              className="flex-1 py-2.5! rounded-xl bg-[#137fec]/12 hover:bg-[#137fec]/22 border border-[#137fec]/22 text-[#4fa8f5] text-[12px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              className="flex-1 py-2.5! rounded-xl bg-apple-primary/12 hover:bg-apple-primary/22 border border-apple-primary/22 text-apple-primary-on-dark text-[12px] font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {pendingAction === "resume"
                 ? <><Spinner className="w-3.5 h-3.5" /> Đang tiếp tục…</>
@@ -449,7 +449,7 @@ export const ControlButtons = memo(function ControlButtons({
       <div className="bg-white/4 rounded-xl p-3! border border-white/6 space-y-1.5">
         <div className="flex justify-between text-[11px]">
           <span className={STATUS_COLOR[status]}>{t(STATUS_LABEL[status] as any)}…</span>
-          <span className="text-white font-semibold">{entry.task?.progress ?? 0}%</span>
+          <span className="text-white font-semibold">{Math.round(entry.task?.progress ?? 0)}%</span>
         </div>
         <ProgressBar value={entry.task?.progress ?? 0} status={status as TaskStatus} />
       </div>

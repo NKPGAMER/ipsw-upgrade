@@ -56,7 +56,7 @@ const Toggle: FC<ToggleProps> = memo(({ on, onChange, disabled = false }) => (
     onClick={() => !disabled && onChange(!on)}
     className={[
       "relative shrink-0 w-11 h-6 rounded-full border transition-all duration-200 select-none",
-      on ? "bg-[#137fec] border-[#137fec]" : "bg-[#363a3e] border-white/10",
+      on ? "bg-[#0066cc] border-[#0066cc]" : "bg-white/[0.1] border-white/[0.06]",
       disabled ? "opacity-30 cursor-default" : "cursor-pointer",
     ].join(" ")}
   >
@@ -78,9 +78,9 @@ interface SectionProps {
 }
 
 const Section: FC<SectionProps> = memo(({ icon: Icon, title, children }) => (
-  <div className="mb-8! rounded-xl border border-[#1e1e1e] bg-[#161616] overflow-hidden">
-    <div className="flex items-center gap-3! px-6! py-4! border-b border-white/[0.07] bg-white/2">
-      <div className="w-8 h-8 rounded-lg bg-[rgba(195,208,222,0.15)] flex items-center justify-center text-[#137fec] shrink-0">
+  <div className="mb-8! rounded-xl border border-white/[0.06] bg-[#272729] overflow-hidden">
+    <div className="flex items-center gap-3! px-6! py-4! border-b border-white/[0.06] bg-white/[0.02]">
+      <div className="w-8 h-8 rounded-lg bg-[#0066cc]/10 flex items-center justify-center text-[#2997ff] shrink-0">
         <Icon />
       </div>
       <span className="text-[14px] font-semibold text-[#e8edf2] tracking-[0.01em]">
@@ -103,7 +103,7 @@ interface RowProps {
 }
 
 const Row: FC<RowProps> = memo(({ label, desc, dimmed = false, right }) => (
-  <div className="flex items-center justify-between gap-6! px-6! py-5! transition-colors duration-100 hover:border-[#1e1e1e]">
+  <div className="flex items-center justify-between gap-6! px-6! py-5! transition-colors duration-100 hover:bg-white/[0.02]">
     <div className="flex-1 min-w-0">
       <p className={`text-[14px] font-medium text-[#e8edf2] leading-snug transition-opacity ${dimmed ? "opacity-40" : ""}`}>
         {label}
@@ -149,10 +149,10 @@ const PathRow: FC<PathRowProps> = memo(({ label, desc, value, onChange, onBrowse
         placeholder={placeholder}
         disabled={disabled}
         className={[
-          "flex-1 min-w-0 bg-[#292a2b] border border-white/[0.07] rounded-lg px-3! py-2!",
-          "text-[13px] font-mono text-[#8a9ab0] outline-none caret-[#137fec]",
+          "flex-1 min-w-0 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3! py-2!",
+          "text-[13px] font-mono text-[#7a7a7a] outline-none caret-[#0066cc]",
           "transition-all duration-150",
-          "focus:border-[#137fec] focus:text-[#e8edf2] focus:bg-[#223040]",
+          "focus:border-[#0066cc] focus:text-white focus:bg-white/[0.06]",
           disabled ? "opacity-40 cursor-default" : "",
         ].join(" ")}
       />
@@ -160,12 +160,12 @@ const PathRow: FC<PathRowProps> = memo(({ label, desc, value, onChange, onBrowse
         disabled={disabled}
         onClick={onBrowse}
         className={[
-          "flex items-center gap-2! px-4! py-2! rounded-lg border border-white/[0.07]",
-          "bg-[#36393b] text-[#8a9ab0] text-[13px] font-medium whitespace-nowrap",
+          "flex items-center gap-2! px-4! py-2! rounded-lg border border-white/[0.06]",
+          "bg-white/[0.04] text-[#7a7a7a] text-[13px] font-medium whitespace-nowrap",
           "transition-all duration-150",
           disabled
             ? "opacity-30 cursor-not-allowed"
-            : "hover:bg-[rgba(19,127,236,0.12)] hover:border-[#137fec] hover:text-[#137fec] cursor-pointer",
+            : "hover:bg-[rgba(19,127,236,0.12)] hover:border-[#0066cc] hover:text-[#0066cc] cursor-pointer",
         ].join(" ")}
       >
         <IconFolder />
@@ -291,7 +291,7 @@ export default function SettingsApp(): JSX.Element {
   }, [restartAppConfirm, t]);
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-[#0d0d0d] text-[#e5e5e5]">
+    <div className="w-full h-full overflow-y-auto bg-[#252527] text-white">
       <main className="w-full px-10! pt-10! pb-16!">
 
         {/* Page Header */}
@@ -301,7 +301,7 @@ export default function SettingsApp(): JSX.Element {
           </div>
           <button
             onClick={() => navigate("/")}
-            className="w-10 h-10 flex items-center justify-center rounded-lg border border-white/[0.07] bg-[#1e1e1e] text-[#5a6a7a] transition-all duration-150 hover:bg-[#223040] hover:border-white/15 hover:text-[#e8edf2] cursor-pointer shrink-0"
+            className="w-10 h-10 flex items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.04] text-[#7a7a7a] transition-all duration-150 hover:bg-white/[0.08] hover:border-white/[0.1] hover:text-white cursor-pointer shrink-0"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -314,7 +314,7 @@ export default function SettingsApp(): JSX.Element {
           <Row
             label={t('app.version.title')}
             right={
-              <span className="font-bold text-[12px] text-[#137fec] bg-[#303337] border border-white/[0.07] px-3! py-1! rounded-full tracking-[0.04em]">
+              <span className="font-bold text-[12px] text-[#2997ff] bg-white/[0.06] border border-white/[0.06] px-3! py-1! rounded-full tracking-[0.04em]">
                 {window.api.getVersion} - Premium Edition - VIP
               </span>
             }
@@ -323,7 +323,7 @@ export default function SettingsApp(): JSX.Element {
             label={t('app.developer')}
             right={
               <div className="flex items-center gap-3!">
-                <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#137fec] to-[#0d5fb8] flex items-center justify-center text-[14px] font-bold text-white shrink-0">
+                <div className="w-9 h-9 rounded-full bg-[#0066cc] flex items-center justify-center text-[14px] font-bold text-white shrink-0">
                   N
                 </div>
                 <div>
@@ -349,8 +349,8 @@ export default function SettingsApp(): JSX.Element {
                     className={[
                       "px-4! py-2! rounded-lg text-[13px] font-medium border transition-all duration-150 cursor-pointer select-none",
                       language === lang
-                        ? "bg-[rgba(19,127,236,0.12)] border-[#137fec] text-[#137fec]"
-                        : "bg-[#161616] border-white/[0.07] text-[#e8edf2] hover:border-[rgba(19,127,236,0.35)] hover:text-[#e8edf2]",
+                        ? "bg-[#0066cc]/12 border-[#0066cc] text-[#2997ff]"
+                        : "bg-white/[0.04] border-white/[0.06] text-white hover:border-[#0066cc33] hover:text-white",
                     ].join(" ")}
                   >
                     {lang === "en" ? "English" : "Tiếng Việt"}
@@ -395,11 +395,11 @@ export default function SettingsApp(): JSX.Element {
                 value={linkOutDir}
                 onChange={e => setLinkOutDir(e.target.value)}
                 placeholder="IPSW_FILES"
-                className="flex-1 min-w-0 bg-[#292a2b] border border-white/[0.07] rounded-lg px-3! py-2! text-[13px] font-mono text-[#8a9ab0] outline-none caret-[#137fec] transition-all duration-150 focus:border-[#137fec] focus:text-[#e8edf2] focus:bg-[#223040]"
+                className="flex-1 min-w-0 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3! py-2! text-[13px] font-mono text-[#7a7a7a] outline-none caret-[#0066cc] transition-all duration-150 focus:border-[#0066cc] focus:text-white focus:bg-white/[0.06]"
               />
               <button
                 onClick={handleSaveLinkConfig}
-                className="px-4! py-2! rounded-lg bg-[#137fec] text-white text-[13px] font-medium border-none cursor-pointer whitespace-nowrap transition-all duration-150 hover:bg-[#1a86d8] shrink-0"
+                className="px-4! py-2! rounded-full bg-[#0066cc] text-white text-[13px] font-medium border-none cursor-pointer whitespace-nowrap transition-all duration-150 hover:bg-[#0071e3] shrink-0"
               >
                 {t("app.firmware.linkOutDir.save")}
               </button>

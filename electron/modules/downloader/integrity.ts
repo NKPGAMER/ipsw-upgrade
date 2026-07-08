@@ -1,23 +1,24 @@
-import { nativeBridge } from "./native-bridge";
+import * as fs from "fs";
+import * as crypto from "crypto";
 
 type HashAlgo = "sha256" | "sha1" | "md5";
 
 export class IntegrityChecker {
   /**
-   * Compute hash of a file using the native Rust hasher — streams the file
-   * on the native side instead of through Node's crypto + fs.createReadStream,
-   * avoiding JS event-loop/GC overhead for large (multi-GB) IPSW files.
+   * Compute hash of a file using streaming (memory-efficient for large files)
    */
   async computeHash(filePath: string, algo: HashAlgo): Promise<string> {
-    const result = await nativeBridge.hash(filePath, { sum: algo, value: "" });
-    if (result.error) throw new Error(result.error);
-    return result.computed;
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash(algo);
+      const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 * 1024 }); // 64MB chunks
+      stream.on("data", chunk => hash.update(chunk));
+      stream.on("end", () => resolve(hash.digest("hex")));
+      stream.on("error", reject);
+    });
   }
 
   /**
-   * Verify firmware integrity — tries md5 → sha1 → sha256 in order.
-   * The native hasher both computes and matches the hash in one pass
-   * (result.matched), so we no longer compare strings on the JS side.
+   * Verify firmware integrity — tries md5 → sha1 → sha256 in order
    */
   async verify(
     filePath: string,
@@ -39,12 +40,15 @@ export class IntegrityChecker {
     // Use best available hash
     const { algo, expected } = checks[0];
 
+    const fileSize = (() => { try { return fs.statSync(filePath).size; } catch { return 0; } })();
+
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 1000;
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      if (signal?.aborted) throw new Error("ABORTED");
+      let processed = 0;
+      const startedAt = Date.now();
 
       // Speed/ETA smoothing for verify progress
       const VERIFY_ALPHA = 0.15;
@@ -52,41 +56,56 @@ export class IntegrityChecker {
       let smoothedEta = 0;
 
       try {
-        const result = await nativeBridge.hash(
-          filePath,
-          { sum: algo, value: expected },
-          (p) => {
-            if (!onProgress) return;
+        const actual = await new Promise<string>((resolve, reject) => {
+          if (signal?.aborted) return reject(new Error("ABORTED"));
 
-            const rawSpeed = p.speedBps;
-            const rawEta = p.etaSeconds >= 0 ? p.etaSeconds : 0;
+          const hash = crypto.createHash(algo);
+          const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 * 1024 });
 
-            // EMA smooth speed
-            smoothedSpeed = smoothedSpeed === 0
-              ? rawSpeed
-              : smoothedSpeed * (1 - VERIFY_ALPHA) + rawSpeed * VERIFY_ALPHA;
+          const onAbort = () => {
+            stream.destroy();
+            reject(new Error("ABORTED"));
+          };
+          signal?.addEventListener("abort", onAbort, { once: true });
 
-            // EMA smooth ETA
-            smoothedEta = smoothedEta === 0
-              ? rawEta
-              : smoothedEta * (1 - VERIFY_ALPHA) + rawEta * VERIFY_ALPHA;
+          const cleanup = () => signal?.removeEventListener("abort", onAbort);
 
-            onProgress({
-              pct: Math.floor(p.percent),
-              speed: Math.round(smoothedSpeed),
-              eta: Math.max(0, Math.round(smoothedEta)),
-            });
-          },
-          signal,
-        );
+          stream.on("data", (chunk: string | Buffer) => {
+            const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+            hash.update(buf);
+            processed += buf.length;
+            if (onProgress && fileSize > 0) {
+              const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+              const rawSpeed = processed / elapsedSec;
+              const rawEta = rawSpeed > 0 ? (fileSize - processed) / rawSpeed : 0;
 
-        if (result.error) throw new Error(result.error);
+              // EMA smooth speed
+              smoothedSpeed = smoothedSpeed === 0
+                ? rawSpeed
+                : smoothedSpeed * (1 - VERIFY_ALPHA) + rawSpeed * VERIFY_ALPHA;
+
+              // EMA smooth ETA
+              smoothedEta = smoothedEta === 0
+                ? rawEta
+                : smoothedEta * (1 - VERIFY_ALPHA) + rawEta * VERIFY_ALPHA;
+
+              onProgress({
+                pct: Math.floor((processed / fileSize) * 100),
+                speed: Math.round(smoothedSpeed),
+                eta: Math.max(0, Math.round(smoothedEta)),
+              });
+            }
+          });
+
+          stream.on("end", () => { cleanup(); resolve(hash.digest("hex")); });
+          stream.on("error", (err) => { cleanup(); reject(err); });
+        });
 
         return {
-          ok: result.matched,
+          ok: actual.toLowerCase() === expected.toLowerCase(),
           algo,
           expected: expected.toLowerCase(),
-          actual: result.computed.toLowerCase(),
+          actual: actual.toLowerCase(),
         };
       } catch (err: any) {
         if (err.message === "ABORTED") throw err;

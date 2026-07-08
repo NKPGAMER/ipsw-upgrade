@@ -2,7 +2,7 @@ import { memo } from "react";
 import type { TaskStatus } from "../../../../@types/global";
 
 const PROGRESS_COLOR_MAP: Partial<Record<string, string>> = {
-  downloading: "bg-[#137fec]",
+  downloading: "bg-[#0066cc]",
   paused: "bg-orange-400",
   verifying: "bg-violet-400",
   moving: "bg-cyan-400",
@@ -12,7 +12,7 @@ const PROGRESS_COLOR_MAP: Partial<Record<string, string>> = {
 };
 
 export const ProgressBar = memo(function ProgressBar({ value, status }: { value: number; status: TaskStatus | "incomplete_dl" }) {
-  const color = PROGRESS_COLOR_MAP[status] ?? "bg-[#137fec]";
+  const color = PROGRESS_COLOR_MAP[status] ?? "bg-[#0066cc]";
   const animated = ["downloading", "verifying", "moving"].includes(status);
 
   return (

@@ -1,19 +1,16 @@
 /* Welcome wizard styles */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
-
 html, body, #root {
   height: 100%;
-  background: #111;
-  scrollbar-color: rgba(19, 127, 236, 0.5) transparent;
+  background: #252527;
+  scrollbar-color: rgba(0, 102, 204, 0.5) transparent;
   scrollbar-width: thin;
 }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(19, 127, 236, 0.5); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(19, 127, 236, 0.8); }
+::-webkit-scrollbar-thumb { background: rgba(0, 102, 204, 0.5); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 102, 204, 0.8); }
 
 .page-enter {
   animation: welcome-fade-slide 220ms var(--ease-decelerate) both;
