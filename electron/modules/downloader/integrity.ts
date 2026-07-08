@@ -90,7 +90,7 @@ export class IntegrityChecker {
                 : smoothedEta * (1 - VERIFY_ALPHA) + rawEta * VERIFY_ALPHA;
 
               onProgress({
-                pct: Math.floor((processed / fileSize) * 100),
+                pct: (processed / fileSize) * 100,
                 speed: Math.round(smoothedSpeed),
                 eta: Math.max(0, Math.round(smoothedEta)),
               });

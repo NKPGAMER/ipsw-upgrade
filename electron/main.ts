@@ -66,10 +66,10 @@ const storeGet = (key: string, fallback?: any) => s.get(key) ?? fallback;
 
 // ─── Window Factory ───────────────────────────────────────────────────────────
 
-function createSplashWindow(width: number, height: number): BrowserWindow {
+function createSplashWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 400,
-    height: 400,
+    width: 380,
+    height: 380,
     frame: false,
     alwaysOnTop: true,
     transparent: true,
@@ -112,7 +112,7 @@ function createMainWindow(width: number, height: number): BrowserWindow {
 async function init(): Promise<void> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const ipswFolder = storeGet("ipswFolder") || app.getPath('downloads');
-  splash = createSplashWindow(width, height);
+  splash = createSplashWindow();
   mainWindow = createMainWindow(width, height);
 
   ipcMain.once('renderer:ready', () => {
@@ -133,6 +133,7 @@ async function init(): Promise<void> {
     turboMode: storeGet("turboMode", false),
     skipVerify: storeGet("skipVerify", false),
     insecureTLS: process.env.IPSW_INSECURE_TLS === "1",
+    autoResume: false
   });
 
   dh = new DataHandle(mainWindow);

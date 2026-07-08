@@ -3,6 +3,7 @@ import { URL } from "url";
 import { Pool, type Dispatcher } from "undici";
 import { ChunkState, DownloadState } from "./types";
 import { StateManager } from "./state-manager";
+import { StreamHasher } from "./stream-hash";
 
 export interface ChunkManagerOptions {
   maxConnections?: number;
@@ -24,6 +25,8 @@ export interface ChunkManagerOptions {
   hddDiskAvailable?: number;
   /** Allow TLS connections with invalid certificates (for development). */
   insecureTLS?: boolean;
+  /** Optional stream hasher for computing hash during download */
+  streamHasher?: StreamHasher;
 }
 
 export interface TurboMoveInfo {
@@ -237,7 +240,7 @@ class IOWriteQueue {
 // ─── ChunkManager ──────────────────────────────────────────────────────────────
 
 export class ChunkManager {
-  private opts: Required<Omit<ChunkManagerOptions, "turboHddSsd" | "tmpDiskAvailable" | "hddDiskAvailable" | "insecureTLS">>;
+  private opts: Required<Omit<ChunkManagerOptions, "turboHddSsd" | "tmpDiskAvailable" | "hddDiskAvailable" | "insecureTLS" | "streamHasher">>;
   private stateManager: StateManager;
   private state: DownloadState;
   private fd: number = -1;
@@ -264,6 +267,9 @@ export class ChunkManager {
 
   // ── TLS / security ──────────────────────────────────────────────────────
   private insecureTLS: boolean;
+
+  // ── Stream hasher ───────────────────────────────────────────────────────
+  private streamHasher?: StreamHasher;
 
   // ── Turbo / promotion state ─────────────────────────────────────────────
   private ioWriteQueue: IOWriteQueue | null = null;
@@ -302,6 +308,7 @@ export class ChunkManager {
 
     this.turboHddSsd = opts.turboHddSsd;
     this.insecureTLS = opts.insecureTLS ?? false;
+    this.streamHasher = opts.streamHasher;
   }
 
   on<K extends keyof ChunkManagerEvents>(event: K, handler: ChunkManagerEvents[K]): this {
@@ -674,6 +681,11 @@ export class ChunkManager {
       await new Promise<void>((res, rej) =>
         fs.write(this.fd, combined, 0, combined.length, writeHead, (e) => (e ? rej(e) : res()))
       );
+
+      // Update stream hasher if present
+      if (this.streamHasher) {
+        this.streamHasher.update(combined);
+      }
 
       writeHead              += combined.length;
       chunk.downloaded        = writeHead - chunk.start;

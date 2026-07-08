@@ -14,6 +14,10 @@ export class StateManager {
     return path.join(this.stateDir, `${id}.json`);
   }
 
+  private i10rPath(id: string): string {
+    return path.join(this.stateDir, `${id}.json.i10r`);
+  }
+
   private withLock<T>(fn: () => T): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       this.lock = this.lock.then(() => {
@@ -28,12 +32,15 @@ export class StateManager {
 
   save(state: DownloadState): Promise<void> {
     return this.withLock(() => {
-      const updated = { ...state, updatedAt: Date.now() };
-      const target = this.statePath(state.id);
-      const dir = path.dirname(target);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(target, JSON.stringify(updated, null, 2), "utf8");
+      this.saveSync(state);
     });
+  }
+
+  saveAtomic(state: DownloadState): { lastCheckpoint: number; lastWriteTime: number } {
+    const start = Date.now();
+    this.saveSync(state);
+    const lastWriteTime = Date.now() - start;
+    return { lastCheckpoint: start, lastWriteTime };
   }
 
   load(id: string): DownloadState | null {
@@ -130,8 +137,10 @@ export class StateManager {
   private saveSync(state: DownloadState): void {
     const updated = { ...state, updatedAt: Date.now() };
     const target = this.statePath(state.id);
+    const i10r = this.i10rPath(state.id);
     const dir = path.dirname(target);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(target, JSON.stringify(updated, null, 2), "utf8");
+    fs.writeFileSync(i10r, JSON.stringify(updated, null, 2), "utf8");
+    fs.renameSync(i10r, target);
   }
 }

@@ -23,6 +23,7 @@ import { StateManager } from "./state-manager";
 import { ChunkManager, type ChunkManagerOptions } from "./chunk-manager";
 import { Scheduler, type DownloadEnvironment } from "./scheduler";
 import { IntegrityChecker } from "./integrity";
+import { StreamHasher } from "./stream-hash";
 
 const GB = 1024 ** 3;
 const DEFAULT_CHUNK_SIZE = 32 * 1024 * 1024; // 32 MB
@@ -225,6 +226,13 @@ export class IPSWDownloader extends EventEmitter {
   // Track timing for turbo move speed/ETA calculation
   private moveTimeState = new Map<string, { startedAt: number; smoothedSpeed: number; smoothedEta: number }>();
 
+  // Checkpoint timing state
+  private checkpointState = new Map<string, {
+    timer: NodeJS.Timeout | null;
+    completedChunks: number;
+    lastCheckpointAt: number;
+  }>();
+
   private environment: DownloadEnvironment = "ssd_save";
   private envDetected = false;
 
@@ -246,6 +254,7 @@ export class IPSWDownloader extends EventEmitter {
       turboConnectionsMultiplier: config.turboConnectionsMultiplier ?? 2.0,
       turboChunkSizeMultiplier: config.turboChunkSizeMultiplier ?? 2.0,
       insecureTLS: config.insecureTLS ?? false,
+      autoResume: config.autoResume ?? true,
     };
 
     this.diskManager = new DiskManager();
@@ -262,6 +271,211 @@ export class IPSWDownloader extends EventEmitter {
         this.refreshSlots();
       }
     });
+
+    // Auto-recover on boot
+    this.recoverOnStartup().catch(err => {
+      console.error("[IPSWDownloader] recoverOnStartup failed:", err);
+    });
+  }
+
+  // ─── Recovery ────────────────────────────────────────────────────────────────
+
+  private async recoverOnStartup(): Promise<void> {
+    const states = await this.stateManager.listAll();
+
+    for (const state of states) {
+      if (this.tasks.has(state.id)) continue; // already active
+
+      const tmpExists = !!(state.tmpPath && fs.existsSync(state.tmpPath));
+      const i10rPath = this.buildI10rPath(state.firmware, state.savePath);
+      const i10rExists = fs.existsSync(i10rPath);
+
+      // Validate based on activeOperation
+      if (state.activeOperation === "download" && !tmpExists) {
+        // Tmp missing — reset chunks, still recover
+        for (const c of state.chunks) { c.downloaded = 0; c.completed = false; }
+        state.movedChunks = [];
+        this.stateManager.save(state);
+      }
+
+      if (state.activeOperation === "verify" && !tmpExists) {
+        // Tmp missing during verify — cannot continue
+        this.stateManager.delete(state.id);
+        continue;
+      }
+
+      if (state.activeOperation === "move" && !tmpExists && !i10rExists) {
+        // Both tmp and i10r missing — cannot continue
+        this.stateManager.delete(state.id);
+        continue;
+      }
+
+      // Create Task
+      const downloadedBytes = state.chunks.reduce((s, c) => s + c.downloaded, 0);
+      const task: Task = {
+        id: state.id,
+        firmware: state.firmware,
+        progress: state.totalSize > 0 ? downloadedBytes / state.totalSize * 100 : 0,
+        speed: 0,
+        status: this.config.autoResume !== false ? "queued" : "paused",
+        savePath: state.savePath,
+        mode: state.mode ?? "normal",
+      };
+
+      this.tasks.set(state.id, task);
+      this.states.set(state.id, state);
+      this.diskManager.reserveSpace(state.id, state.firmware.filesize);
+
+      // Enqueue based on autoResume
+      if (this.config.autoResume !== false) {
+        const wasTurbo = this.validateTurboForRecovery(state);
+
+        if (state.activeOperation === "verify") {
+          this.scheduler.enqueue({
+            id: state.id,
+            turboPriority: false,
+            run: () => this.runVerifyAndMove(state.id),
+          });
+        } else if (state.activeOperation === "move") {
+          this.scheduler.enqueue({
+            id: state.id,
+            turboPriority: false,
+            run: () => this.runMoveOnly(state.id),
+          });
+        } else {
+          this.scheduler.enqueue({
+            id: state.id,
+            turboPriority: wasTurbo,
+            run: () => this.runDownload(state.id),
+            onSlotOpen: (slotType: DownloadMode) => {
+              const t = this.tasks.get(state.id);
+              if (t) { t.mode = slotType; this.emit("progress", state.id, t); }
+            },
+          });
+        }
+      }
+
+      this.emit("added", state.id, task);
+    }
+  }
+
+  private validateTurboForRecovery(state: DownloadState): boolean {
+    if ((state.mode ?? "normal") !== "turbo" || !this.config.turboMode) return false;
+
+    const turboPath = this.buildTurboPath(state.firmware, state.savePath);
+    if (!fs.existsSync(turboPath)) return false;
+
+    const turboStat = fs.statSync(turboPath);
+    const completedChunks = state.chunks.filter(c => c.completed);
+    const lastCompleted = completedChunks.length > 0
+      ? completedChunks[completedChunks.length - 1]
+      : null;
+
+    if (lastCompleted && turboStat.size >= lastCompleted.end + 1) return true;
+    if (!lastCompleted && turboStat.size >= state.totalSize) return true;
+
+    return false;
+  }
+
+  private async runVerifyAndMove(id: string): Promise<void> {
+    const task = this.tasks.get(id);
+    const state = this.states.get(id);
+    if (!task || !state) return;
+
+    const gen = (this.runGenerations.get(id) ?? 0) + 1;
+    this.runGenerations.set(id, gen);
+
+    try {
+      // Verify
+      this.updateTaskStatus(id, "verifying");
+      state.activeOperation = "verify";
+      task.speed = 0;
+      task.eta = undefined;
+      this.emitProgressNow(id, task);
+
+      if (!this.config.skipVerify) {
+        const result = await this.integrity.verify(state.tmpPath, task.firmware, ({ pct, speed, eta }) => {
+          task.progress = pct;
+          task.speed = speed;
+          task.eta = eta;
+          this.emitThrottledProgress(id, task);
+        });
+
+        if (!result.ok) {
+          this.updateTaskStatus(id, "error");
+          task.error = `Checksum mismatch (${result.algo}): expected ${result.expected}, got ${result.actual}`;
+          this.emit("error", id, task.error, task);
+          this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: true });
+          return;
+        }
+      }
+
+      // Move
+      await this.executeMove(id, task, state);
+
+    } catch (err: any) {
+      if (this.runGenerations.get(id) !== gen) return;
+      this.updateTaskStatus(id, "error");
+      task.error = err.message;
+      this.emit("error", id, err.message, task);
+      this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: false, deleteStateFile: false, deleteTask: true });
+    }
+  }
+
+  private async runMoveOnly(id: string): Promise<void> {
+    const task = this.tasks.get(id);
+    const state = this.states.get(id);
+    if (!task || !state) return;
+
+    const gen = (this.runGenerations.get(id) ?? 0) + 1;
+    this.runGenerations.set(id, gen);
+
+    try {
+      await this.executeMove(id, task, state);
+    } catch (err: any) {
+      if (this.runGenerations.get(id) !== gen) return;
+      this.updateTaskStatus(id, "error");
+      task.error = err.message;
+      this.emit("error", id, err.message, task);
+      this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: false, deleteStateFile: false, deleteTask: true });
+    }
+  }
+
+  private async executeMove(id: string, task: Task, state: DownloadState): Promise<void> {
+    const isHDD = !(await this.diskManager.detectSSD(task.savePath));
+    const finalPath = this.buildFinalPath(task.firmware, task.savePath);
+    const i10rPath = this.buildI10rPath(task.firmware, task.savePath);
+
+    this.updateTaskStatus(id, "moving");
+    state.activeOperation = "move";
+    this.doCheckpoint(id);
+
+    task.progress = 0;
+    task.speed = 0;
+    task.eta = undefined;
+    this.emitProgressNow(id, task);
+
+    // Move tmp → .ipsw.i10r
+    const isTurbo = task.mode === "turbo";
+    await this.moveQueue.enqueue(state.tmpPath, i10rPath, isHDD, isTurbo, ({ pct, speed, eta }) => {
+      task.progress = pct;
+      task.speed = speed;
+      task.eta = eta;
+      this.emitThrottledProgress(id, task);
+    });
+
+    // Rename .ipsw.i10r → .ipsw
+    try { fs.unlinkSync(finalPath); } catch {}
+    fs.renameSync(i10rPath, finalPath);
+
+    // Done
+    task.progress = 100;
+    task.speed = 0;
+    task.eta = 0;
+    this.updateTaskStatus(id, "completed");
+    this.emitProgressNow(id, task);
+    this.emit("completed", id, task);
+    this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: false });
   }
 
   // ─── Environment detection ─────────────────────────────────────────────────
@@ -290,8 +504,6 @@ export class IPSWDownloader extends EventEmitter {
     if (this.environment === "hdd_only") {
       this.moveQueue.setHddLimit(1);
     }
-
-    console.log(`[INFO] Environment: ${this.environment}`);
 
     return this.environment;
   }
@@ -381,7 +593,7 @@ export class IPSWDownloader extends EventEmitter {
           id: config.taskId,
           firmware: existingState.firmware,
           progress: existingState.totalSize > 0
-            ? Math.floor(downloadedBytes / existingState.totalSize * 100)
+            ? (downloadedBytes / existingState.totalSize * 100)
             : 0,
           speed: 0,
           status: "queued",
@@ -494,6 +706,9 @@ export class IPSWDownloader extends EventEmitter {
 
     const cm = this.chunkManagers.get(id);
     if (cm) cm.abort();
+
+    // Checkpoint state before pausing
+    this.doCheckpoint(id);
 
     this.scheduler.pauseTask(id);
     this.updateTaskStatus(id, "paused");
@@ -659,7 +874,7 @@ export class IPSWDownloader extends EventEmitter {
       .filter(s => !this.tasks.has(s.id))
       .map(s => {
         const downloadedBytes = s.chunks.reduce((sum, c) => sum + c.downloaded, 0);
-        const progress = s.totalSize > 0 ? Math.floor((downloadedBytes / s.totalSize) * 100) : 0;
+        const progress = s.totalSize > 0 ? (downloadedBytes / s.totalSize * 100) : 0;
         return {
           id: s.id,
           firmware: s.firmware,
@@ -749,7 +964,7 @@ export class IPSWDownloader extends EventEmitter {
       id,
       firmware: state.firmware,
       progress: state.totalSize > 0
-        ? Math.floor(downloadedBytes / state.totalSize * 100)
+        ? (downloadedBytes / state.totalSize * 100)
         : 0,
       speed: 0,
       status: "queued",
@@ -923,6 +1138,9 @@ export class IPSWDownloader extends EventEmitter {
       }
       this.states.set(id, state);
 
+      // Initialize checkpoint state
+      this.initCheckpoint(id);
+
       // Step 4: Determine connection count based on mode
       const baseMaxConn = isHDD
         ? Math.min(8, this.config.maxConnectionsPerTask)
@@ -953,6 +1171,16 @@ export class IPSWDownloader extends EventEmitter {
         };
       }
 
+      // Step 5.5: Create StreamHasher for stream verify
+      let streamHasher: StreamHasher | undefined;
+      if (!this.config.skipVerify) {
+        const algo = task.firmware.md5sum ? "md5"
+          : task.firmware.sha1sum ? "sha1"
+          : task.firmware.sha256sum ? "sha256"
+          : undefined;
+        if (algo) streamHasher = new StreamHasher(algo);
+      }
+
       // Step 6: Create ChunkManager
       const cm = new ChunkManager(state, this.stateManager, {
         maxConnections: maxConn,
@@ -965,6 +1193,7 @@ export class IPSWDownloader extends EventEmitter {
         turboConnectionsMultiplier: this.config.turboConnectionsMultiplier,
         turboHddSsd,
         insecureTLS: this.config.insecureTLS,
+        streamHasher,
       });
       this.chunkManagers.set(id, cm);
 
@@ -989,7 +1218,7 @@ export class IPSWDownloader extends EventEmitter {
         // During move phase, use movedBytes for progress with speed/ETA
         if (task.status === "moving") {
           task.progress = info.totalSize > 0
-            ? Math.min(99, Math.floor((info.totalMovedBytes / info.totalSize) * 100))
+            ? Math.min(99, (info.totalMovedBytes / info.totalSize) * 100)
             : task.progress;
 
           // Speed/ETA via EMA smoothing (same approach as MoveQueue)
@@ -1019,13 +1248,18 @@ export class IPSWDownloader extends EventEmitter {
       cm.on("progress", (p) => {
         const downloaded = p.bytesWritten;
         const total = p.totalBytes > 0 ? p.totalBytes : state!.totalSize;
-        task.progress = Math.min(99, Math.floor((downloaded / total) * 100));
+        task.progress = Math.min(99, (downloaded / total) * 100);
         task.speed = cm.getStableSpeed();
         task.eta = cm.getStableEta(total, downloaded);
         this.emitThrottledProgress(id, task);
       });
 
       cm.on("error", (err) => console.error(`[ChunkManager][${id}]`, err.message));
+
+      // Chunk completion → checkpoint scheduling
+      cm.on("chunkComplete", (_index: number) => {
+        this.scheduleCheckpoint(id);
+      });
 
       // Step 7: Download
       await cm.start(tmpFile);
@@ -1034,49 +1268,77 @@ export class IPSWDownloader extends EventEmitter {
 
       // Step 8: Verify integrity
       if (!this.config.skipVerify) {
+        // Checkpoint before verify
+        state.activeOperation = "verify";
+        this.doCheckpoint(id);
+
         this.updateTaskStatus(id, "verifying");
         task.speed = 0;
         task.eta = undefined;
         this.emitProgressNow(id, task);
 
-        let lastVerifyEmitAt = 0;
-        const result = await this.integrity.verify(tmpFile, task.firmware, ({ pct, speed, eta }) => {
-          task.progress = pct;
-          task.speed = speed;
-          task.eta = eta;
+        if (streamHasher) {
+          // Stream hash was computed during download — use it directly
+          const computed = streamHasher.finalize();
+          const expected = streamHasher.getAlgo() === "md5" ? task.firmware.md5sum
+            : streamHasher.getAlgo() === "sha1" ? task.firmware.sha1sum
+            : task.firmware.sha256sum;
 
-          const now = Date.now();
-          if (now - lastVerifyEmitAt >= this.moveProgressEmitIntervalMs || pct === 100) {
-            lastVerifyEmitAt = now;
-            this.emitThrottledProgress(id, task);
+          if (computed.toLowerCase() !== (expected ?? "").toLowerCase()) {
+            this.updateTaskStatus(id, "error");
+            task.error = `Checksum mismatch (${streamHasher.getAlgo()}): expected ${expected}, got ${computed}`;
+            this.emit("error", id, task.error, task);
+            cm.cleanupTurboFile();
+            this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: true });
             return;
           }
+          // Hash OK — skip native verify
+        } else {
+          // No stream hash — fallback to native verify
+          let lastVerifyEmitAt = 0;
+          const result = await this.integrity.verify(tmpFile, task.firmware, ({ pct, speed, eta }) => {
+            task.progress = pct;
+            task.speed = speed;
+            task.eta = eta;
 
-          this.emitThrottledProgress(id, task);
-        });
+            const now = Date.now();
+            if (now - lastVerifyEmitAt >= this.moveProgressEmitIntervalMs || pct === 100) {
+              lastVerifyEmitAt = now;
+              this.emitThrottledProgress(id, task);
+              return;
+            }
 
-        if (!result.ok) {
-          this.updateTaskStatus(id, "error");
-          task.error = `Checksum mismatch (${result.algo}): expected ${result.expected}, got ${result.actual}`;
-          this.emit("error", id, task.error, task);
-          cm.cleanupTurboFile();
-          this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: true });
-          return;
+            this.emitThrottledProgress(id, task);
+          });
+
+          if (!result.ok) {
+            this.updateTaskStatus(id, "error");
+            task.error = `Checksum mismatch (${result.algo}): expected ${result.expected}, got ${result.actual}`;
+            this.emit("error", id, task.error, task);
+            cm.cleanupTurboFile();
+            this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: true });
+            return;
+          }
         }
       }
 
-      // Step 9: Move tmp → final (or finish progressive turbo move)
+      // Step 9: Move tmp → .ipsw.i10r → final (or finish progressive turbo move)
       const finalPath = this.buildFinalPath(task.firmware, task.savePath);
+      const i10rPath = this.buildI10rPath(task.firmware, task.savePath);
+
+      // Checkpoint before move
+      state.activeOperation = "move";
+      this.doCheckpoint(id);
 
       if (cm.isTurboHddSsd()) {
         // Turbo HDD+SSD: chunks were progressively moved to .turbo during
-        // download. Drain remaining queued chunks, then rename .turbo → final.
+        // download. Drain remaining queued chunks, then rename .turbo → .ipsw.i10r → final.
         this.updateTaskStatus(id, "moving");
 
         // Start progress from already-moved bytes (not 0)
         const initialMoved = cm.getTotalMovedBytes();
         task.progress = state.totalSize > 0
-          ? Math.floor((initialMoved / state.totalSize) * 100)
+          ? (initialMoved / state.totalSize * 100)
           : 0;
         task.speed = 0;
         task.eta = undefined;
@@ -1089,36 +1351,17 @@ export class IPSWDownloader extends EventEmitter {
         // Final progress from moved bytes (accurate, not based on download %)
         const totalMoved = cm.getTotalMovedBytes();
         task.progress = state.totalSize > 0
-          ? Math.min(99, Math.floor((totalMoved / state.totalSize) * 100))
+          ? Math.min(99, (totalMoved / state.totalSize * 100))
           : 100;
         this.emitThrottledProgress(id, task);
 
         const turboPath = cm.getTurboPath()!;
 
-        // Verify all completed chunks are in movedChunks
-        const stateReloaded = this.stateManager.load(id);
-        const completedIndices = (stateReloaded?.chunks ?? [])
-          .filter(c => c.completed)
-          .map(c => c.index);
-        const movedSet = new Set(stateReloaded?.movedChunks ?? []);
-        const allMoved = completedIndices.every(i => movedSet.has(i));
-
-        if (allMoved) {
-          // All chunks accounted for — rename .turbo → final in one shot
-          try { fs.unlinkSync(finalPath); } catch { }
-          fs.renameSync(turboPath, finalPath);
-        } else {
-          // Some chunks weren't moved — fallback to MoveQueue (tmp → final).
-          // Clean up the incomplete .turbo file.
-          cm.cleanupTurboFile();
-          this.emit("log", id, `Turbo move incomplete (${movedSet.size}/${completedIndices.length} chunks), falling back to MoveQueue`);
-          await this.moveQueue.enqueue(tmpFile, finalPath, isHDD, true, ({ pct, speed, eta }) => {
-            task.progress = pct;
-            task.speed = speed;
-            task.eta = eta;
-            this.emitThrottledProgress(id, task);
-          });
-        }
+        // Drain guarantees all chunks are in .turbo — rename directly
+        try { fs.unlinkSync(i10rPath); } catch { }
+        fs.renameSync(turboPath, i10rPath);
+        try { fs.unlinkSync(finalPath); } catch { }
+        fs.renameSync(i10rPath, finalPath);
       } else {
         // Normal path (or turbo on SSD / HDD-only): MoveQueue
         this.updateTaskStatus(id, "moving");
@@ -1128,12 +1371,14 @@ export class IPSWDownloader extends EventEmitter {
         this.emitProgressNow(id, task);
 
         const isTurbo = task.mode === "turbo";
-        await this.moveQueue.enqueue(tmpFile, finalPath, isHDD, isTurbo, ({ pct, speed, eta }) => {
+        await this.moveQueue.enqueue(tmpFile, i10rPath, isHDD, isTurbo, ({ pct, speed, eta }) => {
           task.progress = pct;
           task.speed = speed;
           task.eta = eta;
           this.emitThrottledProgress(id, task);
         });
+        try { fs.unlinkSync(finalPath); } catch { }
+        fs.renameSync(i10rPath, finalPath);
       }
 
       // Done
@@ -1187,6 +1432,9 @@ export class IPSWDownloader extends EventEmitter {
         createdAt: Date.now(), updatedAt: Date.now(),
         mode,
         movedChunks: [],
+        activeOperation: "download",
+        lastCheckpoint: Date.now(),
+        lastWriteTime: 0,
       };
     }
 
@@ -1214,6 +1462,9 @@ export class IPSWDownloader extends EventEmitter {
       createdAt: Date.now(), updatedAt: Date.now(),
       mode,
       movedChunks: [],
+      activeOperation: "download",
+      lastCheckpoint: Date.now(),
+      lastWriteTime: 0,
     };
   }
 
@@ -1231,6 +1482,57 @@ export class IPSWDownloader extends EventEmitter {
       ? savePath
       : path.dirname(savePath);
     return path.join(dir, `${filename}.turbo`);
+  }
+
+  private buildI10rPath(firmware: Firmware, savePath: string): string {
+    const filename = this.extractFilename(firmware);
+    const dir = fs.existsSync(savePath) && fs.statSync(savePath).isDirectory()
+      ? savePath
+      : path.dirname(savePath);
+    return path.join(dir, `${filename}.i10r`);
+  }
+
+  private scheduleCheckpoint(id: string): void {
+    const cs = this.checkpointState.get(id);
+    if (!cs) return;
+    cs.completedChunks++;
+
+    // 10 chunks or 30s timer
+    if (cs.completedChunks >= 10) {
+      this.doCheckpoint(id);
+    } else if (!cs.timer) {
+      cs.timer = setTimeout(() => this.doCheckpoint(id), 30_000);
+    }
+  }
+
+  private doCheckpoint(id: string): void {
+    const cs = this.checkpointState.get(id);
+    if (cs?.timer) { clearTimeout(cs.timer); cs.timer = null; }
+    if (cs) {
+      cs.completedChunks = 0;
+      cs.lastCheckpointAt = Date.now();
+    }
+
+    const state = this.states.get(id);
+    if (state) {
+      const { lastCheckpoint, lastWriteTime } = this.stateManager.saveAtomic(state);
+      state.lastCheckpoint = lastCheckpoint;
+      state.lastWriteTime = lastWriteTime;
+    }
+  }
+
+  private initCheckpoint(id: string): void {
+    this.checkpointState.set(id, {
+      timer: null,
+      completedChunks: 0,
+      lastCheckpointAt: Date.now(),
+    });
+  }
+
+  private clearCheckpoint(id: string): void {
+    const cs = this.checkpointState.get(id);
+    if (cs?.timer) { clearTimeout(cs.timer); cs.timer = null; }
+    this.checkpointState.delete(id);
   }
 
 
@@ -1305,6 +1607,14 @@ export class IPSWDownloader extends EventEmitter {
       try { fs.unlinkSync(state.tmpPath); } catch { }
     }
 
+    // Clean up .ipsw.i10r at savePath if exists
+    if (state) {
+      const i10rPath = this.buildI10rPath(state.firmware, state.savePath);
+      if (fs.existsSync(i10rPath)) {
+        try { fs.unlinkSync(i10rPath); } catch {}
+      }
+    }
+
     // Clean up .turbo file if it exists
     const cm = this.chunkManagers.get(id);
     if (cm) cm.cleanupTurboFile();
@@ -1317,6 +1627,7 @@ export class IPSWDownloader extends EventEmitter {
     this.chunkManagers.delete(id);
     this.runGenerations.delete(id);
     this.moveTimeState.delete(id);
+    this.clearCheckpoint(id);
     if (options.deleteTask) {
       this.tasks.delete(id);
     }

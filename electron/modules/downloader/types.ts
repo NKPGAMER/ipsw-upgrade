@@ -36,6 +36,9 @@ export interface DownloadState {
   updatedAt: number;
   mode: DownloadMode;
   movedChunks: number[];
+  activeOperation: "download" | "verify" | "move";
+  lastCheckpoint: number;
+  lastWriteTime: number;
 }
 
 export interface AddResult {
@@ -105,6 +108,7 @@ export interface DownloaderConfig {
   turboChunkSizeMultiplier?: number;
   /** Allow TLS connections with invalid certificates (development only). */
   insecureTLS?: boolean;
+  autoResume?: boolean;
 }
 
 export interface DownloadEvents {
