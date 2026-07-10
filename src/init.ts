@@ -10,10 +10,19 @@ export const ipswClient = new IPSWClient();
 (globalThis as any).ipswClient = ipswClient;
 
 async function init() {
-    const result = await Promise.all([
+    await Promise.all([
         commands.storeGet('root_folder'),
         commands.storeGet('language')
-    ]);
+    ]).then(([
+        rootFolder,
+        language
+    ]) => {
+
+
+        if (language.status === "ok") {
+            i18n.changeLanguage(language.data ?? "vi")
+        }
+    });
 
     // const [rootFolder, language] = result;
     // Promise.all([
