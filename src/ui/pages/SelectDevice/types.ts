@@ -1,4 +1,4 @@
-import type { Task, TaskStatus } from "../../../../@types/global";
+import type { Task, TaskStatus } from "@/bind";
 
 export type CardTask = TaskStatus | "none" | "downloaded" | "old" | "corrupted" | "incomplete_dl";
 

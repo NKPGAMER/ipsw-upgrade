@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Task, TaskStatus } from "../../@types/global";
+import type { Task, TaskStatus } from "@/bind";
 
 export type DownloadFilter = TaskStatus | "all";
 

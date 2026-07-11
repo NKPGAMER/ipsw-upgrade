@@ -1,4 +1,5 @@
 mod disk;
+mod downloader;
 mod ipsw;
 mod commands;
 mod service;
@@ -12,6 +13,7 @@ use tauri::{Manager, WebviewWindowBuilder, Emitter, Listener, WebviewUrl};
 
 use commands::AppState;
 use config::Config;
+use downloader::{DownloaderEngine, types::DownloaderConfig};
 use service::{ipsw_api, ipsw_data, meta_data, user_data};
 // use tauri_plugin_store::{StoreExt};
 
@@ -59,6 +61,16 @@ pub fn export_typescript_bindings() {
                     commands::system::pick_file,
                     commands::system::run_binding,
                     commands::updater::get_update_status,
+                    commands::downloader::dm_add,
+                    commands::downloader::dm_pause,
+                    commands::downloader::dm_resume,
+                    commands::downloader::dm_cancel,
+                    commands::downloader::dm_get_all_tasks,
+                    commands::downloader::dm_get_incomplete_tasks,
+                    commands::downloader::dm_resume_incomplete,
+                    commands::downloader::dm_delete_incomplete,
+                    commands::downloader::dm_get_environment_info,
+                    commands::downloader::dm_set_boost,
                 ])
                 .export(specta_typescript::Typescript::default(), "../src/bind.ts")
                 .expect("failed to export TypeScript bindings");
@@ -112,14 +124,28 @@ pub fn run() {
 
             let watcher_handle = Arc::new(ipsw::watcher::init(
                 app.handle(),
-                storage_dir,
+                storage_dir.clone(),
             ));
+
+            // ── Init downloader engine ─────────────────────
+            let dl_config = DownloaderConfig {
+                save_dir: storage_dir.to_string_lossy().to_string(),
+                ..Default::default()
+            };
+            let downloader_engine = tauri::async_runtime::block_on(
+                DownloaderEngine::new(dl_config)
+            ).expect("failed to initialize downloader engine");
+            commands::downloader::spawn_event_forwarder(
+                app.handle().clone(),
+                downloader_engine.clone(),
+            );
 
             // ── Register managed state ───────────────────────
             let state = AppState {
                 data_handle: data_handle.clone(),
                 watcher_handle: watcher_handle.clone(),
                 user_data: Arc::new(user_data::UserData::new(app.handle(), "store")),
+                downloader_engine: downloader_engine.clone(),
             };
             app.manage(state);
 
@@ -206,6 +232,16 @@ pub fn run() {
             commands::system::pick_file,
             commands::system::run_binding,
             commands::updater::get_update_status,
+            commands::downloader::dm_add,
+            commands::downloader::dm_pause,
+            commands::downloader::dm_resume,
+            commands::downloader::dm_cancel,
+            commands::downloader::dm_get_all_tasks,
+            commands::downloader::dm_get_incomplete_tasks,
+            commands::downloader::dm_resume_incomplete,
+            commands::downloader::dm_delete_incomplete,
+            commands::downloader::dm_get_environment_info,
+            commands::downloader::dm_set_boost,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

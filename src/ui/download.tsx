@@ -1,13 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import { formatBytes } from "./shared";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { state as dataState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
-
-import type { Task, TaskStatus, DownloadMode } from "../../@types/global";
+import { downloader } from "../core/downloader";
 import { getFileNameFromUrl } from "../core/helper";
 import utils from "../core/utils";
+
+import type { Task, TaskStatus } from "@/bind";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -93,22 +94,6 @@ const ProgressBar = memo(function ProgressBar({ progress, status }: ProgressBarP
   );
 });
 
-// ─── ModeBadge ────────────────────────────────────────────────────────────────
-
-const ModeBadge = memo(function ModeBadge({ mode, flash }: { mode: DownloadMode; flash?: boolean }) {
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-widest uppercase border transition-all duration-300 ${
-        mode === "turbo"
-          ? "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30"
-          : "bg-white/5 text-[#4a6478] border-white/10"
-      } ${flash ? "animate-turbo-flash" : ""}`}
-    >
-      {mode === "turbo" ? "TURBO" : "NORMAL"}
-    </span>
-  );
-});
-
 // Icon components
 const IconPause = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -145,22 +130,12 @@ interface DownloadCardProps {
 
 const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCancel }: DownloadCardProps) {
   const { t } = useTranslation();
-  const { id, firmware, progress, speed, status, eta, error, mode } = task;
+  const { id, firmware, progress, speed, status, eta, error } = task;
   const isActive = status === "downloading";
   const canPause = status === "downloading";
   const canResume = status === "paused" || status === "error";
   const canCancel = status !== "completed";
   const filename = useMemo(() => getFileNameFromUrl(firmware.url), [firmware.url]);
-  const [turboFlash, setTurboFlash] = useState(false);
-  const prevMode = useRef<DownloadMode>(mode);
-
-  useEffect(() => {
-    if (prevMode.current === "normal" && mode === "turbo") {
-      setTurboFlash(true);
-      setTimeout(() => setTurboFlash(false), 2000);
-    }
-    prevMode.current = mode;
-  }, [mode]);
 
   const accentMap: Record<TaskStatus, string> = {
     downloading: "border-l-[#137fec]",
@@ -208,7 +183,6 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
 
         <div className="flex items-center gap-2 shrink-0">
           <StatusBadge status={status} />
-          <ModeBadge mode={mode} flash={turboFlash} />
           <div className="flex items-center gap-1">
             {canPause && (
               <button
@@ -243,19 +217,19 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
 
       {/* Row 2: progress */}
       <div>
-        <ProgressBar progress={progress} status={status} />
+        {progress && <ProgressBar progress={progress} status={status} />}
         <div className="flex items-center justify-between mt-1.5!">
           <div className="flex items-center gap-3">
-            <span className={`font-mono text-[11px] ${isActive ? "text-[#e8f0f8]" : "text-[#4a6478]"}`}>
+            {speed && <span className={`font-mono text-[11px] ${isActive ? "text-[#e8f0f8]" : "text-[#4a6478]"}`}>
               ↓ {isActive ? fmtSpeed(speed) : "—"}
-            </span>
-            <span className={`font-mono text-[11px] ${isActive ? "text-[#7a96b0]" : "text-[#4a6478]"}`}>
+            </span>}
+            {eta && <span className={`font-mono text-[11px] ${isActive ? "text-[#7a96b0]" : "text-[#4a6478]"}`}>
               {t("card.eta")} {isActive ? fmtEta(eta) : "—"}
-            </span>
+            </span>}
           </div>
-          <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-[#137fec]" : "text-[#4a6478]"}`}>
+          {progress && <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-[#137fec]" : "text-[#4a6478]"}`}>
             {progress.toFixed(1)}%
-          </span>
+          </span>}
         </div>
       </div>
 
@@ -339,27 +313,27 @@ export default function DownloadPage() {
 
   useEffect(() => {
     if (hydrated) return;
-    window.downloader.getAllTask().then(setTasks).catch(console.error);
+    downloader.getAllTasks().then(setTasks).catch(console.error);
     markHydrated();
   }, [hydrated, markHydrated, setTasks]);
 
   useEffect(() => {
     const subs = [
-      window.downloader.onAdded((_id, task) => upsertTask(task)),
-      window.downloader.onProgress((_id, task) => upsertTask(task)),
-      window.downloader.onCompleted((_id, task) => upsertTask(task)),
-      window.downloader.onPaused((_id, task) => upsertTask(task)),
-      window.downloader.onResumed((_id, task) => {
-        if (task) upsertTask(task);
-        else patchTask(_id, { status: "downloading" as TaskStatus });
+      downloader.onAdded((payload) => upsertTask(payload.task)),
+      downloader.onProgress((payload) => upsertTask(payload.task)),
+      downloader.onCompleted((payload) => upsertTask(payload.task)),
+      downloader.onPaused((payload) => upsertTask(payload.task)),
+      downloader.onResumed((payload) => {
+        if (payload.task) upsertTask(payload.task);
+        else patchTask(payload.task_id, { status: "downloading" as TaskStatus });
       }),
-      window.downloader.onCancelled((id) => removeTask(id)),
-      window.downloader.onIncompleteDeleted((id) => removeTask(id)),
-      window.downloader.onError((_id, _error, task) => upsertTask(task)),
+      downloader.onCancelled((payload) => removeTask(payload.task_id)),
+      downloader.onIncompleteDeleted((payload) => removeTask(payload.id)),
+      downloader.onError((payload) => upsertTask(payload.task)),
     ];
 
     return () => {
-      subs.forEach((s) => s.unsubscribe());
+      subs.forEach(s => s.unsubscribe())
     };
   }, [upsertTask, removeTask, patchTask]);
 
@@ -367,9 +341,9 @@ export default function DownloadPage() {
 
   const handlePause = useCallback(async (id: string) => {
     patchTask(id, { status: "paused" as TaskStatus });
-    const result = await window.downloader.pause(id);
+    const result = await downloader.pause(id);
     if (!result.success) {
-      if (result.error === "NOT_FOUND") {
+      if (result.error === "NotFound") {
         utils.showErrorMessage(t("message.downloader.lifecycle.pause.not_found"));
       } else {
         utils.showErrorMessage(t("message.downloader.lifecycle.pause.invalid_status"));
@@ -381,9 +355,9 @@ export default function DownloadPage() {
 
   const handleResume = useCallback(async (id: string) => {
     patchTask(id, { status: "downloading" as TaskStatus });
-    const result = await window.downloader.resume(id);
+    const result = await downloader.resume(id);
     if (!result.success) {
-      if (result.error === "NOT_FOUND") {
+      if (result.error === "NotFound") {
         utils.showErrorMessage(t("message.downloader.lifecycle.resume.not_found"));
       } else {
         utils.showErrorMessage(t("message.downloader.lifecycle.resume.invalid_status"));
@@ -395,9 +369,9 @@ export default function DownloadPage() {
 
   const handleCancel = useCallback(async (id: string) => {
     removeTask(id);
-    const result = await window.downloader.cancel(id);
+    const result = await downloader.cancel(id);
     if (!result.success) {
-      if (result.error === "NOT_FOUND") {
+      if (result.error === "NotFound") {
         utils.showErrorMessage(t("message.downloader.lifecycle.cancel.not_found"));
       } else {
         utils.showErrorMessage(t("message.downloader.lifecycle.cancel.invalid_status"));

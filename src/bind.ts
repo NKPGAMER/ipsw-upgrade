@@ -120,9 +120,35 @@ export const commands = {
 	 *  Maps to `ElectronUpdaterApi.getStatus`.
 	 */
 	getUpdateStatus: () => __TAURI_INVOKE<UpdateStatus>("get_update_status"),
+	dmAdd: (firmware: Firmware, savePath: string) => typedError<AddResult_Serialize, string>(__TAURI_INVOKE("dm_add", { firmware, savePath })),
+	dmPause: (id: string) => typedError<LifecycleResult_Serialize, string>(__TAURI_INVOKE("dm_pause", { id })),
+	dmResume: (id: string) => typedError<LifecycleResult_Serialize, string>(__TAURI_INVOKE("dm_resume", { id })),
+	dmCancel: (id: string) => typedError<LifecycleResult_Serialize, string>(__TAURI_INVOKE("dm_cancel", { id })),
+	dmGetAllTasks: () => typedError<Task[], string>(__TAURI_INVOKE("dm_get_all_tasks")),
+	dmGetIncompleteTasks: () => typedError<IncompleteTask[], string>(__TAURI_INVOKE("dm_get_incomplete_tasks")),
+	dmResumeIncomplete: (id: string) => typedError<LifecycleResult_Serialize, string>(__TAURI_INVOKE("dm_resume_incomplete", { id })),
+	dmDeleteIncomplete: (id: string) => typedError<LifecycleResult_Serialize, string>(__TAURI_INVOKE("dm_delete_incomplete", { id })),
+	dmGetEnvironmentInfo: (savePath: string) => typedError<DiskEnvironmentInfo, string>(__TAURI_INVOKE("dm_get_environment_info", { savePath })),
+	dmSetBoost: (enabled: boolean) => __TAURI_INVOKE<void>("dm_set_boost", { enabled }),
 };
 
 /* Types */
+export type AddError = { error: "DiskFull" } | { error: "AlreadyInList" } | { error: "InvalidUrl" } | { error: "InvalidSavePath" } | { error: "UnknownDiskSpace" } | { error: "Unknown" };
+
+export type AddResult = AddResult_Serialize | AddResult_Deserialize;
+
+export type AddResult_Deserialize = {
+	success: boolean,
+	id: string | null,
+	error: AddError | null,
+};
+
+export type AddResult_Serialize = {
+	success: boolean,
+	id?: string | null,
+	error?: AddError | null,
+};
+
 export type BaseDevice = {
 	name: string,
 	identifier: string,
@@ -205,6 +231,21 @@ export type DiskEnv = "SSD_ONLY" | "HDD_ONLY" |
 /**  HDD lưu file chính + SSD dùng làm TMP buffer */
 "MIXED";
 
+export type DiskEnvironmentInfo = {
+	environment: DlEnvironment,
+	saveDrive: DriveEnvInfo,
+	tmpDrive: DriveEnvInfo | null,
+};
+
+export type DlEnvironment = "ssd_save" | "hdd_ssd_tmp" | "hdd_only";
+
+export type DlMediaType = "SSD" | "HDD";
+
+export type DriveEnvInfo = {
+	path: string,
+	mediaType: DlMediaType,
+};
+
 /**  Thông tin chi tiết một ổ đĩa */
 export type DriveInfo = {
 	/**  Mount point, vd. "C:\\" hoặc "D:\\" */
@@ -239,6 +280,20 @@ export type EnvInfo = {
 	tmp_drive: DriveRef | null,
 };
 
+export type Firmware = {
+	identifier: string,
+	buildid: string,
+	version: string,
+	url: string,
+	filesize: number,
+	releasedate: string,
+	uploaddate: string,
+	signed: boolean,
+	sha1sum?: string | null,
+	md5sum?: string | null,
+	sha256sum?: string | null,
+};
+
 export type FreeSpaceResult = {
 	bytes: number,
 };
@@ -247,6 +302,18 @@ export type IPSWFile = {
 	name: string,
 	path: string,
 	size: number,
+};
+
+export type IncompleteTask = {
+	id: string,
+	firmware: Firmware,
+	savePath: string,
+	tmpPath: string,
+	totalSize: number,
+	downloadedBytes: number,
+	progress: number | null,
+	tmpExists: boolean,
+	savedAt: number,
 };
 
 export type IpswFirmware = IpswFirmware_Serialize | IpswFirmware_Deserialize;
@@ -262,6 +329,20 @@ export type IpswFirmware_Serialize = {
 	md5sum: string,
 	sha256sum: string,
 } & BaseFirmware_Serialize;
+
+export type LifecycleError = "NotFound" | "InvalidStatus";
+
+export type LifecycleResult = LifecycleResult_Serialize | LifecycleResult_Deserialize;
+
+export type LifecycleResult_Deserialize = {
+	success: boolean,
+	error: LifecycleError | null,
+};
+
+export type LifecycleResult_Serialize = {
+	success: boolean,
+	error?: LifecycleError | null,
+};
 
 /**  Loại ổ đĩa */
 export type MediaType = "SSD" | "HDD" | 
@@ -295,6 +376,20 @@ export type ModelDataResult_Serialize = ({ ready: {
 } }) & { ready?: never };
 
 export type Product = "iphone" | "ipad" | "watch" | "mac" | "realitydevice" | "tv" | "homepod" | "ipod";
+
+export type Task = {
+	id: string,
+	firmware: Firmware,
+	progress: number | null,
+	speed: number | null,
+	status: TaskStatus,
+	eta: number | null,
+	error: string | null,
+	savePath: string,
+	activeConnections: number,
+};
+
+export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "cancelled";
 
 export type UpdateProgress = {
 	percent: number | null,

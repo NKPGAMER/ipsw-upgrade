@@ -18,6 +18,10 @@ async function init() {
         language
     ]) => {
 
+        if (rootFolder.status === "ok") {
+            state.currentFolder = rootFolder.data;
+        }
+
 
         if (language.status === "ok") {
             i18n.changeLanguage(language.data ?? "vi")

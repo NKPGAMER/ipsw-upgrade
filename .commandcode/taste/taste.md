@@ -9,3 +9,4 @@
 
 # architecture
 - Use the existing UserData service for persisting download state rather than a separate storage mechanism. Confidence: 0.60
+- Use specta to generate TypeScript types and command bindings in bind.ts. Frontend wrappers (like downloader bridge) should be thin layers that call specta-generated commands, not manually written invoke() calls with hand-typed interfaces. Confidence: 0.85

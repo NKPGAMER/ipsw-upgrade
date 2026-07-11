@@ -2,6 +2,7 @@ import { t } from "i18next";
 import { state } from "../data";
 import { ipswClient } from "../init";
 import utils from "./utils";
+import { downloader } from "./downloader";
 import { commands, type DeviceWithIpsws, type Product, type BaseDevice } from "@/bind";
 
 export async function waitReady<T>(
@@ -117,17 +118,20 @@ export async function getRedundantFilesFromProduct(
 
 export async function download(firmware: Firmware): Promise<{ success: boolean }> {
   try {
+    const filename = getFileNameFromUrl(firmware.url);
+    const savePath = [state.currentFolder.replace(/[\\/]+$/, ""), filename].join("\\");
     utils.showSuccessMessage(t("message.downloader.sendRequest"));
-    const result = await window.downloader.add(firmware, { savePath: state.currentFolder });
+    const result = await downloader.add(firmware, savePath);
     if (!result.success) {
       utils.showErrorMessage(
-        t(`message.downloader.error.${result.error || "UNKNOWN"}`)
+        t(`message.downloader.error.${result.error?.error || "UNKNOWN"}` as any)
       );
     }
 
     return { success: result.success }
-  } catch {
+  } catch(error) {
     utils.showErrorMessage(t(`message.downloader.error.UNKNOWN`));
+    console.log(error);
   }
 
   return { success: false }

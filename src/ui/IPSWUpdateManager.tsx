@@ -12,6 +12,7 @@ import { ipswClient } from "../init";
 import { parseIPSW, getFileNameFromUrl, waitReady } from "../core/helper";
 import { state as globalState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
+import { downloader } from "../core/downloader";
 import { BaseDevice, commands, DeviceWithIpsws } from "@/bind";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -386,7 +387,7 @@ export default function IPSWUpdateManager() {
     if (scannedProductsRef.current.has(prod)) return;
     scannedProductsRef.current.add(prod);
 
-    const downloaderTasks = await window.downloader.getAllTask().catch(() => []);
+    const downloaderTasks = await downloader.getAllTasks().catch(() => []);
     const activeUrlSet = new Set([
       ...getActiveDownloadUrls(),
       ...downloaderTasks.map((task) => task.firmware.url),
@@ -590,12 +591,12 @@ export default function IPSWUpdateManager() {
     abortRef.current = false;
     setRunning(true);
 
-    const d = window.downloader;
+    const d = downloader;
     const subs = [
-      d.onStarted((id, task) => {
-        updateState(task.firmware.url, { status: "downloading", taskId: id, progress: 0 });
+      d.onStarted(({ task }) => {
+        updateState(task.firmware.url, { status: "downloading", taskId: task.id, progress: 0 });
       }),
-      d.onProgress((_id, task) => {
+      d.onProgress(({ task }) => {
         updateState(task.firmware.url, {
           status: task.status as EntryStatus,
           progress: task.progress,
@@ -603,28 +604,28 @@ export default function IPSWUpdateManager() {
           eta: task.eta,
         });
       }),
-      d.onPaused((_id, task) => {
+      d.onPaused(({ task }) => {
         if (task) updateState(task.firmware.url, { status: "paused" });
       }),
-      d.onResumed((_id, task) => {
+      d.onResumed(({ task }) => {
         if (task) updateState(task.firmware.url, { status: "downloading" });
       }),
-      d.onCompleted((_id, task) => {
+      d.onCompleted(({ task }) => {
         if (task) updateState(task.firmware.url, { status: "completed", progress: 100 });
       }),
-      d.onError((_id, error, task) => {
+      d.onError(({ error, task }) => {
         if (task) updateState(task.firmware.url, { status: "error", error });
       }),
     ];
 
-    subsRef.current.forEach((s) => s.unsubscribe());
+    subsRef.current.forEach((s) => s());
     subsRef.current = subs;
 
-    const savePath = globalState.currentFolder;
+    const folder = globalState.currentFolder.replace(/[\\/]+$/, "");
     for (const entry of pendingEntries) {
       updateState(entry.firmware.url, { status: "queued", progress: 0 });
       try {
-        const result = await d.add(entry.firmware, { savePath, deleteFiles: entry.oldFiles });
+        const savePath = folder + "\\" + getFileNameFromUrl(entry.firmware.url);
         if (!result.success) {
           updateState(entry.firmware.url, {
             status: "error",

@@ -44,6 +44,8 @@ hex = "0.4"
 tauri-plugin-store = "2"
 directories = "5"
 anyhow = "1"
+thiserror = "1"
+tokio-util = { version = "0.7", features = ["rt"] }
 specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 specta-typescript = "0.0.12"
