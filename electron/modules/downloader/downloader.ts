@@ -309,15 +309,16 @@ export class IPSWDownloader extends EventEmitter {
         this.stateManager.delete(state.id);
         continue;
       }
+      
+      if (this.config.autoResume === false) continue;
 
-      // Create Task
       const downloadedBytes = state.chunks.reduce((s, c) => s + c.downloaded, 0);
       const task: Task = {
         id: state.id,
         firmware: state.firmware,
         progress: state.totalSize > 0 ? downloadedBytes / state.totalSize * 100 : 0,
         speed: 0,
-        status: this.config.autoResume !== false ? "queued" : "paused",
+        status: "queued",
         savePath: state.savePath,
         mode: state.mode ?? "normal",
       };
@@ -326,33 +327,30 @@ export class IPSWDownloader extends EventEmitter {
       this.states.set(state.id, state);
       this.diskManager.reserveSpace(state.id, state.firmware.filesize);
 
-      // Enqueue based on autoResume
-      if (this.config.autoResume !== false) {
-        const wasTurbo = this.validateTurboForRecovery(state);
+      const wasTurbo = this.validateTurboForRecovery(state);
 
-        if (state.activeOperation === "verify") {
-          this.scheduler.enqueue({
-            id: state.id,
-            turboPriority: false,
-            run: () => this.runVerifyAndMove(state.id),
-          });
-        } else if (state.activeOperation === "move") {
-          this.scheduler.enqueue({
-            id: state.id,
-            turboPriority: false,
-            run: () => this.runMoveOnly(state.id),
-          });
-        } else {
-          this.scheduler.enqueue({
-            id: state.id,
-            turboPriority: wasTurbo,
-            run: () => this.runDownload(state.id),
-            onSlotOpen: (slotType: DownloadMode) => {
-              const t = this.tasks.get(state.id);
-              if (t) { t.mode = slotType; this.emit("progress", state.id, t); }
-            },
-          });
-        }
+      if (state.activeOperation === "verify") {
+        this.scheduler.enqueue({
+          id: state.id,
+          turboPriority: false,
+          run: () => this.runVerifyAndMove(state.id),
+        });
+      } else if (state.activeOperation === "move") {
+        this.scheduler.enqueue({
+          id: state.id,
+          turboPriority: false,
+          run: () => this.runMoveOnly(state.id),
+        });
+      } else {
+        this.scheduler.enqueue({
+          id: state.id,
+          turboPriority: wasTurbo,
+          run: () => this.runDownload(state.id),
+          onSlotOpen: (slotType: DownloadMode) => {
+            const t = this.tasks.get(state.id);
+            if (t) { t.mode = slotType; this.emit("progress", state.id, t); }
+          },
+        });
       }
 
       this.emit("added", state.id, task);

@@ -22,7 +22,7 @@ export function formatDate(dateStr: string): string {
 
 export const Spinner = memo(function Spinner({ className = "w-3.5 h-3.5" }: { className?: string }) {
   return (
-    <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
+    <svg className={`animate-spin transform-gpu will-change-transform ${className}`} fill="none" viewBox="0 0 24 24">
       <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
       <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
     </svg>

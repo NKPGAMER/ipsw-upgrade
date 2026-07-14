@@ -5,7 +5,7 @@ import { formatBytes, formatEta, Spinner } from "@/ui/shared";
 import type { CardTask, ControlAction, DeviceEntry, VerifyState } from "./types";
 import { STATUS_CONFIG, STATUS_LABEL, STATUS_COLOR } from "./constants";
 import { ProgressBar } from "./ProgressBar";
-import type { TaskStatus } from "../../../../@types/global"
+import type { TaskStatus } from "@global-type"
 import utils from "@/core/utils";
 
 export const ControlButtons = memo(function ControlButtons({
@@ -31,11 +31,12 @@ export const ControlButtons = memo(function ControlButtons({
   const busy = pendingAction !== null;
   const { t } = useTranslation();
 
-  const confirmAction = async (message: string, action: ControlAction, fw?: Firmware, variant?: string) => {
-    try {
-      await utils.customConfirm(message, variant ? { variant: variant as any } : undefined);
-    } catch { return; }
-    onAction(action, fw);
+  const confirmAction = async (message: string, action: ControlAction, fw?: Firmware, variant?: ConfirmOptions["variant"]) => {
+    const result = await utils.customConfirm(message, variant ? { variant: variant as any } : undefined);
+    
+    if (result) {
+      onAction(action,fw);
+    }
   };
 
   // ── Chưa tải (none) ──────────────────────────────────────────────────────
@@ -330,7 +331,7 @@ export const ControlButtons = memo(function ControlButtons({
           </button>
           <button
             disabled={busy}
-            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel")}
+            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel", undefined, "warning")}
             className="px-4! py-2.5! rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "cancel" ? <><Spinner className="w-3 h-3" /> Đang huỷ…</> : "Huỷ"}
@@ -407,7 +408,7 @@ export const ControlButtons = memo(function ControlButtons({
           )}
           <button
             disabled={busy}
-            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel")}
+            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel", undefined, "warning")}
             className="px-4! py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "cancel" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang huỷ…</> : "Huỷ"}
@@ -422,7 +423,7 @@ export const ControlButtons = memo(function ControlButtons({
       <div className="flex">
         <button
             disabled={busy}
-            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel")}
+            onClick={() => confirmAction("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.", "cancel", undefined, "warning")}
             className="flex-1 px-4! py-2.5! rounded-xl bg-red-500/12 hover:bg-red-500/22 border border-red-500/20 text-red-400 text-[12px] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
           >
             {pendingAction === "cancel" ? <><Spinner className="w-3 h-3 text-red-400" /> Đang huỷ…</> : "Huỷ"}

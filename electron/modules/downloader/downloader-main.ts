@@ -3,7 +3,7 @@ import { Worker } from "worker_threads";
 import { randomUUID } from "crypto";
 
 import type { MainToWorker, WorkerToMain } from "./worker-messages";
-import type { DownloaderConfig, DownloadRequestConfig, EventChannel, AddResult, IncompleteTask, Task } from "./types";
+import type { DownloaderConfig, DownloadRequestConfig, EventChannel, AddResult, IncompleteTask, Task, LifecycleResult } from "./types";
 import { IntegrityChecker } from "./integrity";
 import { app, ipcMain } from "electron";
 
@@ -103,27 +103,27 @@ export class DownloaderMain {
   // ─── Public API ───────────────────────────────────────────────────────────
 
   add(firmware: Firmware, config: DownloadRequestConfig = {}): Promise<AddResult> {
-    return this.call<AddResult>({ type: "add", reqId: randomUUID(), firmware, config });
+    return this.call({ type: "add", reqId: randomUUID(), firmware, config });
   }
 
-  pause(id: string): Promise<import("./types").LifecycleResult> {
-    return this.call<import("./types").LifecycleResult>({ type: "pause", reqId: randomUUID(), id });
+  pause(id: string): Promise<LifecycleResult> {
+    return this.call({ type: "pause", reqId: randomUUID(), id });
   }
 
-  resume(id: string): Promise<import("./types").LifecycleResult> {
-    return this.call<import("./types").LifecycleResult>({ type: "resume", reqId: randomUUID(), id });
+  resume(id: string): Promise<LifecycleResult> {
+    return this.call({ type: "resume", reqId: randomUUID(), id });
   }
 
-  cancel(id: string): Promise<import("./types").LifecycleResult> {
-    return this.call<import("./types").LifecycleResult>({ type: "cancel", reqId: randomUUID(), id });
+  cancel(id: string): Promise<LifecycleResult> {
+    return this.call({ type: "cancel", reqId: randomUUID(), id });
   }
 
   getAllTask(): Promise<Task[]> {
-    return this.call<Task[]>({ type: "getAllTask", reqId: randomUUID() });
+    return this.call({ type: "getAllTask", reqId: randomUUID() });
   }
 
   getIncompleteTasks(): Promise<IncompleteTask[]> {
-    return this.call<IncompleteTask[]>({ type: "getIncompleteTasks", reqId: randomUUID() });
+    return this.call({ type: "getIncompleteTasks", reqId: randomUUID() });
   }
 
   resumeIncomplete(id: string): Promise<{ success: boolean; error?: string }> {
