@@ -70,7 +70,7 @@ function requireNative() {
   } else if (process.platform === 'android') {
     if (process.arch === 'arm64') {
       try {
-        return require('./i10r-addon.android-arm64.node')
+        return require('./index.android-arm64.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -86,7 +86,7 @@ function requireNative() {
       }
     } else if (process.arch === 'arm') {
       try {
-        return require('./i10r-addon.android-arm-eabi.node')
+        return require('./index.android-arm-eabi.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -107,7 +107,7 @@ function requireNative() {
     if (process.arch === 'x64') {
       if ((process.config && process.config.variables && process.config.variables.shlib_suffix === 'dll.a') || (process.config && process.config.variables && process.config.variables.node_target_type === 'shared_library')) {
         try {
-        return require('./i10r-addon.win32-x64-gnu.node')
+        return require('./index.win32-x64-gnu.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -123,7 +123,7 @@ function requireNative() {
       }
       } else {
         try {
-        return require('./i10r-addon.win32-x64-msvc.node')
+        return require('./index.win32-x64-msvc.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -140,7 +140,7 @@ function requireNative() {
       }
     } else if (process.arch === 'ia32') {
       try {
-        return require('./i10r-addon.win32-ia32-msvc.node')
+        return require('./index.win32-ia32-msvc.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -156,7 +156,7 @@ function requireNative() {
       }
     } else if (process.arch === 'arm64') {
       try {
-        return require('./i10r-addon.win32-arm64-msvc.node')
+        return require('./index.win32-arm64-msvc.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -175,7 +175,7 @@ function requireNative() {
     }
   } else if (process.platform === 'darwin') {
     try {
-      return require('./i10r-addon.darwin-universal.node')
+      return require('./index.darwin-universal.node')
     } catch (e) {
       loadErrors.push(e)
     }
@@ -191,7 +191,7 @@ function requireNative() {
     }
     if (process.arch === 'x64') {
       try {
-        return require('./i10r-addon.darwin-x64.node')
+        return require('./index.darwin-x64.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -207,7 +207,7 @@ function requireNative() {
       }
     } else if (process.arch === 'arm64') {
       try {
-        return require('./i10r-addon.darwin-arm64.node')
+        return require('./index.darwin-arm64.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -227,7 +227,7 @@ function requireNative() {
   } else if (process.platform === 'freebsd') {
     if (process.arch === 'x64') {
       try {
-        return require('./i10r-addon.freebsd-x64.node')
+        return require('./index.freebsd-x64.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -243,7 +243,7 @@ function requireNative() {
       }
     } else if (process.arch === 'arm64') {
       try {
-        return require('./i10r-addon.freebsd-arm64.node')
+        return require('./index.freebsd-arm64.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -264,7 +264,7 @@ function requireNative() {
     if (process.arch === 'x64') {
       if (isMusl()) {
         try {
-          return require('./i10r-addon.linux-x64-musl.node')
+          return require('./index.linux-x64-musl.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -280,7 +280,7 @@ function requireNative() {
         }
       } else {
         try {
-          return require('./i10r-addon.linux-x64-gnu.node')
+          return require('./index.linux-x64-gnu.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -298,7 +298,7 @@ function requireNative() {
     } else if (process.arch === 'arm64') {
       if (isMusl()) {
         try {
-          return require('./i10r-addon.linux-arm64-musl.node')
+          return require('./index.linux-arm64-musl.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -314,7 +314,7 @@ function requireNative() {
         }
       } else {
         try {
-          return require('./i10r-addon.linux-arm64-gnu.node')
+          return require('./index.linux-arm64-gnu.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -332,7 +332,7 @@ function requireNative() {
     } else if (process.arch === 'arm') {
       if (isMusl()) {
         try {
-          return require('./i10r-addon.linux-arm-musleabihf.node')
+          return require('./index.linux-arm-musleabihf.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -348,7 +348,7 @@ function requireNative() {
         }
       } else {
         try {
-          return require('./i10r-addon.linux-arm-gnueabihf.node')
+          return require('./index.linux-arm-gnueabihf.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -366,7 +366,7 @@ function requireNative() {
     } else if (process.arch === 'loong64') {
       if (isMusl()) {
         try {
-          return require('./i10r-addon.linux-loong64-musl.node')
+          return require('./index.linux-loong64-musl.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -382,7 +382,7 @@ function requireNative() {
         }
       } else {
         try {
-          return require('./i10r-addon.linux-loong64-gnu.node')
+          return require('./index.linux-loong64-gnu.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -400,7 +400,7 @@ function requireNative() {
     } else if (process.arch === 'riscv64') {
       if (isMusl()) {
         try {
-          return require('./i10r-addon.linux-riscv64-musl.node')
+          return require('./index.linux-riscv64-musl.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -416,7 +416,7 @@ function requireNative() {
         }
       } else {
         try {
-          return require('./i10r-addon.linux-riscv64-gnu.node')
+          return require('./index.linux-riscv64-gnu.node')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -433,7 +433,7 @@ function requireNative() {
       }
     } else if (process.arch === 'ppc64') {
       try {
-        return require('./i10r-addon.linux-ppc64-gnu.node')
+        return require('./index.linux-ppc64-gnu.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -449,7 +449,7 @@ function requireNative() {
       }
     } else if (process.arch === 's390x') {
       try {
-        return require('./i10r-addon.linux-s390x-gnu.node')
+        return require('./index.linux-s390x-gnu.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -469,7 +469,7 @@ function requireNative() {
   } else if (process.platform === 'openharmony') {
     if (process.arch === 'arm64') {
       try {
-        return require('./i10r-addon.openharmony-arm64.node')
+        return require('./index.openharmony-arm64.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -485,7 +485,7 @@ function requireNative() {
       }
     } else if (process.arch === 'x64') {
       try {
-        return require('./i10r-addon.openharmony-x64.node')
+        return require('./index.openharmony-x64.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -501,7 +501,7 @@ function requireNative() {
       }
     } else if (process.arch === 'arm') {
       try {
-        return require('./i10r-addon.openharmony-arm.node')
+        return require('./index.openharmony-arm.node')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -539,7 +539,7 @@ if (!nativeBinding || forceWasi) {
   let wasiBinding = null
   let wasiBindingError = null
   try {
-    wasiBinding = require('./i10r-addon.wasi.cjs')
+    wasiBinding = require('./index.wasi.cjs')
     nativeBinding = wasiBinding
   } catch (err) {
     if (forceWasi) {
@@ -587,15 +587,19 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding
-module.exports.copyFiles = nativeBinding.copyFiles
+module.exports.cancelHash = nativeBinding.cancelHash
+module.exports.cancelTransfer = nativeBinding.cancelTransfer
+module.exports.copyFile = nativeBinding.copyFile
 module.exports.createHash = nativeBinding.createHash
 module.exports.DiskType = nativeBinding.DiskType
+module.exports.Event = nativeBinding.Event
 module.exports.getAllDisk = nativeBinding.getAllDisk
 module.exports.getDiskInfo = nativeBinding.getDiskInfo
-module.exports.moveFiles = nativeBinding.moveFiles
-module.exports.onAppleDeviceEvent = nativeBinding.onAppleDeviceEvent
-module.exports.onHashProgress = nativeBinding.onHashProgress
-module.exports.onHashResult = nativeBinding.onHashResult
-module.exports.onTransferProgress = nativeBinding.onTransferProgress
-module.exports.onTransferResult = nativeBinding.onTransferResult
-module.exports.onUsbChanged = nativeBinding.onUsbChanged
+module.exports.HashType = nativeBinding.HashType
+module.exports.moveFile = nativeBinding.moveFile
+module.exports.onHashEvent = nativeBinding.onHashEvent
+module.exports.onTransferEvent = nativeBinding.onTransferEvent
+module.exports.pauseHash = nativeBinding.pauseHash
+module.exports.pauseTransfer = nativeBinding.pauseTransfer
+module.exports.resumeHash = nativeBinding.resumeHash
+module.exports.resumeTransfer = nativeBinding.resumeTransfer
