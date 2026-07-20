@@ -77,15 +77,17 @@ export class StateManager {
     }
   }
 
-  async batchUpdateChunks(id: string, updates: { index: number; downloaded: number; completed: boolean }[]): Promise<void> {
+  async batchUpdateChunks(id: string, updates: { start: number; downloaded: number }[]): Promise<void> {
     return this.withLock(() => {
       const state = this.load(id);
       if (!state) return;
       for (const u of updates) {
-        const chunk = state.chunks[u.index];
-        if (chunk) {
-          chunk.downloaded = u.downloaded;
-          chunk.completed = u.completed;
+        const idx = state.chunks.findIndex(c => c[0] === u.start);
+        if (idx === -1) continue;
+        const chunk = state.chunks[idx];
+        chunk[2] = u.downloaded;
+        if (u.downloaded >= chunk[1] - chunk[0] + 1) {
+          state.chunks.splice(idx, 1);
         }
       }
       this.saveSync(state);

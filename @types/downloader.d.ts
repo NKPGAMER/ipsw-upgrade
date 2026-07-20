@@ -1,4 +1,4 @@
-﻿export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "transferring" | "cancelled";
+export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "transferring" | "cancelled";
 
 export type EventChannel = "started" | "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
 
@@ -13,13 +13,7 @@ export interface Task {
   savePath: string;
 }
 
-export interface ChunkState {
-  index: number;
-  start: number;
-  end: number;
-  downloaded: number;
-  completed: boolean;
-}
+export type CompactChunk = [number, number, number]; // [start, end, downloaded]
 
 export interface DownloadState {
   id: string;
@@ -28,7 +22,7 @@ export interface DownloadState {
   tmpPath: string | null;
   fileName: string;
   totalSize: number;
-  chunks: ChunkState[];
+  chunks: CompactChunk[];
   supportsRanges: boolean;
   createdAt: number;
   updatedAt: number;

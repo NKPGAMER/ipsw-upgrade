@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import { URL } from "url";
 import { Pool, type Dispatcher } from "undici";
-import { ChunkState, DownloadState } from "@custom-type/downloader";
+import { CompactChunk, DownloadState } from "@custom-type/downloader";
 import { StateManager } from "./state-manager";
 
 export interface ChunkManagerOptions {
@@ -64,7 +64,7 @@ export class ChunkManager {
   private fd: number = -1;
   private aborted = false;
   private activeCount = 0;
-  private pendingQueue: ChunkState[] = [];
+  private pendingQueue: CompactChunk[] = [];
   private listeners: Partial<ChunkManagerEvents> = {};
   private bytesPerSecond = 0;
   private lastSpeedCheck = Date.now();
@@ -79,7 +79,7 @@ export class ChunkManager {
   private previousSpeed = 0;
 
   private stateFlushTimer: NodeJS.Timeout | null = null;
-  private pendingStateUpdates: { index: number; downloaded: number; completed: boolean }[] = [];
+  private pendingStateUpdates: { start: number; downloaded: number }[] = [];
   private pool!: Pool;
   private totalDownloaded = 0;
 
@@ -87,7 +87,7 @@ export class ChunkManager {
   private writeHighWater: number;
 
   private isWholeFileRequest(rangeStart: number, rangeEnd: number): boolean {
-    if (this.state.chunks.length !== 1) return false;
+    if (this.state.supportsRanges) return false;
     if (rangeStart !== 0) return false;
     if (this.state.totalSize <= 0) return true;
     return rangeEnd === this.state.totalSize - 1;
@@ -129,8 +129,8 @@ export class ChunkManager {
   // ─── Queue ───────────────────────────────────────────────────────────────────
 
   private buildQueue(): void {
-    this.totalDownloaded = this.state.chunks.reduce((sum, c) => sum + c.downloaded, 0);
-    this.pendingQueue = this.state.chunks.filter(c => !c.completed);
+    this.totalDownloaded = this.state.chunks.reduce((sum, c) => sum + c[2], 0);
+    this.pendingQueue = [...this.state.chunks];
   }
 
   // ─── Main entry ─────────────────────────────────────────────────────────────
@@ -247,34 +247,37 @@ export class ChunkManager {
 
   // ─── Chunk download with retry ──────────────────────────────────────────────
 
-  private async downloadChunk(chunk: ChunkState, attempt: number): Promise<void> {
+  private async downloadChunk(chunk: CompactChunk, attempt: number): Promise<void> {
     if (this.aborted) return;
 
-    const start = chunk.start + chunk.downloaded;
-    const end   = chunk.end;
+    const rangeStart = chunk[0] + chunk[2];
+    const rangeEnd   = chunk[1];
 
-    if (start >= end && chunk.completed) return;
+    if (rangeStart >= rangeEnd + 1) {
+      this.queueStateUpdate(chunk[0], chunk[1] - chunk[0] + 1);
+      this.emit("chunkComplete", chunk[0]);
+      return;
+    }
 
-    if (start > end) {
-      chunk.completed = true;
-      this.queueStateUpdate(chunk.index, chunk.downloaded, true);
-      this.emit("chunkComplete", chunk.index);
+    if (rangeStart > rangeEnd) {
+      this.queueStateUpdate(chunk[0], chunk[1] - chunk[0] + 1);
+      this.emit("chunkComplete", chunk[0]);
       return;
     }
 
     try {
-      await this.fetchRange(chunk, start, end);
+      await this.fetchRange(chunk, rangeStart, rangeEnd);
     } catch (err: any) {
-      this.emit("chunkError", chunk.index, err, attempt);
+      this.emit("chunkError", chunk[0], err, attempt);
       if (attempt < this.opts.retryLimit && !this.aborted) {
         await this.sleep(this.opts.retryDelay * (attempt + 1));
         return this.downloadChunk(chunk, attempt + 1);
       }
-      throw new Error(`Chunk ${chunk.index} failed after ${attempt + 1} attempts: ${err.message}`);
+      throw new Error(`Chunk ${chunk[0]} failed after ${attempt + 1} attempts: ${err.message}`);
     }
   }
 
-  private async fetchRange(chunk: ChunkState, rangeStart: number, rangeEnd: number): Promise<void> {
+  private async fetchRange(chunk: CompactChunk, rangeStart: number, rangeEnd: number): Promise<void> {
     if (this.aborted) throw new Error("Aborted");
 
     const url  = new URL(this.state.firmware.url);
@@ -303,12 +306,12 @@ export class ChunkManager {
     const allowWholeFile200 = this.isWholeFileRequest(rangeStart, rangeEnd);
     if (response.statusCode === 200 && !allowWholeFile200) {
       await response.body.dump();
-      throw new Error(`Server ignored range request for chunk ${chunk.index}`);
+      throw new Error(`Server ignored range request for chunk ${chunk[0]}`);
     }
 
     if (response.statusCode !== 206 && response.statusCode !== 200) {
       await response.body.dump();
-      throw new Error(`HTTP ${response.statusCode} for chunk ${chunk.index}`);
+      throw new Error(`HTTP ${response.statusCode} for chunk ${chunk[0]}`);
     }
 
     if (response.statusCode === 206) {
@@ -316,14 +319,14 @@ export class ChunkManager {
       const m = cr.match(/^bytes\s+(\d+)-(\d+)\/(\d+)/i);
       if (!m) {
         await response.body.dump();
-        throw new Error(`Missing or malformed Content-Range header for chunk ${chunk.index}`);
+        throw new Error(`Missing or malformed Content-Range header for chunk ${chunk[0]}`);
       }
       const svStart = parseInt(m[1]);
       const svEnd   = parseInt(m[2]);
       if (svStart !== rangeStart || svEnd !== rangeEnd) {
         await response.body.dump();
         throw new Error(
-          `Content-Range mismatch for chunk ${chunk.index}: server returned ` +
+          `Content-Range mismatch for chunk ${chunk[0]}: server returned ` +
           `${svStart}-${svEnd}, requested ${rangeStart}-${rangeEnd}`
         );
       }
@@ -347,13 +350,13 @@ export class ChunkManager {
       );
 
       writeHead              += combined.length;
-      chunk.downloaded        = writeHead - chunk.start;
+      chunk[2]                = writeHead - chunk[0];
       this.totalDownloaded   += combined.length;
 
       this.updateSpeed();
-      this.queueStateUpdate(chunk.index, chunk.downloaded, false);
+      this.queueStateUpdate(chunk[0], chunk[2]);
       this.emit("progress", {
-        chunkIndex:   chunk.index,
+        chunkIndex:   chunk[0],
         bytesWritten: this.totalDownloaded,
         totalBytes:   this.state.totalSize,
       });
@@ -384,14 +387,14 @@ export class ChunkManager {
     const receivedBytes = writeHead - rangeStart;
     if (!this.isWholeFileRequest(rangeStart, rangeEnd) && receivedBytes !== expectedBytes) {
       throw new Error(
-        `Chunk ${chunk.index} body truncated: expected ${expectedBytes} bytes, ` +
+        `Chunk ${chunk[0]} body truncated: expected ${expectedBytes} bytes, ` +
         `received ${receivedBytes} bytes for range ${rangeStart}-${rangeEnd}`
       );
     }
 
-    chunk.completed = true;
-    this.queueStateUpdate(chunk.index, chunk.downloaded, true);
-    this.emit("chunkComplete", chunk.index);
+    chunk[2] = chunk[1] - chunk[0] + 1;
+    this.queueStateUpdate(chunk[0], chunk[2]);
+    this.emit("chunkComplete", chunk[0]);
   }
 
   // ─── HEAD request ──────────────────────────────────────────────────────────
@@ -484,10 +487,10 @@ export class ChunkManager {
     this.flushStateNow();
   }
 
-  private queueStateUpdate(index: number, downloaded: number, completed: boolean): void {
-    const existing = this.pendingStateUpdates.find(u => u.index === index);
-    if (existing) { existing.downloaded = downloaded; existing.completed = completed; }
-    else this.pendingStateUpdates.push({ index, downloaded, completed });
+  private queueStateUpdate(start: number, downloaded: number): void {
+    const existing = this.pendingStateUpdates.find(u => u.start === start);
+    if (existing) { existing.downloaded = downloaded; }
+    else this.pendingStateUpdates.push({ start, downloaded });
 
     if (!this.stateFlushTimer) {
       this.stateFlushTimer = setTimeout(() => this.flushStateNow(), 2000);
@@ -497,6 +500,16 @@ export class ChunkManager {
   private flushStateNow(): void {
     if (this.stateFlushTimer) { clearTimeout(this.stateFlushTimer); this.stateFlushTimer = null; }
     if (this.pendingStateUpdates.length > 0) {
+      for (const u of this.pendingStateUpdates) {
+        const idx = this.state.chunks.findIndex(c => c[0] === u.start);
+        if (idx !== -1) {
+          const chunk = this.state.chunks[idx];
+          chunk[2] = u.downloaded;
+          if (u.downloaded >= chunk[1] - chunk[0] + 1) {
+            this.state.chunks.splice(idx, 1);
+          }
+        }
+      }
       this.stateManager.batchUpdateChunks(this.state.id, this.pendingStateUpdates);
       this.pendingStateUpdates = [];
     }

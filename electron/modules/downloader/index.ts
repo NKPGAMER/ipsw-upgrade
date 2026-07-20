@@ -9,7 +9,7 @@ export { IntegrityChecker } from "./integrity";
 export type {
   Task,
   TaskStatus,
-  ChunkState,
+  CompactChunk,
   DownloadState,
   AddResult,
   DownloadManagerOptions,

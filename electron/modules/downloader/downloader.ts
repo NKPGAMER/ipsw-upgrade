@@ -8,7 +8,7 @@ import {
   Task,
   TaskStatus,
   DownloadState,
-  ChunkState,
+  CompactChunk,
   AddResult,
   LifecycleResult,
   IncompleteTask,
@@ -173,6 +173,31 @@ function flatToDownloadManagerOptions(c: FlatConfig): DownloadManagerOptions {
   };
 }
 
+// ─── Chunk helpers ────────────────────────────────────────────────────────────
+
+function buildFreshChunks(totalSize: number, supportsRanges: boolean, chunkSize: number): CompactChunk[] {
+  if (totalSize <= 0) return [];
+
+  if (!supportsRanges) {
+    return [[0, totalSize - 1, 0]];
+  }
+
+  const chunks: CompactChunk[] = [];
+  let offset = 0;
+  while (offset < totalSize) {
+    const end = Math.min(offset + chunkSize - 1, totalSize - 1);
+    chunks.push([offset, end, 0]);
+    offset = end + 1;
+  }
+  return chunks;
+}
+
+function getDownloadedBytes(state: DownloadState): number {
+  if (state.totalSize <= 0) return 0;
+  const remaining = state.chunks.reduce((sum, c) => sum + (c[1] - c[0] + 1 - c[2]), 0);
+  return state.totalSize - remaining;
+}
+
 // ─── IPSWDownloader ───────────────────────────────────────────────────────────
 
 export class IPSWDownloader extends EventEmitter {
@@ -255,15 +280,15 @@ export class IPSWDownloader extends EventEmitter {
 
       if (state.activeOperation === "download") {
         if (state.tmpPath === null) {
-          if (finalExists && state.chunks.every(c => c.completed)) {
+          if (finalExists && state.chunks.length === 0) {
             this.stateManager.delete(state.id);
             continue;
           } else if (!finalExists) {
-            for (const c of state.chunks) { c.downloaded = 0; c.completed = false; }
+            state.chunks = buildFreshChunks(state.totalSize, state.supportsRanges, this.perf.chunkSize);
             this.stateManager.save(state);
           }
         } else if (!tmpExists) {
-          for (const c of state.chunks) { c.downloaded = 0; c.completed = false; }
+          state.chunks = buildFreshChunks(state.totalSize, state.supportsRanges, this.perf.chunkSize);
           this.stateManager.save(state);
         }
       }
@@ -280,7 +305,7 @@ export class IPSWDownloader extends EventEmitter {
 
       if (!this.config.autoResume) continue;
 
-      const downloadedBytes = state.chunks.reduce((s, c) => s + c.downloaded, 0);
+      const downloadedBytes = getDownloadedBytes(state);
       const task: Task = {
         id: state.id,
         firmware: state.firmware,
@@ -421,10 +446,7 @@ export class IPSWDownloader extends EventEmitter {
 
         const tmpExists = !!(existingState.tmpPath && fs.existsSync(existingState.tmpPath));
         if (!tmpExists) {
-          for (const chunk of existingState.chunks) {
-            chunk.downloaded = 0;
-            chunk.completed = false;
-          }
+          existingState.chunks = buildFreshChunks(existingState.totalSize, existingState.supportsRanges, this.perf.chunkSize);
           this.stateManager.save(existingState);
 
           const spaceCheck = await this.diskManager.hasEnoughSpace(existingState.savePath, existingState.firmware.filesize);
@@ -438,7 +460,7 @@ export class IPSWDownloader extends EventEmitter {
 
         this.diskManager.reserveSpace(options.taskId, existingState.firmware.filesize);
 
-        const downloadedBytes = existingState.chunks.reduce((s, c) => s + c.downloaded, 0);
+        const downloadedBytes = getDownloadedBytes(existingState);
         const resumeTask: Task = {
           id: options.taskId,
           firmware: existingState.firmware,
@@ -582,7 +604,7 @@ export class IPSWDownloader extends EventEmitter {
     return this.stateManager.listAll()
       .filter(s => !this.tasks.has(s.id))
       .map(s => {
-        const downloadedBytes = s.chunks.reduce((sum, c) => sum + c.downloaded, 0);
+        const downloadedBytes = getDownloadedBytes(s);
         const progress = s.totalSize > 0 ? (downloadedBytes / s.totalSize * 100) : 0;
         return {
           id: s.id,
@@ -885,7 +907,7 @@ export class IPSWDownloader extends EventEmitter {
       return {
         id, firmware, savePath, tmpPath, fileName,
         totalSize: 0,
-        chunks: [{ index: 0, start: 0, end: 0, downloaded: 0, completed: true }],
+        chunks: [],
         supportsRanges,
         createdAt: Date.now(), updatedAt: Date.now(),
         activeOperation: "download",
@@ -894,23 +916,9 @@ export class IPSWDownloader extends EventEmitter {
       };
     }
 
-    const chunks: ChunkState[] = [];
-
-    if (supportsRanges) {
-      const baseChunkSize = this.computeAdaptiveChunkSize(totalSize);
-      const effectiveChunkSize = this.perf.chunkSize > 0 ? this.perf.chunkSize : baseChunkSize;
-
-      let offset = 0;
-      let index = 0;
-      while (offset < totalSize) {
-        const end = Math.min(offset + effectiveChunkSize - 1, totalSize - 1);
-        chunks.push({ index, start: offset, end, downloaded: 0, completed: false });
-        offset = end + 1;
-        index++;
-      }
-    } else {
-      chunks.push({ index: 0, start: 0, end: totalSize - 1, downloaded: 0, completed: false });
-    }
+    const baseChunkSize = this.computeAdaptiveChunkSize(totalSize);
+    const effectiveChunkSize = this.perf.chunkSize > 0 ? this.perf.chunkSize : baseChunkSize;
+    const chunks = buildFreshChunks(totalSize, supportsRanges, effectiveChunkSize);
 
     return {
       id, firmware, savePath, tmpPath, fileName,
