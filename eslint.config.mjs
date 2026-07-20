@@ -98,7 +98,7 @@ const rootConfig = tseslint.config({
 });
 
 export default tseslint.config(
-  { ignores: ["dist/**", "src/dist/**", "electron/dist/**", "node_modules/**", "release/**"] },
+  { ignores: ["dist/**", "src/dist/**", "electron/dist/**", "node_modules/**", "release/**", "electron/i10r-addon/**", "publish"] },
   ...commonTS,
   ...frontend,
   ...backend,

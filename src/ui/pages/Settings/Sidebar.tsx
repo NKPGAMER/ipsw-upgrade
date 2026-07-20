@@ -16,11 +16,11 @@ const navItems: NavItem[] = [
   { id: "firmware", icon: IconSoftware, labelKey: "setting.sidebar.firmware" },
 ];
 
-const Sidebar: FC<SidebarProps> = memo(({ active, onNavigate }) => {
+const Sidebar: FC<SidebarProps> = memo(function Sedebar({ active, onNavigate }) {
   const { t } = useTranslation();
 
   return (
-    <nav className="w-52 shrink-0 self-stretch sticky top-0 bg-[#1e1e20] border-r border-white/[0.06] flex flex-col pt-6! pb-4!">
+    <nav className="w-52 shrink-0 self-stretch sticky top-0 bg-[#1e1e20] border-r border-white/6 flex flex-col pt-6! pb-4!">
       <div className="px-4! mb-6!">
         <h2 className="text-[13px] font-semibold text-[#5a6a7a] uppercase tracking-[0.08em]">
           {t("setting.title")}
@@ -37,11 +37,11 @@ const Sidebar: FC<SidebarProps> = memo(({ active, onNavigate }) => {
               className={[
                 "flex items-center gap-3! w-full px-3! py-2.5! rounded-lg text-[13px] font-medium border-none cursor-pointer transition-all duration-150 text-left",
                 isActive
-                  ? "bg-[#0066cc]/15 text-[#2997ff]"
-                  : "bg-transparent text-[#7a7a7a] hover:bg-white/[0.04] hover:text-[#c8c8c8]",
+                  ? "bg-apple-primary/15 text-apple-primary-on-dark"
+                  : "bg-transparent text-apple-ink-muted-48 hover:bg-white/4 hover:text-[#c8c8c8]",
               ].join(" ")}
             >
-              <span className={isActive ? "text-[#2997ff]" : "text-[#5a6a7a]"}>
+              <span className={isActive ? "text-apple-primary-on-dark" : "text-[#5a6a7a]"}>
                 <Icon />
               </span>
               {t(item.labelKey as any)}

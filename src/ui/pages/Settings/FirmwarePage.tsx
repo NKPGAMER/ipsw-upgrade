@@ -9,17 +9,12 @@ import { IconSoftware } from "./icons";
 
 const FirmwarePage: FC = () => {
   const { t } = useTranslation();
-  const [normalizeName, setNormalizeName] = useState<boolean>(false);
+  const [normalizeName, setNormalizeName] = useState<boolean>(state.normalizeName);
   const [linkOutDir, setLinkOutDir] = useState<string>("IPSW_FILES");
-  const [deleteOld, setDeleteOld] = useState<boolean>(false);
-  const [deleteDuplicate, setDeleteDuplicate] = useState<boolean>(false);
+  const [deleteOld, setDeleteOld] = useState<boolean>(state.autoRemoveOldFiles);
+  const [deleteDuplicate, setDeleteDuplicate] = useState<boolean>(state.autoRemoveDuplicateFiles);
 
   useEffect(() => {
-    const s = state;
-    setNormalizeName(s.normalizeName);
-    setDeleteOld(s.autoRemoveOldFiles);
-    setDeleteDuplicate(s.autoRemoveDuplicateFiles);
-
     window.store.get("link_out_dir").then((dir: string) => {
       if (dir) setLinkOutDir(dir);
     });
@@ -72,11 +67,11 @@ const FirmwarePage: FC = () => {
             value={linkOutDir}
             onChange={e => setLinkOutDir(e.target.value)}
             placeholder="IPSW_FILES"
-            className="flex-1 min-w-0 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3! py-2! text-[13px] font-mono text-[#7a7a7a] outline-none caret-[#0066cc] transition-all duration-150 focus:border-[#0066cc] focus:text-white focus:bg-white/[0.06]"
+            className="flex-1 min-w-0 bg-white/4 border border-white/6 rounded-lg px-3! py-2! text-[13px] font-mono text-apple-ink-muted-48 outline-none caret-apple-primary transition-all duration-150 focus:border-apple-primary focus:text-white focus:bg-white/6"
           />
           <button
             onClick={handleSaveLinkConfig}
-            className="px-4! py-2! rounded-full bg-[#0066cc] text-white text-[13px] font-medium border-none cursor-pointer whitespace-nowrap transition-all duration-150 hover:bg-[#0071e3] shrink-0"
+            className="px-4! py-2! rounded-full bg-apple-primary text-white text-[13px] font-medium border-none cursor-pointer whitespace-nowrap transition-all duration-150 hover:bg-apple-primary-focus shrink-0"
           >
             {t("app.firmware.linkOutDir.save")}
           </button>

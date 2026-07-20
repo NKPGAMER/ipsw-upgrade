@@ -35,8 +35,8 @@ const LanguagePage: FC = () => {
                 className={[
                   "px-4! py-2! rounded-lg text-[13px] font-medium border transition-all duration-150 cursor-pointer select-none",
                   language === lang
-                    ? "bg-[#0066cc]/12 border-[#0066cc] text-[#2997ff]"
-                    : "bg-white/[0.04] border-white/[0.06] text-white hover:border-[#0066cc33] hover:text-white",
+                    ? "bg-apple-primary/12 border-apple-primary text-apple-primary-on-dark"
+                    : "bg-white/4 border-white/6 text-white hover:border-[#0066cc33] hover:text-white",
                 ].join(" ")}
               >
                 {lang === "en" ? "English" : "Tiếng Việt"}

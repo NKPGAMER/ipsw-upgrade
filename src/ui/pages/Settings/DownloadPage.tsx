@@ -143,7 +143,7 @@ const DownloadPage: FC = () => {
               max={32}
               value={maxConnections}
               onChange={e => handleSetMaxConnections(e.target.value)}
-              className="w-20 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3! py-2! text-[13px] text-[#e8edf2] text-center outline-none caret-[#0066cc] transition-all duration-150 focus:border-[#0066cc] focus:bg-white/[0.06]"
+              className="w-20 bg-white/4 border border-white/6 rounded-lg px-3! py-2! text-[13px] text-[#e8edf2] text-center outline-none caret-apple-primary transition-all duration-150 focus:border-apple-primary focus:bg-white/6"
             />
           }
         />
@@ -157,7 +157,7 @@ const DownloadPage: FC = () => {
                 min={0}
                 value={bandwidthLimit}
                 onChange={e => handleSetBandwidthLimit(e.target.value)}
-                className="w-20 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3! py-2! text-[13px] text-[#e8edf2] text-center outline-none caret-[#0066cc] transition-all duration-150 focus:border-[#0066cc] focus:bg-white/[0.06]"
+                className="w-20 bg-white/4 border border-white/6 rounded-lg px-3! py-2! text-[13px] text-[#e8edf2] text-center outline-none caret-apple-primary transition-all duration-150 focus:border-apple-primary focus:bg-white/6"
               />
               <span className="text-[12px] text-[#5a6a7a]">KB/s</span>
             </div>
