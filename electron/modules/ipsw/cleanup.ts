@@ -59,12 +59,21 @@ export class IPSWCleanupManager {
 
   /** Removes orphaned .ipsw.tmp files not tied to any active download task. */
   private async cleanTmpFiles(): Promise<FileInfo[]> {
-    const envInfo = await this.downloader.getEnvironmentInfo(this.config.saveDir);
-    const tmpDrivePath = envInfo.tmpDrive?.path;
-    if (!tmpDrivePath) return [];
+    // Direct-download tmp files (when useTmp=false) are in saveDir.
+    // For simplicity, scan saveDir for .ipsw.tmp files.
+    const saveDir = this.config.saveDir;
 
-    const tmpDir = join(tmpDrivePath, "ipswManagerTmp");
-    const allFiles = await this.getFiles(tmpDir, ".ipsw.tmp");
+    const filesInSaveDir = await this.getFiles(saveDir, ".ipsw.tmp");
+
+    // Also check the common tmp location if useTmp was configured
+    let filesInTmpDir: FileInfo[] = [];
+    try {
+      const tmpDrive = path.parse(saveDir).root;
+      const tmpDir = join(tmpDrive, "ipswManagerTmp");
+      filesInTmpDir = await this.getFiles(tmpDir, ".ipsw.tmp");
+    } catch { /* tmp dir may not exist */ }
+
+    const allFiles = [...filesInSaveDir, ...filesInTmpDir];
     if (allFiles.length === 0) return [];
 
     const [allTasks, incompleteTasks] = await Promise.all([
@@ -77,7 +86,6 @@ export class IPSWCleanupManager {
       activeIds.add(t.id);
     }
 
-    // Tmp files are named {taskId}.ipsw.tmp — match by task ID
     const toDelete = (activeIds.size === 0)
       ? allFiles
       : allFiles.filter(f => {

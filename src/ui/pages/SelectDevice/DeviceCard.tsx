@@ -3,10 +3,9 @@ import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { formatBytes, formatEta, Spinner } from "@/ui/shared";
-import type { DeviceEntry } from "./types";
+import type { DeviceEntry } from "@custom-type/downloader";
 import { OS_LABEL, STATUS_CONFIG } from "./constants";
 import { computeCardStatus, resolveProduct } from "./utils";
-import { ModeBadge } from "./ModeBadge";
 import { CardBorderProgress } from "./CardBorderProgress";
 import { DeviceName } from "./DeviceName";
 import { CardSkeleton } from "./CardSkeleton";
@@ -47,8 +46,6 @@ export const DeviceCard = memo(function DeviceCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [flash, setFlash] = useState(false);
-  const [turboFlash, setTurboFlash] = useState(false);
-  const prevMode = useRef(entry.task?.mode);
   const { t } = useTranslation();
 
   const status = computeCardStatus(entry, allFiles, incompleteTasks, linkedGroup);
@@ -62,15 +59,6 @@ export const DeviceCard = memo(function DeviceCard({
     }
     prevPending.current = pending;
   }, [pending]);
-
-  useEffect(() => {
-    const currentMode = entry.task?.mode;
-    if (prevMode.current === "normal" && currentMode === "turbo") {
-      setTurboFlash(true);
-      setTimeout(() => setTurboFlash(false), 2000);
-    }
-    prevMode.current = currentMode;
-  }, [entry.task?.mode, entry.device.name]);
 
   // IntersectionObserver for firmware lazy-load
   useEffect(() => {
@@ -231,7 +219,6 @@ export const DeviceCard = memo(function DeviceCard({
                   />
                   <span className={`text-[11px] font-semibold ${cfg.textClass}`}>{t(cfg.labelId as any)}</span>
                 </div>
-                {entry.task?.mode && <ModeBadge mode={entry.task.mode} flash={turboFlash} />}
               </div>
               <div className="flex items-end justify-between">
                 <div className="flex items-baseline gap-1">

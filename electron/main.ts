@@ -9,7 +9,7 @@ import { autoUpdater } from "electron-updater";
 // System
 import { join } from "path";
 // Modules
-import { getDiskSpace, formatBytes } from "./modules/disk";
+import { getDiskSpace } from "./modules/disk";
 import { DataHandle } from "./service/ipswData";
 import { IPSWWatcher } from "./modules/ipswWatcher";
 import { IPSWHardLinkManager } from "./modules/ipswHardLinkManager";
@@ -68,8 +68,8 @@ const storeGet = (key: string, fallback?: any) => s.get(key) ?? fallback;
 
 function createSplashWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 380,
-    height: 380,
+    width: 360,
+    height: 360,
     frame: false,
     alwaysOnTop: true,
     transparent: true,
@@ -128,12 +128,31 @@ async function init(): Promise<void> {
 
   setWin(mainWindow);
 
-  dl = new DownloaderMain(mainWindow, {
-    saveDir: ipswFolder,
-    turboMode: storeGet("turboMode", false),
-    skipVerify: storeGet("skipVerify", false),
-    insecureTLS: process.env.IPSW_INSECURE_TLS === "1",
-    autoResume: false
+  const defaultConfig = {
+    paths: { saveDir: ipswFolder, stateDir: join(app.getPath("userData"), "ipsw-state") },
+    recovery: { autoResume: false },
+  };
+
+  const savedConfig = storeGet("downloaderConfig", {});
+
+  // Filter out empty/falsy values from saved paths to avoid overwriting defaults
+  const savedPaths = savedConfig.paths ?? {};
+  const cleanPaths: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(savedPaths)) {
+    if (v) cleanPaths[k] = v as string;
+  }
+
+  const mergedConfig = {
+    paths: { ...defaultConfig.paths, ...cleanPaths },
+    recovery: { ...defaultConfig.recovery, ...savedConfig.recovery },
+    ...(savedConfig.network && { network: savedConfig.network }),
+    ...(savedConfig.scheduler && { scheduler: savedConfig.scheduler }),
+    ...(savedConfig.download && { download: savedConfig.download }),
+    ...(savedConfig.integrity && { integrity: savedConfig.integrity }),
+  };
+
+  dl = new DownloaderMain(mainWindow, mergedConfig, (config) => {
+    s.set("downloaderConfig", config);
   });
 
   dh = new DataHandle(mainWindow);
@@ -298,7 +317,6 @@ const handlers: IpcHandler[] = [
 
   // Disk
   ["getDiskSpace", (_, targetPath: string) => getDiskSpace(targetPath)],
-  ["formatBytes", (_, bytes: number, decimals: number) => formatBytes(bytes, decimals)],
 
   // Updater
   ["updater:getStatus", () => updateStatus],

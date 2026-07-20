@@ -11,7 +11,7 @@
         "paths": {
             "@/*": ["./src/*"],
             "@pages/*": ["./src/ui/pages/*"],
-            "@global-type": ["./@types/global.d.ts"]
+            "@custom-type/*": ["./@types/*"]
         }
     },
     "include": ["src", "@types"]

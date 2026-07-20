@@ -1,4 +1,4 @@
-import type { CardTask } from "./types";
+import type { CardTask } from "@custom-type/downloader";
 
 export interface StatusConfig {
   labelId: string;

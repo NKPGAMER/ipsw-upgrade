@@ -38,8 +38,6 @@ export const state = {
   set autoRemoveOldFiles(v: boolean) { useAppStore.getState().setAutoRemoveOldFiles(v); },
   get autoRemoveDuplicateFiles() { return useAppStore.getState().autoRemoveDuplicateFiles; },
   set autoRemoveDuplicateFiles(v: boolean) { useAppStore.getState().setAutoRemoveDuplicateFiles(v); },
-  get turboMode() { return useAppStore.getState().turboMode; },
-  set turboMode(v: boolean) { useAppStore.getState().setTurboMode(v); },
   get isNewVersion() { return useAppStore.getState().isNewVersion; },
   set isNewVersion(v: boolean) { useAppStore.getState().setIsNewVersion(v); },
   get __init() { return useAppStore.getState().__init; },

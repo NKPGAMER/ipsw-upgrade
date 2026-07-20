@@ -6,7 +6,7 @@ import { useNetworkStatus } from "./core/useNetworkStatus";
 import { ErrorBoundarySection } from "./ui/ErrorBoundarySection";
 
 const Home = lazy(() => import("./ui/home"));
-const Settings = lazy(() => import("./ui/setting"));
+const Settings = lazy(() => import("@pages/Settings/index"));
 const Downloads = lazy(() => import("./ui/download"));
 const SelectDevice = lazy(() => import("@pages/SelectDevice/index"));
 const IPSWUpdateManager = lazy(() => import("./ui/IPSWUpdateManager"));

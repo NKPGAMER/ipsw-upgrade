@@ -1,4 +1,3 @@
-// Public surface of the downloader module
 export { IPSWDownloader } from "./downloader";
 export { DownloaderMain } from "./downloader-main";
 export { DiskManager } from "./disk-manager";
@@ -10,15 +9,12 @@ export { IntegrityChecker } from "./integrity";
 export type {
   Task,
   TaskStatus,
-  DownloadMode,
   ChunkState,
   DownloadState,
   AddResult,
-  DownloaderConfig,
+  DownloadManagerOptions,
+  AddOptions,
   IncompleteTask,
-  DiskInfo,
-  DriveEnvInfo,
-  DiskEnvironmentInfo,
-} from "./types";
+} from "@custom-type/downloader";
 
 export type { MainToWorker, WorkerToMain, WorkerEvent, WorkerReply } from "./worker-messages";

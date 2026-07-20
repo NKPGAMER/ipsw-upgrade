@@ -1,6 +1,4 @@
-export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "cancelled";
-
-export type DownloadMode = "turbo" | "normal";
+﻿export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "transferring" | "cancelled";
 
 export type EventChannel = "started" | "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
 
@@ -13,7 +11,6 @@ export interface Task {
   eta?: number;
   error?: string;
   savePath: string;
-  mode: DownloadMode;
 }
 
 export interface ChunkState {
@@ -28,18 +25,16 @@ export interface DownloadState {
   id: string;
   firmware: Firmware;
   savePath: string;
-  tmpPath: string;
+  tmpPath: string | null;
+  fileName: string;
   totalSize: number;
   chunks: ChunkState[];
   supportsRanges: boolean;
   createdAt: number;
   updatedAt: number;
-  mode: DownloadMode;
-  movedChunks: number[];
-  activeOperation: "download" | "verify" | "move";
+  activeOperation: "download" | "verify" | "move" | "transfer";
   lastCheckpoint: number;
   lastWriteTime: number;
-  taskStatus: TaskStatus;
 }
 
 export interface AddResult {
@@ -53,55 +48,54 @@ export interface LifecycleResult {
   error?: "NOT_FOUND" | "INVALID_STATUS";
 }
 
-export interface DownloadRequestConfig {
-  deleteFiles?: IPSWFile[];
+export interface AddOptions {
   taskId?: string;
-  savePath?: string;
-}
-
-export interface DiskInfo {
-  path: string;
-  available: number;
-  total: number;
-  isSSd: boolean;
 }
 
 export interface IncompleteTask {
   id: string;
   firmware: Firmware;
   savePath: string;
-  tmpPath: string;
+  tmpPath: string | null;
+  fileName: string;
   totalSize: number;
   downloadedBytes: number;
-  progress: number;          // 0–100
-  tmpExists: boolean;        // tmp file still on disk
-  savedAt: number;           // updatedAt timestamp from state
-  mode: DownloadMode;
-  movedChunks: number[];
+  progress: number;
+  tmpExists: boolean;
+  savedAt: number;
 }
 
-export interface DownloaderConfig {
-  maxConcurrentTasks?: number;
-  maxConnectionsPerTask?: number;
-  initialConnectionsPerTask?: number;
-  chunkSize?: number;
-  retryLimit?: number;
-  retryDelay?: number;
-  diskBufferGB?: number;
-  bandwidthLimitBps?: number;
-  tmpDir?: string;
-  autoResume?: boolean;
-}
-
-export interface DriveEnvInfo {
-  path: string;
-  mediaType: "SSD" | "HDD";
-}
-
-export interface DiskEnvironmentInfo {
-  environment: "ssd_save" | "hdd_ssd_tmp" | "hdd_only";
-  saveDrive: DriveEnvInfo;
-  tmpDrive: DriveEnvInfo | null;
+export interface DownloadManagerOptions {
+  paths: {
+    saveDir: string;
+    stateDir: string;
+    useTmp?: boolean;
+  };
+  network?: {
+    maxConnections?: number;
+    bandwidthLimit?: number;
+  };
+  scheduler?: {
+    maxSsdTasks?: number;
+    maxHddTasks?: number;
+    maxExternalSsdTasks?: number;
+    maxUsbTasks?: number;
+    maxTransfers?: number;
+  };
+  download?: {
+    performance?: "normal" | "high";
+    maxTaskConnections?: number;
+    taskInitConnections?: number;
+    retryLimit?: number;
+    retryDelay?: number;
+  };
+  integrity?: {
+    enable?: boolean;
+    algorithm?: "MD5" | "SHA1" | "SHA256";
+  };
+  recovery?: {
+    autoResume?: boolean;
+  };
 }
 
 export interface DownloadEvents {

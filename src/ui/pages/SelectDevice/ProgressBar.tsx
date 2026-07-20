@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { TaskStatus } from "../../../../@types/global";
+import type { TaskStatus } from "@custom-type/downloader";
 
 const PROGRESS_COLOR_MAP: Partial<Record<string, string>> = {
   downloading: "bg-[#0066cc]",

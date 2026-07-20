@@ -4,29 +4,27 @@
  * Keep this file free of any Electron imports — it must be importable in both contexts.
  */
 
-import type { Task, DownloaderConfig, DownloadRequestConfig } from "./types";
+import type { Task, DownloadManagerOptions, AddOptions } from "@custom-type/downloader";
 
 // ─── Main → Worker ────────────────────────────────────────────────────────────
 
 export type MainToWorker =
-  | { type: "init";               config: DownloaderConfig; stateDir: string }
-  | { type: "add";                reqId: string; firmware: Firmware; config: DownloadRequestConfig }
+  | { type: "init";               config: DownloadManagerOptions }
+  | { type: "add";                reqId: string; firmware: Firmware; options: AddOptions }
   | { type: "pause";              reqId: string; id: string }
   | { type: "resume";             reqId: string; id: string }
   | { type: "cancel";             reqId: string; id: string }
   | { type: "getAllTask";         reqId: string }
   | { type: "getIncompleteTasks"; reqId: string }
-  | { type: "resumeIncomplete";   reqId: string; id: string }
-  | { type: "deleteIncomplete";   reqId: string; id: string }
-  | { type: "getEnvironmentInfo"; reqId: string; savePath: string };
+ | { type: "deleteIncomplete";   reqId: string; id: string }
+  | { type: "getConfig";          reqId: string }
+  | { type: "setConfig";          reqId: string; partial: DownloadManagerOptions };
 
 // ─── Worker → Main ────────────────────────────────────────────────────────────
 
-/** Responses to request/reply calls */
 export type WorkerReply =
   | { type: "reply"; reqId: string; result: any; error?: string };
 
-/** Spontaneous event emissions */
 export type WorkerEvent =
   | { type: "event"; channel: "started";            taskId: string; task: Task }
   | { type: "event"; channel: "progress";           taskId: string; task: Task }

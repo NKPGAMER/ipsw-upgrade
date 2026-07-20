@@ -46,40 +46,6 @@ const StorageFreeIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
   </svg>
 );
 
-const CpuIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#0066cc" strokeWidth={1.5}
-    strokeLinecap="round" style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}>
-    <rect x="4" y="4" width="16" height="16" rx="2" />
-    <rect x="9" y="9" width="6" height="6" />
-    <line x1="9" y1="1" x2="9" y2="4" />
-    <line x1="15" y1="1" x2="15" y2="4" />
-    <line x1="9" y1="20" x2="9" y2="23" />
-    <line x1="15" y1="20" x2="15" y2="23" />
-    <line x1="20" y1="9" x2="23" y2="9" />
-    <line x1="20" y1="14" x2="23" y2="14" />
-    <line x1="1" y1="9" x2="4" y2="9" />
-    <line x1="1" y1="14" x2="4" y2="14" />
-  </svg>
-);
-
-const HddIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#0066cc" strokeWidth={1.5}
-    strokeLinecap="round" style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}>
-    <ellipse cx="12" cy="5" rx="9" ry="3" />
-    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-    <line x1="6" y1="10" x2="6.01" y2="10" />
-    <line x1="9" y1="10" x2="9.01" y2="10" />
-    <line x1="12" y1="10" x2="12.01" y2="10" />
-  </svg>
-);
-
-const ENV_LABEL: Record<string, string> = {
-  ssd_save: "SSD Trực tiếp",
-  hdd_ssd_tmp: "HDD + SSD TMP",
-  hdd_only: "HDD Thuần",
-};
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ProductId =
@@ -138,103 +104,100 @@ const ICONS = {
   usedLg: <StorageUsedIcon size="lg" />,
   freeSm: <StorageFreeIcon size="sm" />,
   freeLg: <StorageFreeIcon size="lg" />,
-  cpuSm: <CpuIcon size="sm" />,
-  cpuLg: <CpuIcon size="lg" />,
-  hddSm: <HddIcon size="sm" />,
-  hddLg: <HddIcon size="lg" />,
 } as const;
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
 
-const StatCard = memo(({ label, value, unit, iconSm, iconLg, color }: StatItem) => (
-  <div className="relative overflow-hidden rounded-xl! bg-[#272729] border border-white/[0.06] p-4! flex flex-col gap-2!">
-    <div className="absolute top-0 left-0 right-0 h-0.5! bg-[#0066cc] opacity-50" />
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-[0.6] pointer-events-none">
-      {iconLg}
+const StatCard = memo(function StatCard({ label, value, unit, iconSm, iconLg, color }: StatItem) {
+  return (
+    <div className="relative overflow-hidden rounded-xl! bg-apple-tile-1 border border-white/6 p-4! flex flex-col gap-2!">
+      <div className="absolute top-0 left-0 right-0 h-0.5! bg-apple-primary opacity-50" />
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-[0.6] pointer-events-none">
+        {iconLg}
+      </div>
+      <div className="flex items-center gap-1.5!">
+        {iconSm}
+        <span className="text-[11px]! text-apple-ink-muted-48 uppercase tracking-[0.06em] font-medium">
+          {label}
+        </span>
+      </div>
+      {color
+        ? <span className="text-[22px]! font-semibold leading-none">
+          <span className={color}>{value}</span>
+          <small className="text-[13px]! text-apple-ink-muted-48 font-normal ml-1!">{unit}</small>
+        </span>
+        : <span className="text-[22px]! font-semibold text-white leading-none">
+          {value}
+          <small className="text-[13px]! text-apple-ink-muted-48 font-normal ml-1!">{unit}</small>
+        </span>
+      }
     </div>
-    <div className="flex items-center gap-1.5!">
-      {iconSm}
-      <span className="text-[11px]! text-[#7a7a7a] uppercase tracking-[0.06em] font-medium">
-        {label}
-      </span>
-    </div>
-    {color
-      ? <span className="text-[22px]! font-semibold leading-none">
-        <span className={color}>{value}</span>
-        <small className="text-[13px]! text-[#7a7a7a] font-normal ml-1!">{unit}</small>
-      </span>
-      : <span className="text-[22px]! font-semibold text-white leading-none">
-        {value}
-        <small className="text-[13px]! text-[#7a7a7a] font-normal ml-1!">{unit}</small>
-      </span>
-    }
-  </div>
-));
+  )
+});
 
 // ── StatCardSkeleton — shimmer khi đang tải ───────────────────────────────────
 
-const StatCardSkeleton = memo(() => (
-  <div className="relative overflow-hidden rounded-xl! bg-[#272729] border border-white/[0.06] p-4! flex flex-col gap-2!">
-    <div className="absolute top-0 left-0 right-0 h-0.5! bg-[#0066cc] opacity-30" />
-    <div className="absolute inset-0 pointer-events-none animate-ld-shimmer"
-      style={{
-        background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%)",
-      }}
-    />
-    <div className="flex items-center gap-1.5!">
-      <div className="w-4! h-4! rounded! bg-white/[0.06]" />
-      <div className="h-2.5! w-24! rounded! bg-white/[0.06]" />
+const StatCardSkeleton = memo(function StatCardSkeleton() {
+  return (
+    <div className="relative overflow-hidden rounded-xl! bg-apple-tile-1 border border-white/6 p-4! flex flex-col gap-2!">
+      <div className="absolute top-0 left-0 right-0 h-0.5! bg-apple-primary opacity-30" />
+      <div className="absolute inset-0 pointer-events-none animate-ld-shimmer"
+        style={{
+          background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%)",
+        }}
+      />
+      <div className="flex items-center gap-1.5!">
+        <div className="w-4! h-4! rounded! bg-white/6" />
+        <div className="h-2.5! w-24! rounded! bg-white/6" />
+      </div>
+      <div className="h-6! w-16! rounded! bg-white/6" />
     </div>
-    <div className="h-6! w-16! rounded! bg-white/[0.06]" />
-  </div>
-));
+  )
+});
 
 // ── ProductCard ───────────────────────────────────────────────────────────────
 
-const ProductCard = memo(({ product, onClick }: { product: Product; onClick: () => void }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className="
+const ProductCard = memo(function ProductCard({ product, onClick }: { product: Product; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="
       flex flex-col items-center justify-center h-40 gap-2.5! rounded-xl!
-      bg-[#272729] border border-white/[0.06]
+      bg-apple-tile-1 border border-white/6
       px-3! pt-5! pb-4!
       cursor-pointer select-none text-center w-full
       transition-all duration-150
-      hover:bg-[#2a2a2c] hover:border-[#0066cc33] hover:-translate-y-px
+      hover:bg-apple-tile-2 hover:border-[#0066cc33] hover:-translate-y-px
       active:scale-[0.97]
     "
-  >
-    <div className="w-14! h-14! bg-white/[0.06] rounded-xl! flex items-center justify-center border border-white/[0.06] shrink-0">
-      <div
-        className="w-10! h-10! bg-[#0066cc]"
-        style={{
-          WebkitMask: `url(${product.img}) center / contain no-repeat`,
-          mask: `url(${product.img}) center / contain no-repeat`,
-        }}
-      />
-    </div>
-    <span className="text-[14px]! font-semibold text-white leading-snug">{product.name}</span>
-    {product.badge && (
-      <span className="text-[9.5px]! font-medium tracking-[0.03em] bg-[#0066cc18] text-[#0066cc] border border-[#0066cc30] rounded-[5px]! px-1.75! py-0.5!">
-        {product.badge}
-      </span>
-    )}
-    {!product.badge && product.sub && (
-      <span className="text-[10.5px]! text-[#7a7a7a]">{product.sub}</span>
-    )}
-  </button>
-));
+    >
+      <div className="w-14! h-14! bg-white/6 rounded-xl! flex items-center justify-center border border-white/6 shrink-0">
+        <div
+          className="w-10! h-10! bg-apple-primary"
+          style={{
+            WebkitMask: `url(${product.img}) center / contain no-repeat`,
+            mask: `url(${product.img}) center / contain no-repeat`,
+          }}
+        />
+      </div>
+      <span className="text-[14px]! font-semibold text-white leading-snug">{product.name}</span>
+      {product.badge && (
+        <span className="text-[9.5px]! font-medium tracking-[0.03em] bg-[#0066cc18] text-apple-primary border border-[#0066cc30] rounded-[5px]! px-1.75! py-0.5!">
+          {product.badge}
+        </span>
+      )}
+      {!product.badge && product.sub && (
+        <span className="text-[10.5px]! text-apple-ink-muted-48">{product.sub}</span>
+      )}
+    </button>
+  )
+});
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [envInfo, setEnvInfo] = useState<{
-    environment: string;
-    saveDrive: { path: string; mediaType: string };
-    tmpDrive: { path: string; mediaType: string } | null;
-  } | null>(null);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
@@ -244,7 +207,7 @@ export default function Home() {
       window.api.getDiskSpace(state.currentFolder),
       Promise.resolve(ipswClient.getFiles()),
     ]).then(([freeSpace, allFiles]) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || !freeSpace) return;
       const pct = freeSpace.percentage;
       setStats({
         fileCount: allFiles.length,
@@ -256,13 +219,6 @@ export default function Home() {
       });
     }).catch((err) => {
       console.error("[Home] reloadStats phase1 failed:", err);
-    });
-
-    window.downloader.getEnvironmentInfo(state.currentFolder).then((env) => {
-      if (!mountedRef.current) return;
-      setEnvInfo(env);
-    }).catch((err) => {
-      console.error("[Home] reloadStats phase2 failed:", err);
     });
   }, []);
 
@@ -315,48 +271,20 @@ export default function Home() {
     },
   ], [stats]);
 
-  const envStatItems: StatItem[] = useMemo(() => {
-    const env = envInfo;
-    return [
-      {
-        label: "Môi trường",
-        value: env ? ENV_LABEL[env.environment] ?? env.environment : "-",
-        unit: "",
-        iconSm: ICONS.cpuSm,
-        iconLg: ICONS.cpuLg,
-      },
-      {
-        label: "Ổ đĩa lưu",
-        value: env ? env.saveDrive.path : "-",
-        unit: env ? env.saveDrive.mediaType : "",
-        iconSm: ICONS.hddSm,
-        iconLg: ICONS.hddLg,
-      },
-      {
-        label: "Ổ đĩa TMP",
-        value: env?.tmpDrive ? env.tmpDrive.path : (env ? "—" : "-"),
-        unit: env?.tmpDrive ? env.tmpDrive.mediaType : "",
-        iconSm: ICONS.hddSm,
-        iconLg: ICONS.hddLg,
-      },
-    ];
-  }, [envInfo]);
-
-
   useEffect(() => window.api.ready(), []);
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[#252527] text-white">
+    <div className="flex flex-col min-h-screen w-full bg-apple-tile-3 text-white">
 
       {/* ── Taskbar ─────────────────────────────────────────────────────────── */}
       <header className="
         sticky top-0 z-10 shrink-0
         flex items-center justify-between
-        bg-[#252527] border-b border-white/[0.06]
+        bg-apple-tile-3 border-b border-white/6
         px-6! h-11!
       ">
         <h1 className="text-[14px]! font-semibold tracking-[-0.01em] text-white">
-          <span className="text-[#2997ff]">IPSW</span> Manager
+          <span className="text-apple-primary-on-dark">IPSW</span> Manager
         </h1>
         <div className="flex items-center gap-2!">
           {updateVersion && state.isNewVersion && (
@@ -366,13 +294,13 @@ export default function Home() {
               title={`Cập nhật ${updateVersion}`}
               className="
                 flex items-center gap-1.5! h-8.5! rounded-full! px-3!
-                bg-[#0066cc18] border border-[#0066cc44] text-[#2997ff] cursor-pointer
+                bg-[#0066cc18] border border-[#0066cc44] text-apple-primary-on-dark cursor-pointer
                 transition-all duration-150
                 hover:bg-[#0066cc28] hover:border-[#0066cc66]
                 active:scale-[0.97]
               "
             >
-              <span className="w-1.5! h-1.5! rounded-full bg-[#0066cc] animate-pulse" />
+              <span className="w-1.5! h-1.5! rounded-full bg-apple-primary animate-pulse" />
               <span className="text-[11px]! font-semibold tracking-[0.02em]">Cập nhật lên {updateVersion}</span>
             </button>
           )}
@@ -382,9 +310,9 @@ export default function Home() {
             title="Cài đặt"
             className="
               w-8.5! h-8.5! rounded-lg! flex items-center justify-center
-              bg-transparent border border-white/[0.06] text-[#7a7a7a] cursor-pointer
+              bg-transparent border border-white/6 text-apple-ink-muted-48 cursor-pointer
               transition-all duration-150
-              hover:bg-white/[0.06] hover:border-[#0066cc44] hover:text-[#0066cc]
+              hover:bg-white/6 hover:border-[#0066cc44] hover:text-apple-primary
             "
           >
             <SettingsIcon />
@@ -418,31 +346,8 @@ export default function Home() {
           }
         </motion.div>
 
-        {/* Environment row */}
-        <motion.div
-          className="grid grid-cols-3 gap-3! mb-7!"
-          initial="hidden"
-          animate="show"
-          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.06 } } }}
-        >
-          {envInfo === null
-            ? Array.from({ length: 3 }, (_, i) => <StatCardSkeleton key={i} />)
-            : envStatItems.map((s) => (
-              <motion.div
-                key={s.label}
-                variants={{
-                  hidden: { opacity: 0, y: 8 },
-                  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0, 0, 0.2, 1] } },
-                }}
-              >
-                <StatCard {...s} />
-              </motion.div>
-            ))
-          }
-        </motion.div>
-
         {/* Section label */}
-        <p className="text-[11px]! text-[#7a7a7a] uppercase tracking-[0.07em] font-medium mb-3.5!">
+        <p className="text-[11px]! text-apple-ink-muted-48 uppercase tracking-[0.07em] font-medium mb-3.5!">
           Chọn thiết bị
         </p>
 

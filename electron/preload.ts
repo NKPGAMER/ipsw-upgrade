@@ -75,15 +75,15 @@ const updaterApi: ElectronUpdaterApi = {
 };
 
 const downloaderAPI: DownloaderAPI = {
-  add: (fw, config) => ipcRenderer.invoke('dm:add', fw, config),
+  add: (fw, options) => ipcRenderer.invoke('dm:add', fw, options),
   pause: (id) => ipcRenderer.invoke("dm:pause", id),
   resume: (id) => ipcRenderer.invoke("dm:resume", id),
   cancel: (id) => ipcRenderer.invoke("dm:cancel", id),
   getAllTask: () => ipcRenderer.invoke("dm:getAllTask"),
   getIncompleteTasks: () => ipcRenderer.invoke("dm:getIncompleteTasks"),
-  resumeIncomplete: (id) => ipcRenderer.invoke("dm:resumeIncomplete", id),
   deleteIncomplete: (id) => ipcRenderer.invoke("dm:deleteIncomplete", id),
-  getEnvironmentInfo: (savePath: string) => ipcRenderer.invoke("dm:getEnvironmentInfo", savePath),
+  getConfig: () => ipcRenderer.invoke("dm:getConfig"),
+  setConfig: (partial) => ipcRenderer.invoke("dm:setConfig", partial),
 
   onStarted: (cb) => listen("dm:started", cb),
   onAdded: (cb) => listen("dm:added", cb),

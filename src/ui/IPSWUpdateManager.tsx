@@ -618,11 +618,14 @@ export default function IPSWUpdateManager() {
     subsRef.current.forEach((s) => s.unsubscribe());
     subsRef.current = subs;
 
-    const savePath = globalState.currentFolder;
     for (const entry of pendingEntries) {
       updateState(entry.firmware.url, { status: "queued", progress: 0 });
       try {
-        const result = await d.add(entry.firmware, { savePath, deleteFiles: entry.oldFiles });
+        // Delete old files before adding download
+        if (entry.oldFiles.length > 0) {
+          await window.api.file.delete(entry.oldFiles);
+        }
+        const result = await d.add(entry.firmware);
         if (!result.success) {
           updateState(entry.firmware.url, {
             status: "error",

@@ -1,16 +1,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
-import type { Task } from "../../../../@types/global";
 import { download, deleteFile, updateFirmware, getRedundantFilesFromProduct, getFileNameFromUrl, parseIPSW } from "@/core/helper";
 import { state, DEVICE_GROUPS } from "@/data";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ProductId } from "@/ui/home";
 import { ipswClient } from "@/init";
-import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { state as globalState } from "@/data";
 import utils from "@/core/utils";
-import type { ControlAction, DeviceEntry, VerifyState } from "./types";
 import { DeviceCard } from "./DeviceCard";
 import { DetailPanel } from "./DetailPanel";
 import { Resizer } from "./Resizer";
@@ -18,6 +15,10 @@ import { TASKBAR_ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
 import { CardSkeleton } from "./CardSkeleton";
 import "./styles.css";
+
+import type { Task } from "@custom-type/downloader";
+import type { IncompleteTaskClient } from "@/core/ipswClient";
+import type { ControlAction, DeviceEntry, VerifyState } from "./types";
 
 const PENDING_TIMEOUT_MS = 15000;
 
@@ -774,7 +775,7 @@ export default function IPSWManager() {
     <div className="fixed inset-0 z-1000">
       <div
         ref={containerRef}
-        className="flex h-full bg-[#252527] text-white overflow-hidden"
+        className="flex h-full bg-apple-tile-3 text-white overflow-hidden"
       >
         <div
           className="flex flex-col overflow-hidden shrink-0"
@@ -783,12 +784,12 @@ export default function IPSWManager() {
             transition: isResizing ? "none" : "width 220ms cubic-bezier(0.2, 0, 0, 1)",
           }}
         >
-          <div className="flex items-center gap-2 px-3! h-11 border-b border-white/[0.06] shrink-0 bg-[#252527]">
+          <div className="flex items-center gap-2 px-3! h-11 border-b border-white/6 shrink-0 bg-apple-tile-3">
             <div className="flex items-center gap-2 shrink-0 min-w-0">
               <span className="text-[16px] font-bold text-gray-200 whitespace-nowrap">{entries.length} thiết bị</span>
             </div>
             <div className="flex-1 flex justify-center px-2!">
-              <div className="flex items-center gap-2 px-2.5! py-1.5! rounded-lg bg-white/[0.04] border border-white/[0.06] w-full max-w-xs hover:border-white/[0.1] focus-within:border-[#0066cc]/45 transition-colors">
+              <div className="flex items-center gap-2 px-2.5! py-1.5! rounded-lg bg-white/4 border border-white/6 w-full max-w-xs hover:border-white/10 focus-within:border-apple-primary/45 transition-colors">
                 <svg className="w-3 h-3 text-gray-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <circle cx="11" cy="11" r="8" />
                   <path d="m21 21-4.35-4.35" strokeLinecap="round" />
@@ -813,7 +814,7 @@ export default function IPSWManager() {
             <div className="flex items-center justify-between gap-1.5 shrink-0">
               <Tooltip label={t("tooltip.updateFirmware")} position="bottom">
                 <button
-                  className="w-10 h-8 p-2! rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[#7a7a7a] hover:text-white flex items-center justify-center transition-colors shrink-0"
+                  className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
                   onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
                 >
                   {TASKBAR_ICON.update}
@@ -823,7 +824,7 @@ export default function IPSWManager() {
               <Tooltip label={t("tooltip.removeRedundantFiles")} position="bottom">
                 <button
                   onClick={async () => handleRedundantFiles()}
-                  className="w-10 h-8 p-2! rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[#7a7a7a] hover:text-white flex items-center justify-center transition-colors shrink-0"
+                  className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
                 >
                   {TASKBAR_ICON.delete}
                 </button>
@@ -832,7 +833,7 @@ export default function IPSWManager() {
               <Tooltip label={t("tooltip.downloads")} position="bottom">
                 <button
                   onClick={() => navigate("/downloads")}
-                  className="w-10 h-8 p-2! rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[#7a7a7a] hover:text-white flex items-center justify-center transition-colors shrink-0"
+                  className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
                 >
                   {TASKBAR_ICON.download}
                 </button>
@@ -840,7 +841,7 @@ export default function IPSWManager() {
 
                 <button
                   onClick={() => navigate("/")}
-                  className="w-10 h-8 rounded-lg bg-white/[0.04] hover:bg-[#ff3b30]/15 border border-white/[0.06] hover:border-[#ff3b30]/25 text-[#7a7a7a] hover:text-[#ff453a] flex items-center justify-center transition-all"
+                  className="w-10 h-8 rounded-lg bg-white/4 hover:bg-[#ff3b30]/15 border border-white/6 hover:border-[#ff3b30]/25 text-apple-ink-muted-48 hover:text-[#ff453a] flex items-center justify-center transition-all"
                 >
                   {TASKBAR_ICON.close}
                 </button>
@@ -863,7 +864,7 @@ export default function IPSWManager() {
                       hidden: { opacity: 0, y: 8 },
                       show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0, 0, 0.2, 1] } },
                     }}
-                    className="h-50 relative rounded-[14px] cursor-default select-none overflow-hidden bg-[#272729] border border-white/[0.06]"
+                    className="h-50 relative rounded-[14px] cursor-default select-none overflow-hidden bg-apple-tile-1 border border-white/6"
                   >
                     <CardSkeleton />
                   </motion.div>
@@ -881,7 +882,7 @@ export default function IPSWManager() {
                 {groupedEntries.ungroupedEntries.length > 0 && (
                   <div className="space-y-2!">
                     <div className="flex items-center gap-2 px-1! mt-3! mb-2!">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#0066cc]" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-apple-primary" />
                       <h3 className="text-[18px] font-bold text-gray-200">{ungroupedTitle}</h3>
                       <span className="text-[12px] text-gray-400">{groupedEntries.ungroupedEntries.length} models</span>
                     </div>
@@ -917,7 +918,7 @@ export default function IPSWManager() {
                 {groupedEntries.selectedGroups.map(group => (
                   <div key={group.name} className="space-y-2!">
                     <div className="flex items-center gap-2 px-1! mt-2.5!">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#0066cc]" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-apple-primary" />
                       <h3 className="text-[16px] font-semibold text-gray-200">{group.name}</h3>
                       <span className="text-[12px] text-gray-400">{group.entries.length} models</span>
                     </div>
@@ -966,7 +967,7 @@ export default function IPSWManager() {
               />
               <motion.div
                 key="detail-panel"
-                className="flex-1 min-w-0 border-l border-white/[0.06] bg-[#272729] overflow-hidden"
+                className="flex-1 min-w-0 border-l border-white/6 bg-apple-tile-1 overflow-hidden"
                 initial={{ opacity: 0, x: 24 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: [0.2, 0, 0, 1] } }}
                 exit={{ opacity: 0, x: 20, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } }}

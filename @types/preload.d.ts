@@ -3,7 +3,7 @@ import type { UpdateInfo } from "electron-updater";
 import type { FSWatcher, WriteStream } from 'fs';
 import type { ChildProcess } from 'child_process';
 import type { ClientRequest } from "http";
-import type { Task, AddResult, IncompleteTask, DownloadRequestConfig, EventChannel, DiskEnvironmentInfo, LifecycleResult } from "./global"
+import type { Task, AddResult, IncompleteTask, AddOptions, DownloadManagerOptions, EventChannel, LifecycleResult } from "./downloader"
 
 /* ---------- Common types ---------- */
 
@@ -77,15 +77,15 @@ interface ElectronUpdaterApi {
 }
 
 interface DownloaderAPI {
-  add: (firmware: Firmware, config?: DownloadRequestConfig) => Promise<AddResult>;
+  add: (firmware: Firmware, options?: AddOptions) => Promise<AddResult>;
   pause: (id: string) => Promise<LifecycleResult>;
   resume: (id: string) => Promise<LifecycleResult>;
   cancel: (id: string) => Promise<LifecycleResult>;
   getAllTask: () => Promise<Task[]>;
   getIncompleteTasks: () => Promise<IncompleteTask>;
-  resumeIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
   deleteIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
-  getEnvironmentInfo: (savePath: string) => Promise<DiskEnvironmentInfo>;
+  getConfig: () => Promise<DownloadManagerOptions>;
+  setConfig: (partial: DownloadManagerOptions) => Promise<void>;
 
   verifyChecksum: (identifier: string, filePath: string, firmware: Firmware) => Promise<void>;
   cancelVerify: (identifier: string) => Promise<void>;

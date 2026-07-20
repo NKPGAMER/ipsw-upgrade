@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { formatBytes, formatEta, Spinner } from "@/ui/shared";
-import type { CardTask, ControlAction, DeviceEntry, VerifyState } from "./types";
+import type { CardTask, ControlAction, DeviceEntry, VerifyState } from "@custom-type/downloader";
 import { STATUS_CONFIG, STATUS_LABEL, STATUS_COLOR } from "./constants";
 import { ProgressBar } from "./ProgressBar";
 import type { TaskStatus } from "@global-type"

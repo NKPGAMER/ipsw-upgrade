@@ -3,9 +3,9 @@ import { Worker } from "worker_threads";
 import { randomUUID } from "crypto";
 
 import type { MainToWorker, WorkerToMain } from "./worker-messages";
-import type { DownloaderConfig, DownloadRequestConfig, EventChannel, AddResult, IncompleteTask, Task, LifecycleResult } from "./types";
+import type { DownloadManagerOptions, AddOptions, EventChannel, AddResult, IncompleteTask, Task, LifecycleResult } from "@custom-type/downloader";
 import { IntegrityChecker } from "./integrity";
-import { app, ipcMain } from "electron";
+import { ipcMain } from "electron";
 
 interface BrowserWindow {
   isDestroyed(): boolean;
@@ -14,18 +14,20 @@ interface BrowserWindow {
 
 export class DownloaderMain {
   private readonly win: BrowserWindow;
-  private readonly stateDir: string = path.join(app.getPath("userData"), "ipsw-state");
-  private readonly config: DownloaderConfig;
+  private readonly stateDir: string;
+  private readonly config: DownloadManagerOptions;
+  private readonly onConfigChange?: (config: DownloadManagerOptions) => void;
   private worker: Worker | null = null;
   private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void; timer: NodeJS.Timeout }>();
   private readonly callTimeoutMs = 30_000;
   private integrityChecker = new IntegrityChecker();
   private verifyControllers = new Map<string, AbortController>();
 
-  constructor(win: BrowserWindow, opts: DownloaderConfig) {
+  constructor(win: BrowserWindow, opts: DownloadManagerOptions, onConfigChange?: (config: DownloadManagerOptions) => void) {
     this.win = win;
     this.config = opts;
-
+    this.stateDir = opts.paths.stateDir;
+    this.onConfigChange = onConfigChange;
     this.registerIPC();
   }
 
@@ -34,7 +36,6 @@ export class DownloaderMain {
 
     this.worker = new Worker(path.join(__dirname, "downloader-worker.js"), {
       workerData: {
-        stateDir: this.stateDir,
         config: this.config,
       },
       resourceLimits: { maxOldGenerationSizeMb: 256 },
@@ -59,8 +60,6 @@ export class DownloaderMain {
     return this.worker;
   }
 
-  // ─── Worker message handler ───────────────────────────────────────────────
-
   private handleWorkerMessage(msg: WorkerToMain): void {
     if (msg.type === "reply") {
       const pending = this.pending.get(msg.reqId);
@@ -77,8 +76,6 @@ export class DownloaderMain {
       this.sendToRenderer(channel, rest as any);
     }
   }
-
-  // ─── Request / reply helper ───────────────────────────────────────────────
 
   private rejectAllPending(error: Error): void {
     for (const [id, pending] of this.pending) {
@@ -102,8 +99,8 @@ export class DownloaderMain {
 
   // ─── Public API ───────────────────────────────────────────────────────────
 
-  add(firmware: Firmware, config: DownloadRequestConfig = {}): Promise<AddResult> {
-    return this.call({ type: "add", reqId: randomUUID(), firmware, config });
+  add(firmware: Firmware, options: AddOptions = {}): Promise<AddResult> {
+    return this.call({ type: "add", reqId: randomUUID(), firmware, options });
   }
 
   pause(id: string): Promise<LifecycleResult> {
@@ -126,33 +123,63 @@ export class DownloaderMain {
     return this.call({ type: "getIncompleteTasks", reqId: randomUUID() });
   }
 
-  resumeIncomplete(id: string): Promise<{ success: boolean; error?: string }> {
-    return this.call({ type: "resumeIncomplete", reqId: randomUUID(), id });
-  }
-
   deleteIncomplete(id: string): Promise<{ success: boolean; error?: string }> {
     return this.call({ type: "deleteIncomplete", reqId: randomUUID(), id });
   }
 
-  getEnvironmentInfo(savePath: string): Promise<import("./types").DiskEnvironmentInfo> {
-    return this.call({ type: "getEnvironmentInfo", reqId: randomUUID(), savePath });
+  getConfig(): Promise<DownloadManagerOptions> {
+    return this.call({ type: "getConfig", reqId: randomUUID() });
+  }
+
+  async setConfig(partial: DownloadManagerOptions): Promise<void> {
+    // Deep merge into local config
+    this.mergeConfig(this.config, partial);
+    // Persist to store
+    this.onConfigChange?.(this.config);
+    // Forward to worker
+    return this.call({ type: "setConfig", reqId: randomUUID(), partial });
+  }
+
+  private mergeConfig(target: DownloadManagerOptions, partial: DownloadManagerOptions): void {
+    if (partial.paths) Object.assign(target.paths, partial.paths);
+    if (partial.network) target.network = { ...target.network, ...partial.network };
+    if (partial.scheduler) target.scheduler = { ...target.scheduler, ...partial.scheduler };
+    if (partial.download) target.download = { ...target.download, ...partial.download };
+    if (partial.integrity) target.integrity = { ...target.integrity, ...partial.integrity };
+    if (partial.recovery) target.recovery = { ...target.recovery, ...partial.recovery };
   }
 
   async startVerify(identifier: string, filePath: string, firmware: Firmware): Promise<void> {
     this.cancelVerify(identifier);
 
-    const controller = new AbortController();
-    this.verifyControllers.set(identifier, controller);
+    this.verifyControllers.set(identifier, new AbortController());
 
     try {
+      const algo = firmware.md5sum ? "md5" as const
+        : firmware.sha1sum ? "sha1" as const
+        : firmware.sha256sum ? "sha256" as const
+        : null;
+
+      if (!algo) {
+        if (!this.win || this.win.isDestroyed()) return;
+        this.win.webContents.send("dm:verify-completed", {
+          identifier, ok: true, algo: null, expected: "", actual: "",
+        });
+        return;
+      }
+
+      const expected = algo === "md5" ? firmware.md5sum!
+        : algo === "sha1" ? firmware.sha1sum!
+        : firmware.sha256sum!;
+
       const result = await this.integrityChecker.verify(
-        filePath,
-        firmware,
+        filePath, algo, expected,
         (progress) => {
           if (!this.win || this.win.isDestroyed()) return;
-          this.win.webContents.send("dm:verify-progress", { identifier, pct: progress.pct, speed: progress.speed, eta: progress.eta });
+          this.win.webContents.send("dm:verify-progress", {
+            identifier, pct: progress.pct, speed: progress.speed, eta: progress.eta,
+          });
         },
-        controller.signal,
       );
 
       if (this.win && !this.win.isDestroyed()) {
@@ -163,11 +190,7 @@ export class DownloaderMain {
       }
     } catch (err: any) {
       if (this.win && !this.win.isDestroyed()) {
-        if (err.message === "ABORTED") {
-          this.win.webContents.send("dm:verify-cancelled", { identifier });
-        } else {
-          this.win.webContents.send("dm:verify-error", { identifier, error: err.message });
-        }
+        this.win.webContents.send("dm:verify-error", { identifier, error: err.message });
       }
     } finally {
       this.verifyControllers.delete(identifier);
@@ -182,7 +205,6 @@ export class DownloaderMain {
     }
   }
 
-  /** Terminate the worker gracefully. Call on app quit. */
   async destroy(): Promise<void> {
     if (!this.worker) return;
     const worker = this.worker;
@@ -225,15 +247,15 @@ export class DownloaderMain {
 
   private registerIPC(): void {
     const handlers: Array<[string, (...args: any[]) => any]> = [
-      ["dm:add", (_e: any, firmware: Firmware, config: DownloadRequestConfig) => this.add(firmware, config)],
+      ["dm:add", (_e: any, firmware: Firmware, options: AddOptions) => this.add(firmware, options)],
       ["dm:pause", (_e: any, id: string) => this.pause(id)],
       ["dm:resume", (_e: any, id: string) => this.resume(id)],
       ["dm:cancel", (_e: any, id: string) => this.cancel(id)],
-      ["dm:resumeIncomplete", (_e: any, id: string) => this.resumeIncomplete(id)],
       ["dm:deleteIncomplete", (_e: any, id: string) => this.deleteIncomplete(id)],
+      ["dm:getConfig", () => this.getConfig()],
+      ["dm:setConfig", (_e: any, partial: DownloadManagerOptions) => this.setConfig(partial)],
       ["dm:getAllTask", () => this.getAllTask()],
       ["dm:getIncompleteTasks", () => this.getIncompleteTasks()],
-      ["dm:getEnvironmentInfo", (_e: any, savePath: string) => this.getEnvironmentInfo(savePath)],
       ["dm:verify", (_e: any, identifier: string, filePath: string, firmware: Firmware) => { this.startVerify(identifier, filePath, firmware); }],
       ["dm:verify-cancel", (_e: any, identifier: string) => { this.cancelVerify(identifier); }],
     ];
