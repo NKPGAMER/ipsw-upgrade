@@ -1,6 +1,5 @@
 import tseslint from "typescript-eslint";
 import eslint from "@eslint/js";
-import reactPlugin from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 
@@ -20,29 +19,20 @@ const commonTS = tseslint.config({
 
 const frontend = tseslint.config({
   files: ["src/**/*.{ts,tsx}"],
-  extends: [
-    ...commonTS,
-    reactPlugin.configs.flat?.recommended ?? reactPlugin.configs.recommended,
-    reactPlugin.configs.flat?.["jsx-runtime"] ??
-      reactPlugin.configs["jsx-runtime"],
-  ],
+  extends: [...commonTS],
   plugins: {
-    react: reactPlugin,
     "react-hooks": reactHooks,
   },
   languageOptions: {
+    parserOptions: {
+      ecmaFeatures: { jsx: true },
+    },
     globals: {
       ...globals.browser,
-      ...globals.node,
     },
   },
-  settings: {
-    react: { version: "19.0" },
-  },
   rules: {
-    "react/prop-types": "off",
-    "react/display-name": "warn",
-    ...reactHooks.configs.recommended?.rules,
+    ...reactHooks.configs.recommended.rules,
     "react-hooks/exhaustive-deps": "warn",
     "react-hooks/set-state-in-effect": "warn",
     "react-hooks/immutability": "warn",
@@ -63,13 +53,9 @@ const backend = tseslint.config({
   rules: {
     "@typescript-eslint/no-require-imports": "off",
     "@typescript-eslint/no-var-requires": "off",
-    // Empty catch blocks are idiomatic for cleanup (fs.closeSync, removeHandler, etc.)
     "no-empty": "off",
-    // Control chars in regex are valid for filename sanitization
     "no-control-regex": "off",
-    // Catch-and-rethrow with enriched message is intentional here
     "preserve-caught-error": "off",
-    // Ternary used as statement is valid in this codebase
     "@typescript-eslint/no-unused-expressions": [
       "error",
       { allowTernary: true },
