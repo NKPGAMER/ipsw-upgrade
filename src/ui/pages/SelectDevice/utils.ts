@@ -1,4 +1,4 @@
-import type { CardTask, DeviceEntry } from "@custom-type/downloader";
+import type { CardTask, DeviceEntry } from "./types";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { parseIPSW, getFileNameFromUrl } from "@/core/helper";
 

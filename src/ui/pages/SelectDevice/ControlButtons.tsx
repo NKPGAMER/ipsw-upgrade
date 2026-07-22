@@ -2,10 +2,10 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { formatBytes, formatEta, Spinner } from "@/ui/shared";
-import type { CardTask, ControlAction, DeviceEntry, VerifyState } from "@custom-type/downloader";
+import type { CardTask, ControlAction, DeviceEntry, VerifyState } from "./types";
 import { STATUS_CONFIG, STATUS_LABEL, STATUS_COLOR } from "./constants";
 import { ProgressBar } from "./ProgressBar";
-import type { TaskStatus } from "@global-type"
+import type { TaskStatus } from "@custom-type/downloader"
 import utils from "@/core/utils";
 
 export const ControlButtons = memo(function ControlButtons({

@@ -483,7 +483,7 @@ export default function DownloadPage() {
             );
           })}
           <button
-            onClick={() => navigate(window.history.length > 1 ? -1 : "/")}
+            onClick={() => window.history.length > 1 ? navigate(-1) : navigate("/")}
             className="ml-auto! w-7 h-7 flex items-center justify-center rounded border border-white/10 text-[#4a6478] hover:bg-[#e04a4a]/15 hover:border-[#e04a4a]/40 hover:text-[#e04a4a] transition-all duration-150"
             title={t("action.close")}
           >

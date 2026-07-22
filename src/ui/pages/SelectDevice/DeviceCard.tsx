@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
 import { formatBytes, formatEta, Spinner } from "@/ui/shared";
-import type { DeviceEntry } from "@custom-type/downloader";
+import type { DeviceEntry } from "./types";
 import { OS_LABEL, STATUS_CONFIG } from "./constants";
 import { computeCardStatus, resolveProduct } from "./utils";
 import { CardBorderProgress } from "./CardBorderProgress";

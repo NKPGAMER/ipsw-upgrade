@@ -1,4 +1,4 @@
-export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "transferring" | "cancelled";
+export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "cancelled";
 
 export type EventChannel = "started" | "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
 
