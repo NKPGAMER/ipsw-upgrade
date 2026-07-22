@@ -772,7 +772,7 @@ export default function IPSWManager() {
   }, [product, t]);
 
   return (
-    <div className="fixed inset-0 z-1000">
+    <div className="fixed size-full">
       <div
         ref={containerRef}
         className="flex h-full bg-apple-tile-3 text-white overflow-hidden"

@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { formatBytes } from "./shared";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { state as dataState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
 
 import type { Task, TaskStatus } from "@custom-type/downloader";
@@ -441,7 +440,7 @@ export default function DownloadPage() {
 
   return (
     <div
-      className="flex h-screen w-screen overflow-hidden"
+      className="fixed flex size-full overflow-hidden"
       style={{ background: "#252527" }}
     >
       {/* Sidebar */}
@@ -484,11 +483,7 @@ export default function DownloadPage() {
             );
           })}
           <button
-            onClick={() => navigate('/selectDevice', {
-              state: {
-                product: dataState.currentProduct
-              }
-            })}
+            onClick={() => navigate(window.history.length > 1 ? -1 : "/")}
             className="ml-auto! w-7 h-7 flex items-center justify-center rounded border border-white/10 text-[#4a6478] hover:bg-[#e04a4a]/15 hover:border-[#e04a4a]/40 hover:text-[#e04a4a] transition-all duration-150"
             title={t("action.close")}
           >

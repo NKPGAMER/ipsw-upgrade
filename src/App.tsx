@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from "r
 import { SETTING_VERSION } from "./ui/welcome";
 import { useNetworkStatus } from "./core/useNetworkStatus";
 import { ErrorBoundarySection } from "./ui/ErrorBoundarySection";
+import Titlebar from "./ui/Titlebar";
 
 const Home = lazy(() => import("./ui/home"));
 const Settings = lazy(() => import("@pages/Settings/index"));
@@ -18,46 +19,46 @@ const Welcome = lazy(() => import("./ui/welcome"));
 interface EBState { hasError: boolean; error: Error | null }
 
 class ErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
-  state: EBState = { hasError: false, error: null };
+    state: EBState = { hasError: false, error: null };
 
-  static getDerivedStateFromError(error: Error): EBState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[ErrorBoundary]", error, info.componentStack);
-  }
-
-  handleReload = () => {
-    this.setState({ hasError: false, error: null });
-  };
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-tile-3 text-white font-sans">
-          <div className="w-full max-w-105 rounded-2xl border border-white/6 bg-apple-tile-1 px-7! py-8! text-center">
-            <div className="mx-auto! mb-4.5! h-14 w-14 rounded-full bg-[#ff3b30]/15 flex items-center justify-center">
-              <span className="text-3xl">&#9888;</span>
-            </div>
-            <h1 className="mb-2! text-[22px] font-semibold">
-              Đã xảy ra lỗi
-            </h1>
-            <p className="m-0! mb-4! text-sm leading-relaxed text-apple-ink-muted-48 break-all">
-              {this.state.error?.message || "Lỗi không xác định"}
-            </p>
-            <button
-              onClick={this.handleReload}
-              className="px-6 py-2 rounded-full bg-apple-primary hover:bg-apple-primary-focus text-white text-sm font-medium transition-colors cursor-pointer"
-            >
-              Thử lại
-            </button>
-          </div>
-        </div>
-      );
+    static getDerivedStateFromError(error: Error): EBState {
+        return { hasError: true, error };
     }
-    return this.props.children;
-  }
+
+    componentDidCatch(error: Error, info: React.ErrorInfo) {
+        console.error("[ErrorBoundary]", error, info.componentStack);
+    }
+
+    handleReload = () => {
+        this.setState({ hasError: false, error: null });
+    };
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-apple-tile-3 text-white font-sans">
+                    <div className="w-full max-w-105 rounded-2xl border border-white/6 bg-apple-tile-1 px-7! py-8! text-center">
+                        <div className="mx-auto! mb-4.5! h-14 w-14 rounded-full bg-[#ff3b30]/15 flex items-center justify-center">
+                            <span className="text-3xl">&#9888;</span>
+                        </div>
+                        <h1 className="mb-2! text-[22px] font-semibold">
+                            Đã xảy ra lỗi
+                        </h1>
+                        <p className="m-0! mb-4! text-sm leading-relaxed text-apple-ink-muted-48 break-all">
+                            {this.state.error?.message || "Lỗi không xác định"}
+                        </p>
+                        <button
+                            onClick={this.handleReload}
+                            className="px-6 py-2 rounded-full bg-apple-primary hover:bg-apple-primary-focus text-white text-sm font-medium transition-colors cursor-pointer"
+                        >
+                            Thử lại
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
 }
 
 const LoadingScreen = memo(() => (
@@ -96,7 +97,7 @@ function AppContent() {
             if (mod && e.key === "d") { e.preventDefault(); navigate("/downloads"); }
             if (mod && e.key === ",") { e.preventDefault(); navigate("/settings"); }
             if (mod && e.key === "f") { e.preventDefault(); document.querySelector<HTMLInputElement>("[role='searchbox']")?.focus(); }
-            if (e.key === "Escape") navigate(-1);
+            if (e.key === "Escape" && window.history.length > 1) navigate(-1);
         };
         window.addEventListener("keydown", handleKey);
         return () => window.removeEventListener("keydown", handleKey);
@@ -141,7 +142,14 @@ function AppContent() {
 export default function App() {
     return (
         <HashRouter>
-            <AppContent />
+            <div className="app-container">
+                <Titlebar />
+
+                <main className="app-main-content">
+
+                    <AppContent />
+                </main>
+            </div>
         </HashRouter>
     )
 }

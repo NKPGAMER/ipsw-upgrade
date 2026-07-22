@@ -274,51 +274,7 @@ export default function Home() {
   useEffect(() => window.api.ready(), []);
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-apple-tile-3 text-white">
-
-      {/* ── Taskbar ─────────────────────────────────────────────────────────── */}
-      <header className="
-        sticky top-0 z-10 shrink-0
-        flex items-center justify-between
-        bg-apple-tile-3 border-b border-white/6
-        px-6! h-11!
-      ">
-        <h1 className="text-[14px]! font-semibold tracking-[-0.01em] text-white">
-          <span className="text-apple-primary-on-dark">IPSW</span> Manager
-        </h1>
-        <div className="flex items-center gap-2!">
-          {updateVersion && state.isNewVersion && (
-            <button
-              type="button"
-              onClick={() => navigate("/appUpdate")}
-              title={`Cập nhật ${updateVersion}`}
-              className="
-                flex items-center gap-1.5! h-8.5! rounded-full! px-3!
-                bg-[#0066cc18] border border-[#0066cc44] text-apple-primary-on-dark cursor-pointer
-                transition-all duration-150
-                hover:bg-[#0066cc28] hover:border-[#0066cc66]
-                active:scale-[0.97]
-              "
-            >
-              <span className="w-1.5! h-1.5! rounded-full bg-apple-primary animate-pulse" />
-              <span className="text-[11px]! font-semibold tracking-[0.02em]">Cập nhật lên {updateVersion}</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => navigate("/settings")}
-            title="Cài đặt"
-            className="
-              w-8.5! h-8.5! rounded-lg! flex items-center justify-center
-              bg-transparent border border-white/6 text-apple-ink-muted-48 cursor-pointer
-              transition-all duration-150
-              hover:bg-white/6 hover:border-[#0066cc44] hover:text-apple-primary
-            "
-          >
-            <SettingsIcon />
-          </button>
-        </div>
-      </header>
+    <div className="flex flex-col size-full bg-apple-tile-3 text-white">
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}
       <main className="flex-1 p-6! md:px-8! md:py-7! overflow-y-auto">

@@ -724,7 +724,7 @@ export default function IPSWUpdateManager() {
         <div className="flex-1" />
         {/* Close */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(window.history.length > 1 ? -1 : "/")}
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150"
           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}
           onMouseEnter={(e) => {

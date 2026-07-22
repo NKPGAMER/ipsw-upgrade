@@ -94,6 +94,12 @@ function createMainWindow(width: number, height: number): BrowserWindow {
     height: Math.round(height * 0.95),
     show: false,
     transparent: false,
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      color: "#1d1d1f",
+      symbolColor: "#e2e8f0",
+      height: 40
+    },
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
