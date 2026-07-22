@@ -43,6 +43,9 @@ const ControlButton = memo(function ControlButton({ icon, goTo, gotoOptions, onC
 
 
 export default function Titlebar() {
+    const location = useLocation();
+    const isSelectDevice = location.pathname.startsWith("/selectDevice");
+
     return (
         <header className="drag-region flex items-center justify-between bg-apple-ink text-[14px] font-bold text-slate-200 select-none pl-3!"
             style={{
@@ -51,9 +54,23 @@ export default function Titlebar() {
             }}>
             {/* Left */}
             <div className="flex items-center">
-                <h1 className="text-[16px]! font-semibold tracking-[-0.01em] text-white">
-                    <span className="text-apple-primary-on-dark">IPSW</span> Manager
-                </h1>
+               <div className="pt-5! pb-4!">
+        <div className="flex items-center gap-2!">
+          <div className="w-7! h-7! rounded-lg! bg-apple-primary/15 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" fill="none" className="w-4! h-4!">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#0066cc" opacity="0.8" />
+              <path d="M2 17l10 5 10-5" stroke="#0066cc" strokeWidth={1.5} fill="none" />
+              <path d="M2 12l10 5 10-5" stroke="#0066cc" strokeWidth={1.5} fill="none" opacity="0.6" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-[13px]! font-semibold text-white leading-tight">
+              <span className="text-apple-primary">IPSW</span> Manager
+            </div>
+            <div className="text-[10px]! text-[#5a5a5e] leading-tight">v{window.api.getVersion}</div>
+          </div>
+        </div>
+      </div>
             </div>
 
             {/* Center */}
@@ -61,14 +78,10 @@ export default function Titlebar() {
                 <span>Center</span>
             </div>
 
-            {/* Right */}
-            <div className="flex items-center justify-start">
-
-                {/* Download */}
-                <ControlButton icon={<DownloadIcon />} goTo="/downloads"></ControlButton>
-
-                {/* Settings */}
-                <ControlButton icon={<SettingsIcon />} goTo="/settings"></ControlButton>
+            {/* Right — always present for justify-between; buttons hidden when sidebar handles navigation */}
+            <div className={`flex items-center justify-start transition-opacity duration-150 ${isSelectDevice ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+                <ControlButton icon={<DownloadIcon />} goTo="/downloads" />
+                <ControlButton icon={<SettingsIcon />} goTo="/settings" />
             </div>
         </header>
     )

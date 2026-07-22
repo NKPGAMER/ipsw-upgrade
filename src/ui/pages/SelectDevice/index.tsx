@@ -772,7 +772,7 @@ export default function IPSWManager() {
   }, [product, t]);
 
   return (
-    <div className="fixed size-full">
+    <div className="fixed inset-x-0 bottom-0" style={{ top: "var(--titlebar-height)" }}>
       <div
         ref={containerRef}
         className="flex h-full bg-apple-tile-3 text-white overflow-hidden"

@@ -1,82 +1,82 @@
-# Project: IPSW Manager
+# AGENTS.md
 
-Electron desktop app for managing Apple firmware (IPSW) files — download, verify, organize, and batch-update device firmware.
+## Project overview
 
-## Tech Stack
+**IPSW Manager** — Electron desktop app for managing Apple IPSW firmware files (download, extract, hardlink, cleanup). React frontend + Node.js/Electron backend.
 
-- **Electron 39** + **React 19** + **TypeScript 5.9**
-- **Vite 7** (renderer bundling) + **Tailwind CSS v4** (via `@tailwindcss/vite` plugin)
-- **Zustand 5** (renderer state) + **electron-store** (persistent settings)
-- **React Router 7** (HashRouter)
-- **i18next** (Vietnamese default, English available)
+- Author: NKPGAMER
+- Platform: Windows (NSIS installer via electron-builder)
+- Default language: Vietnamese (`vi`)
 
-## Commands
+## Two compilation targets
+
+The project has two separate TypeScript builds that must not be confused:
+
+| Target | Source | Output | Module | tsconfig | Entry |
+|--------|--------|--------|--------|----------|-------|
+| Frontend (renderer) | `src/` | `dist/` | ES modules | `tsconfig.app.json` | `src/index.html` + `src/splash.html` |
+| Backend (main process) | `electron/` | `electron/dist/` | CommonJS | `tsconfig.main.json` | `electron/main.ts` → `electron/dist/main.js` |
+
+**Critical**: `npm run build:main` compiles `electron/` to `electron/dist/` (CommonJS). `npm run build` (vite) compiles `src/` to `dist/` (ES modules). These are independent — don't mix up their configs.
+
+## Dev commands
 
 ```bash
-npm run dev          # Build main process + start Vite + Electron concurrently
-npm run build        # Vite build only (renderer → dist/)
-npm run build:main   # tsc compile electron/ → electron/dist/
-npm run dist         # Full production build + electron-builder package
-npm run lint         # ESLint (all files)
-npm run lint:src     # ESLint (src/ only)
-npm run lint:electron # ESLint (electron/ only)
-npm run lint:fix     # ESLint --fix
+npm run dev          # Full dev: build main process, then run vite + electron concurrently
+npm run build:main   # Compile electron/ → electron/dist/ (must run before dev or dist)
+npm run build        # Vite build: src/ → dist/
+npm run dist         # Production build: build:main → build → electron-builder
+npm run lint         # ESLint all files
+npm run lint:src     # ESLint frontend only (src/)
+npm run lint:electron # ESLint backend only (electron/)
 npm run t            # Quick electron launch (electron .)
 ```
 
-**Build order matters**: `build:main` must complete before Electron can run. `dev` script handles this automatically.
+`npm run dev` runs `build:main` first, then `concurrently "vite" "electron ."`. The vite dev server serves `src/` and electron loads it. If you skip `build:main`, electron won't have its compiled output and will crash.
 
-## Architecture
+## Path aliases
 
-### Two-process model
+Defined in `tsconfig.app.json` (frontend only — electron code does NOT use these):
 
-- **`electron/`** — Main process (Node.js). Entry: `electron/main.ts` → compiles to `electron/dist/main.js`
-- **`src/`** — Renderer process (React). Entry: `src/main.tsx` → Vite builds to `dist/`
-- **`electron/preload.ts`** — Bridges main↔renderer via `contextBridge`. Exposes `window.api`, `window.store`, `window.downloader`, `window.updater`
+- `@/*` → `./src/*`
+- `@pages/*` → `./src/ui/pages/*`
+- `@custom-type/*` → `./@types/*`
 
-### Path aliases
+## ESLint split
 
-Defined in `tsconfig.app.json`:
-- `@/*` → `src/*`
-- `@pages/*` → `src/ui/pages/*`
-- `@custom-type/*` → `@types/*` (via `tsconfig.base.json`)
+ESLint config (`eslint.config.mjs`) applies different rules per area:
 
-### Key directories
+- **Frontend** (`src/**`): React Hooks rules enabled (`exhaustive-deps`, `set-state-in-effect`, `immutability`, `refs` — all warn-level)
+- **Backend** (`electron/**`): `@typescript-eslint/no-require-imports` off, `no-empty` off, `no-control-regex` off, ternary expressions allowed in `no-unused-expressions`
+- **Ignored**: `dist/`, `electron/dist/`, `node_modules/`, `release/`, `electron/i10r-addon/`, `publish/`
 
-| Path | Purpose |
-|------|---------|
-| `electron/modules/downloader/` | Chunked download engine with worker threads, scheduler, disk manager, integrity checker |
-| `electron/modules/ipsw/` | IPSW file cleanup logic |
-| `electron/service/` | Data handling (API, metadata, IPSW data, user data) |
-| `src/core/` | Renderer-side IPSW client (file list, incomplete tasks) |
-| `src/stores/` | Zustand stores (`app-store.ts`, `download-store.ts`) |
-| `src/ui/` | React components and pages |
-| `@types/` | Shared type declarations (`global.d.ts`, `preload.d.ts`) |
+`@typescript-eslint/no-explicit-any` is off globally — don't fight this.
 
-### IPC communication
+## Build & package
 
-Main↔renderer communication uses Electron IPC channels:
-- `dm:*` — Downloader commands (add, pause, resume, cancel, verify)
-- `dh:*` — Data handle (device/model queries)
-- `ipsw:*` — IPSW file operations
-- `store` — Persistent key-value store
-- `updater:*` — Auto-update events
+- `electron-builder` configured in `package.json` under `"build"` key
+- Output goes to `release/` directory
+- Windows NSIS installer with differential packages
+- Auto-updater via `electron-updater` (GitHub releases, owner `NKPGAMER`, repo `ipsw-manager`)
+- `asar: true` — source is packed into the asar archive in production
 
-### Two HTML entry points
+## Key architecture
 
-Vite builds both `src/index.html` (main app) and `src/splash.html` (splash screen) — see `vite.config.ts` rollup input config.
+- **State management**: Zustand (`src/stores/app-store.ts`, `src/stores/download-store.ts`)
+- **Routing**: react-router-dom with HashRouter
+- **Animations**: `motion/react` (Framer Motion successor)
+- **i18n**: i18next with browser language detection, locales in `src/locales/` (en.json, vi.json)
+- **IPC**: Electron IPC between main process and renderer — preload scripts at `electron/preload.ts` and `electron/preload.splash.ts`
+- **Electron store**: `electron-store` for persistent settings (defaults in `electron/config.ts`)
+- **Core logic**: `src/core/` contains IPSW client, `electron/modules/` contains backend modules (disk, downloader, IPSW watcher, hardlink manager, cleanup)
 
-## ESLint quirks
+## Testing
 
-The eslint config has **separate rule sets** for frontend (`src/`), backend (`electron/`), and declaration files. Notable differences:
-- `electron/` allows `no-empty`, `no-control-regex`, and `@typescript-eslint/no-require-imports` (CommonJS idioms)
-- `electron/` allows ternary-as-statement (`@typescript-eslint/no-unused-expressions` with `allowTernary: true`)
-- `src/` uses React 19 rules including `react-hooks/set-state-in-effect`, `react-hooks/immutability`, `react-hooks/refs`
-- `@typescript-eslint/no-explicit-any` is **off** globally
+Vitest is a dev dependency but no test scripts are defined in `package.json`. If tests exist, run via `npx vitest` directly.
 
-## Conventions
+## Gotchas
 
-- UI text is in **Vietnamese** (vi locale). New UI strings should go in `src/locales/vi.json` and `src/locales/en.json`.
-- No test suite exists — there are no `.test.` or `.spec.` files.
-- The app enforces single-instance lock (second launches focus existing window).
-- Default save directory: user's Downloads folder (overridden via `ipswFolder` setting).
+- `electron/i10r-addon/` is in the ESLint ignore list — likely contains prebuilt native addons, don't modify
+- `publish/` directory is also ESLint-ignored — contains the publish server script, not part of the app
+- The `skills-lock.json` at root is for the agent skills system, not app functionality
+- `.commandcode/` contains command-code settings and a taste skill — not part of the app

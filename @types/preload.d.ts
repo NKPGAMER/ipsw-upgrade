@@ -4,6 +4,7 @@ import type { FSWatcher, WriteStream } from 'fs';
 import type { ChildProcess } from 'child_process';
 import type { ClientRequest } from "http";
 import type { Task, AddResult, IncompleteTask, AddOptions, DownloadManagerOptions, EventChannel, LifecycleResult } from "./downloader"
+import type { DiskInfo } from "../electron/i10r-addon/index";
 
 /* ---------- Common types ---------- */
 
@@ -27,8 +28,9 @@ interface UpdateInfoResult {
 interface ElectronApi {
   relaunch: () => Promise<void>;
   ready: () => void;
-  getDiskSpace: (targetPath?: string) => Promise<DiskSpace>,
-  formatBytes: (bytes: number, decimals?: number) => Promise<string>,
+  getDiskSpace: (targetPath?: string) => Promise<DiskSpace>;
+  getAllDisk: () => Promise<DiskInfo[]>;
+  formatBytes: (bytes: number, decimals?: number) => Promise<string>;
   getVersion: string;
 
   selectFolder: () => Promise<string | null>;

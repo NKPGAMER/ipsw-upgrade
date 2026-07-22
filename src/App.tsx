@@ -5,6 +5,7 @@ import { SETTING_VERSION } from "./ui/welcome";
 import { useNetworkStatus } from "./core/useNetworkStatus";
 import { ErrorBoundarySection } from "./ui/ErrorBoundarySection";
 import Titlebar from "./ui/Titlebar";
+import Sidebar from "./ui/Sidebar";
 
 const Home = lazy(() => import("./ui/home"));
 const Settings = lazy(() => import("@pages/Settings/index"));
@@ -13,6 +14,17 @@ const SelectDevice = lazy(() => import("@pages/SelectDevice/index"));
 const IPSWUpdateManager = lazy(() => import("./ui/IPSWUpdateManager"));
 const AppUpdate = lazy(() => import("./ui/appUpdate"));
 const Welcome = lazy(() => import("./ui/welcome"));
+
+// ─── Sidebar visibility ──────────────────────────────────────────────────────
+
+const SIDEBAR_ROUTES = ["/", "/downloads", "/settings"];
+
+function useShowSidebar() {
+    const location = useLocation();
+    return SIDEBAR_ROUTES.some((r) =>
+        r === "/" ? location.pathname === "/" : location.pathname.startsWith(r),
+    );
+}
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
 
@@ -84,6 +96,7 @@ function AppContent() {
     const location = useLocation();
     const online = useNetworkStatus();
     const [needSetup, setNeedSetup] = useState<boolean | null>(null);
+    const showSidebar = useShowSidebar();
 
     useEffect(() => {
         window.store.get('settingVersion').then((storedVersion: string) => {
@@ -112,29 +125,34 @@ function AppContent() {
                     Không có kết nối mạng. Một số chức năng có thể không hoạt động.
                 </div>
             )}
-            <Suspense fallback={<LoadingScreen />}>
-                <ErrorBoundary>
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={location.pathname}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1, transition: { duration: 0.18, ease: [0.4, 0, 0.2, 1] } }}
-                            exit={{ opacity: 0, transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } }}
-                            style={{ minHeight: '100%' }}
-                        >
-                            <Routes location={location}>
-                                <Route path="/" element={needSetup ? <Navigate to="/welcome" replace /> : <Home />} />
-                                <Route path="/settings" element={<Settings />} />
-                                <Route path="/downloads" element={<Downloads />} />
-                                <Route path="/selectDevice" element={<ErrorBoundarySection><SelectDevice /></ErrorBoundarySection>} />
-                                <Route path="/ipswUpdate" element={<ErrorBoundarySection><IPSWUpdateManager /></ErrorBoundarySection>} />
-                                <Route path="/appUpdate" element={<AppUpdate />} />
-                                <Route path="/welcome" element={<Welcome />} />
-                            </Routes>
-                        </motion.div>
-                    </AnimatePresence>
-                </ErrorBoundary>
-            </Suspense>
+            <div className="flex size-full overflow-hidden" style={{ "--sidebar-w": showSidebar && !needSetup ? "200px" : "0px" } as React.CSSProperties}>
+                {showSidebar && !needSetup && <Sidebar />}
+                <div className="flex-1 min-w-0">
+                    <Suspense fallback={<LoadingScreen />}>
+                        <ErrorBoundary>
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={location.pathname}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1, transition: { duration: 0.18, ease: [0.4, 0, 0.2, 1] } }}
+                                    exit={{ opacity: 0, transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } }}
+                                    style={{ minHeight: '100%' }}
+                                >
+                                    <Routes location={location}>
+                                        <Route path="/" element={needSetup ? <Navigate to="/welcome" replace /> : <Home />} />
+                                        <Route path="/settings" element={<Settings />} />
+                                        <Route path="/downloads" element={<Downloads />} />
+                                        <Route path="/selectDevice" element={<ErrorBoundarySection><SelectDevice /></ErrorBoundarySection>} />
+                                        <Route path="/ipswUpdate" element={<ErrorBoundarySection><IPSWUpdateManager /></ErrorBoundarySection>} />
+                                        <Route path="/appUpdate" element={<AppUpdate />} />
+                                        <Route path="/welcome" element={<Welcome />} />
+                                    </Routes>
+                                </motion.div>
+                            </AnimatePresence>
+                        </ErrorBoundary>
+                    </Suspense>
+                </div>
+            </div>
         </>
     );
 }

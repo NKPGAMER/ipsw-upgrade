@@ -2,7 +2,7 @@
 // Electron
 import {
   app, BrowserWindow, ipcMain,
-  OpenDialogOptions, IpcMainInvokeEvent, screen
+  OpenDialogOptions, IpcMainInvokeEvent, screen, globalShortcut
 } from "electron";
 import Store from "electron-store";
 import { autoUpdater } from "electron-updater";
@@ -18,6 +18,7 @@ import { DownloaderMain } from "./modules/downloader";
 // Config
 import config from "./config";
 import { setWin, selectFolder, selectFile } from "./utils/system";
+import { getAllDisk } from "./i10r-addon";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type IpcHandler = [string, (event: IpcMainInvokeEvent, ...args: any[]) => any];
@@ -223,6 +224,13 @@ app.whenReady().then(async () => {
     }, 5_000);
   }, SPLASH_TIMEOUT_MS);
 
+  // F11
+  globalShortcut.register("F11", () => {
+    if (mainWindow) {
+      mainWindow.setFullScreen(!mainWindow.isFullScreen());
+    }
+  });
+
   setTimeout(() => initAutoUpdater(), UPDATER_INIT_DELAY);
 });
 
@@ -323,6 +331,7 @@ const handlers: IpcHandler[] = [
 
   // Disk
   ["getDiskSpace", (_, targetPath: string) => getDiskSpace(targetPath)],
+  ["getAllDisk", () => getAllDisk()],
 
   // Updater
   ["updater:getStatus", () => updateStatus],

@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useDownloadStore } from "../stores/download-store";
 
 import type { Task, TaskStatus } from "@custom-type/downloader";
+import type { DownloadFilter } from "../stores/download-store";
 import { getFileNameFromUrl } from "../core/helper";
 import utils from "../core/utils";
 
@@ -23,6 +24,7 @@ const fmtEta = (s?: number): string => {
   if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 };
+
 const STATUS_ORDER: Record<TaskStatus, number> = {
   downloading: 0,
   verifying: 1,
@@ -34,15 +36,81 @@ const STATUS_ORDER: Record<TaskStatus, number> = {
   cancelled: 7,
 };
 
+// ─── Filter nav items ─────────────────────────────────────────────────────────
+
+interface FilterNavItem {
+  key: DownloadFilter;
+  labelKey: string;
+  icon: React.ReactNode;
+}
+
+const IconAll = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+    strokeLinecap="round" strokeLinejoin="round" className="w-[18px]! h-[18px]!">
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
+  </svg>
+);
+
+const IconActive = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+    strokeLinecap="round" strokeLinejoin="round" className="w-[18px]! h-[18px]!">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
+const IconPaused = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+    strokeLinecap="round" strokeLinejoin="round" className="w-[18px]! h-[18px]!">
+    <rect x="6" y="4" width="4" height="16" rx="1" />
+    <rect x="14" y="4" width="4" height="16" rx="1" />
+  </svg>
+);
+
+const IconQueued = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+    strokeLinecap="round" strokeLinejoin="round" className="w-[18px]! h-[18px]!">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const IconDone = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+    strokeLinecap="round" strokeLinejoin="round" className="w-[18px]! h-[18px]!">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
+const IconError = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+    strokeLinecap="round" strokeLinejoin="round" className="w-[18px]! h-[18px]!">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="15" y1="9" x2="9" y2="15" />
+    <line x1="9" y1="9" x2="15" y2="15" />
+  </svg>
+);
+
+const FILTER_NAV_ITEMS: FilterNavItem[] = [
+  { key: "all", labelKey: "filter.all", icon: <IconAll /> },
+  { key: "downloading", labelKey: "filter.active", icon: <IconActive /> },
+  { key: "paused", labelKey: "filter.paused", icon: <IconPaused /> },
+  { key: "queued", labelKey: "filter.queued", icon: <IconQueued /> },
+  { key: "completed", labelKey: "filter.done", icon: <IconDone /> },
+  { key: "error", labelKey: "filter.errors", icon: <IconError /> },
+];
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-interface StatusBadgeProps {
-  status: TaskStatus;
-}
-const StatusBadge = memo(function StatusBadge({ status }: StatusBadgeProps) {
+const StatusBadge = memo(function StatusBadge({ status }: { status: TaskStatus }) {
   const { t } = useTranslation();
 
-  const cfg: Record<TaskStatus, { labelKey: any; cls: string }> = {
+  const cfg: Record<TaskStatus, { labelKey: string; cls: string }> = {
     downloading: { labelKey: "status.downloading", cls: "bg-[#0066cc]/15 text-[#0066cc] border-[#0066cc]/30" },
     paused: { labelKey: "status.paused", cls: "bg-[#7a96b0]/10 text-[#7a96b0] border-[#7a96b0]/25" },
     completed: { labelKey: "status.completed", cls: "bg-[#1aab6d]/12 text-[#1aab6d] border-[#1aab6d]/30" },
@@ -62,16 +130,12 @@ const StatusBadge = memo(function StatusBadge({ status }: StatusBadgeProps) {
       {status === "verifying" && (
         <span className="mr-1.5! inline-block w-1.5 h-1.5 rounded-full bg-[#af52de] animate-pulse" />
       )}
-      {t(labelKey)}
+      {t(labelKey as any)}
     </span>
   );
 });
 
-interface ProgressBarProps {
-  progress: number;
-  status: TaskStatus;
-}
-const ProgressBar = memo(function ProgressBar({ progress, status }: ProgressBarProps) {
+const ProgressBar = memo(function ProgressBar({ progress, status }: { progress: number; status: TaskStatus }) {
   const colorMap: Record<TaskStatus, string> = {
     downloading: "bg-[#0066cc]",
     paused: "bg-[#7a96b0]",
@@ -242,56 +306,6 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
   );
 });
 
-// ─── Sidebar Stats ─────────────────────────────────────────────────────────────
-
-interface SidebarProps {
-  active: number;
-  completed: number;
-  paused: number;
-  queued: number;
-  errored: number;
-  total: number;
-}
-const Sidebar = memo(function Sidebar({ active, completed, paused, queued, errored, total }: SidebarProps) {
-  const { t } = useTranslation();
-
-  const statItems: Array<{ labelKey: string; value: number; color: string }> = [
-    { labelKey: "sidebar.stat.active", value: active, color: "text-[#0066cc]" },
-    { labelKey: "sidebar.stat.completed", value: completed, color: "text-[#1aab6d]" },
-    { labelKey: "sidebar.stat.paused", value: paused, color: "text-[#7a96b0]" },
-    { labelKey: "sidebar.stat.queued", value: queued, color: "text-[#4a6478]" },
-    { labelKey: "sidebar.stat.errors", value: errored, color: "text-[#e04a4a]" },
-  ];
-
-  return (
-    <aside className="w-55 shrink-0 flex flex-col gap-4">
-      <div className="pb-4! border-b border-white/6">
-        <div className="text-[15px] font-semibold tracking-tight text-white">
-          IPSW{" "}
-          <span className="text-apple-primary">Downloads</span>
-        </div>
-        <div className="text-[11px] text-[#6b7f92] mt-0.5! font-mono">
-          {total} total task{total !== 1 ? "s" : ""}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {statItems.map(({ labelKey, value, color }) => (
-          <div
-            key={labelKey}
-            className="flex items-center justify-between px-3! py-2! rounded-md bg-apple-tile-1 border border-white/6"
-          >
-            <span className="text-[11px] text-[#6b7f92] uppercase tracking-wider">
-              {t(labelKey as any)}
-            </span>
-            <span className={`font-mono text-[14px] font-semibold ${color}`}>{value}</span>
-          </div>
-        ))}
-      </div>
-    </aside>
-  );
-});
-
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function DownloadPage() {
@@ -390,26 +404,6 @@ export default function DownloadPage() {
     [filter, sorted]
   );
 
-  const stats = useMemo(() => {
-    let active = 0;
-    let completed = 0;
-    let paused = 0;
-    let queued = 0;
-    let errored = 0;
-
-    for (const task of tasks) {
-      switch (task.status) {
-        case "downloading": active++; break;
-        case "completed": completed++; break;
-        case "paused": paused++; break;
-        case "queued": queued++; break;
-        case "error": errored++; break;
-      }
-    }
-
-    return { active, completed, paused, queued, errored, total: tasks.length };
-  }, [tasks]);
-
   const statusCounts = useMemo(() => {
     const counts: Record<TaskStatus | "all", number> = {
       all: tasks.length,
@@ -422,77 +416,73 @@ export default function DownloadPage() {
       completed: 0,
       cancelled: 0,
     };
-
     for (const task of tasks) counts[task.status] += 1;
     return counts;
   }, [tasks]);
 
-  const filterTabs: Array<{ key: TaskStatus | "all"; labelKey: string }> = [
-    { key: "all", labelKey: "filter.all" },
-    { key: "downloading", labelKey: "filter.active" },
-    { key: "paused", labelKey: "filter.paused" },
-    { key: "queued", labelKey: "filter.queued" },
-    { key: "completed", labelKey: "filter.done" },
-    { key: "error", labelKey: "filter.errors" },
-  ];
-
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      className="fixed flex size-full overflow-hidden"
-      style={{ background: "#252527" }}
-    >
-      {/* Sidebar */}
-      <div className="h-full px-5! py-5! border-r border-white/6 flex flex-col">
-        <Sidebar {...stats} />
-      </div>
-
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Toolbar */}
-        <div className="shrink-0 flex items-center gap-2 px-5! py-3! border-b border-white/6 bg-apple-tile-3">
-          {filterTabs.map(({ key, labelKey }) => {
-            const count = statusCounts[key];
-            const active = filter === key;
+    <div className="fixed bottom-0 right-0 flex bg-apple-tile-3 text-white overflow-hidden" style={{ top: "var(--titlebar-height)", left: "var(--sidebar-w, 0px)" }}>
+      {/* Sidebar — same style as Settings */}
+      <nav className="w-52 shrink-0 self-stretch sticky top-0 bg-[#1e1e20] border-r border-white/6 flex flex-col pt-6! pb-4!">
+        <div className="px-4! mb-6!">
+          <h2 className="text-[13px] font-semibold text-[#5a6a7a] uppercase tracking-[0.08em]">
+            {t("setting.sidebar.download")}
+          </h2>
+        </div>
+        <div className="flex-1 flex flex-col gap-0.5 px-2!">
+          {FILTER_NAV_ITEMS.map(({ key, labelKey, icon }) => {
+            const isActive = filter === key;
+            const count = statusCounts[key as TaskStatus | "all"];
             return (
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className={`
-                  flex items-center gap-1.5 px-3! py-1.5! rounded text-[11px] font-semibold uppercase tracking-widest
-                  border transition-all duration-150
-                  ${active
-                    ? "bg-apple-primary/18 border-apple-primary/45 text-apple-primary-on-dark"
-                    : "bg-transparent border-transparent text-apple-ink-muted-48 hover:text-white hover:border-white/10"
-                  }
-                `}
+                className={[
+                  "flex items-center gap-3! w-full px-3! py-2.5! rounded-lg text-[13px] font-medium border-none cursor-pointer transition-all duration-150 text-left",
+                  isActive
+                    ? "bg-apple-primary/15 text-apple-primary-on-dark"
+                    : "bg-transparent text-apple-ink-muted-48 hover:bg-white/4 hover:text-[#c8c8c8]",
+                ].join(" ")}
               >
-                {t(labelKey as any)}
+                <span className={isActive ? "text-apple-primary-on-dark" : "text-[#5a6a7a]"}>
+                  {icon}
+                </span>
+                <span className="flex-1">{t(labelKey as any)}</span>
                 {count > 0 && (
-                  <span
-                    className={`font-mono text-[10px] px-1! py-0.5! rounded leading-none ${active
-                        ? "bg-apple-primary/22 text-apple-primary"
-                        : "bg-white/6 text-[#5d7284]"
-                      }`}
-                  >
+                  <span className={`font-mono text-[11px] px-1.5! py-0.5! rounded leading-none ${isActive
+                      ? "bg-apple-primary/22 text-apple-primary-on-dark"
+                      : "bg-white/6 text-[#5d7284]"
+                    }`}>
                     {count}
                   </span>
                 )}
               </button>
             );
           })}
+        </div>
+      </nav>
+
+      {/* Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header — same as Settings */}
+        <div className="flex items-center justify-between px-8! py-5! border-b border-white/6 bg-apple-tile-3 shrink-0">
+          <h1 className="text-[18px] font-bold text-[#e5e5e5] tracking-tight">
+            {t("setting.sidebar.download" as any)}
+          </h1>
           <button
             onClick={() => window.history.length > 1 ? navigate(-1) : navigate("/")}
-            className="ml-auto! w-7 h-7 flex items-center justify-center rounded border border-white/10 text-[#4a6478] hover:bg-[#e04a4a]/15 hover:border-[#e04a4a]/40 hover:text-[#e04a4a] transition-all duration-150"
-            title={t("action.close")}
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/6 bg-white/4 text-apple-ink-muted-48 transition-all duration-150 hover:bg-white/8 hover:border-white/10 hover:text-white cursor-pointer shrink-0"
           >
-            <IconClose />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto px-5! py-4!">
+        <main className="flex-1 overflow-y-auto px-8! pt-6! pb-10!">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-apple-ink-muted-48">
               <div className="text-4xl opacity-20">↓</div>
@@ -527,7 +517,7 @@ export default function DownloadPage() {
               </AnimatePresence>
             </motion.div>
           )}
-        </div>
+        </main>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ export default function SettingsApp(): JSX.Element {
   const navigate = useNavigate();
 
   return (
-    <div className="fixed size-full flex bg-apple-tile-3 text-white overflow-hidden">
+    <div className="fixed bottom-0 right-0 flex bg-apple-tile-3 text-white overflow-hidden" style={{ top: "var(--titlebar-height)", left: "var(--sidebar-w, 0px)" }}>
       <Sidebar active={activePage} onNavigate={setActivePage} />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -31,7 +31,7 @@ export default function SettingsApp(): JSX.Element {
             {t("setting.title")}
           </h1>
           <button
-            onClick={() => navigate(window.history.length > 1 ? -1 : "/")}
+            onClick={() => window.history.length > 1 ? navigate(-1) : navigate("/")}
             className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/6 bg-white/4 text-apple-ink-muted-48 transition-all duration-150 hover:bg-white/8 hover:border-white/10 hover:text-white cursor-pointer shrink-0"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
