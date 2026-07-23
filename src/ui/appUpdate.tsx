@@ -210,7 +210,7 @@ export default function AppUpdate() {
       ">
         <button
           type="button"
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/", { replace: true })}
           className="
             w-8.5! h-8.5! rounded-lg! flex items-center justify-center
             bg-transparent border border-white/[0.06] text-[#7a7a7a] cursor-pointer

@@ -72,7 +72,7 @@ export const DetailPanel = memo(function DetailPanel({
   entry, product, allFiles, incompleteTasks, pendingAction, onClose, onAction, linkedDevices, linkedGroup, verifyState,
 }: {
   entry: DeviceEntry;
-  product: Product;
+  product?: Product;
   allFiles: IPSWFile[];
   incompleteTasks: IncompleteTaskClient[];
   pendingAction: ControlAction | null;
@@ -149,7 +149,7 @@ export const DetailPanel = memo(function DetailPanel({
             animate={{ opacity: 1, transition: { duration: 0.2, delay: 0.05 } }}
             className="flex items-center gap-3 px-5! py-3! border-b border-white/8 shrink-0"
           >
-            <div className="text-apple-primary shrink-0">{PRODUCT_ICON[product]}</div>
+            {product && <div className="text-apple-primary shrink-0">{PRODUCT_ICON[product]}</div>}
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-white truncate">{entry.device.name}</p>
               <p className="text-[10px] text-gray-500 font-mono">{entry.device.identifier}</p>

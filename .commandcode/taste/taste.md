@@ -13,7 +13,14 @@
 - When a runtime error surfaces after a refactor, do not dismiss it as pre-existing without thorough investigation — especially if the app was working before the changes. Fix it when asked. Confidence: 0.75
 - Fix bugs at the root cause rather than adding defensive null/empty guards downstream. If a value is unexpectedly empty/null, trace back to why it wasn't initialized properly and fix that instead of scattering guards everywhere. Confidence: 0.85
 - When debugging, do not deflect blame to external dependencies (e.g. native addons, third-party libraries) without concrete evidence. Investigate the integration layer and your own code first — especially when the dependency has been independently tested with clear logs. Confidence: 0.80
-- Respond in Vietnamese when the user switches to Vietnamese. Confidence: 0.70
+- Respond in Vietnamese when the user switches to Vietnamese. Confidence: 0.80
+
+# Search & Filter UX
+- Search/filter state should be cleared (reset) when the user navigates away from the search context, rather than persisting stale queries across routes. Confidence: 0.65
+
+# UI Patterns
+- Prefers debounced search inputs (~300ms delay) rather than filtering on every keystroke. Confidence: 0.85
+- Designs UI components to accept custom/external data lists (via props or store) rather than being tightly coupled to internal API calls, so they can be reused in different contexts (e.g., global search). Confidence: 0.75
 
 # Downloader Design
 - Use compact arrays `[start, end, downloaded]` (CompactChunk type) for chunk state instead of objects. Only track incomplete chunks; completed chunks are removed from the array entirely (no need for index or completed flag). Confidence: 0.70

@@ -367,7 +367,8 @@ code, pre, .mono {
   position: relative;
   max-width: 448px;
   width: 80%;
-  display: block;
+  display: flex;
+  align-items: center;
 }
 
 .breadcrumb {
@@ -418,11 +419,12 @@ code, pre, .mono {
   border-radius: 9999px;
   background-color: rgba(255, 255, 255, 0.06);
   border: none;
-  padding: 8px 40px 8px 40px;
-  font-size: 14px;
+  padding: 5px 36px 5px 36px;
+  font-size: 13px;
   color: white;
   outline: none;
   transition: all 0.2s;
+  max-height: 28px;
 }
 
 .search-input:focus {
@@ -435,7 +437,7 @@ code, pre, .mono {
 
 .topbar-search .search-icon {
   position: absolute;
-  left: 12px;
+  left: 10px;
   top: 50%;
   transform: translateY(-50%);
   color: #9ca3af;
@@ -445,8 +447,8 @@ code, pre, .mono {
 }
 
 .topbar-search .search-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .search-clear {
@@ -460,7 +462,6 @@ code, pre, .mono {
   font-size: 24px;
   cursor: pointer;
   padding: 4px 8px;
-  display: none;
 }
 
 .topbar-right {

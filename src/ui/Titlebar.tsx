@@ -1,5 +1,7 @@
-import { JSX, memo } from "react"
+import { JSX, memo, useEffect, useCallback } from "react"
 import { NavigateOptions, useLocation, useNavigate } from "react-router-dom";
+import { useSearchStore, getSearchState } from "@/stores/search-store";
+import { useDebounce } from "@/hooks/useDebounce";
 
 const SettingsIcon = memo(function setiingsIcon() {
     return (
@@ -44,7 +46,39 @@ const ControlButton = memo(function ControlButton({ icon, goTo, gotoOptions, onC
 
 export default function Titlebar() {
     const location = useLocation();
+    const navigate = useNavigate();
     const isSelectDevice = location.pathname.startsWith("/selectDevice");
+
+    const query = useSearchStore((s) => s.query);
+    const { setQuery, setDebouncedQuery, setGlobalMode, reset } = useSearchStore();
+
+    const debouncedQuery = useDebounce(query, 300);
+
+    useEffect(() => {
+        setDebouncedQuery(debouncedQuery);
+    }, [debouncedQuery, setDebouncedQuery]);
+
+    useEffect(() => {
+        if (debouncedQuery.trim() && !isSelectDevice) {
+            setGlobalMode(true);
+            navigate("/selectDevice", { state: { globalSearch: true } });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedQuery]);
+
+    useEffect(() => {
+        if (!isSelectDevice) {
+            reset();
+        }
+    }, [isSelectDevice, reset]);
+
+    const handleClear = useCallback(() => {
+        const wasGlobal = getSearchState().isGlobalMode;
+        reset();
+        if (isSelectDevice && wasGlobal) {
+            navigate("/", { replace: true });
+        }
+    }, [isSelectDevice, navigate, reset]);
 
     return (
         <header className="drag-region flex items-center justify-between bg-apple-ink text-[14px] font-bold text-slate-200 select-none pl-3!"
@@ -73,12 +107,40 @@ export default function Titlebar() {
       </div>
             </div>
 
-            {/* Center */}
-            <div>
-                <span>Center</span>
+            {/* Center — search bar */}
+            <div className="flex-1 flex justify-center px-4">
+                <div className="topbar-search">
+                    <div className="search-icon">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.35-4.35" strokeLinecap="round" />
+                        </svg>
+                    </div>
+                    <input
+                        className="search-input no-drag"
+                        role="searchbox"
+                        aria-label="Tìm kiếm thiết bị"
+                        type="text"
+                        placeholder="Tìm thiết bị…"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                    />
+                    {query && (
+                        <button
+                            className="search-clear no-drag"
+                            onClick={handleClear}
+                            style={{ display: "flex" }}
+                            aria-label="Xoá tìm kiếm"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* Right — always present for justify-between; buttons hidden when sidebar handles navigation */}
+            {/* Right */}
             <div className={`flex items-center justify-start transition-opacity duration-150 ${isSelectDevice ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
                 <ControlButton icon={<DownloadIcon />} goTo="/downloads" />
                 <ControlButton icon={<SettingsIcon />} goTo="/settings" />

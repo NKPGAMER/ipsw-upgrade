@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ProductId } from "@/ui/home";
 import { ipswClient } from "@/init";
 import { state as globalState } from "@/data";
+import { useSearchStore } from "@/stores/search-store";
 import utils from "@/core/utils";
 import { DeviceCard } from "./DeviceCard";
 import { DetailPanel } from "./DetailPanel";
@@ -27,7 +28,6 @@ export default function IPSWManager() {
   const [allFiles, setAllFiles] = useState<IPSWFile[]>([]);
   const [incompleteTasks, setIncompleteTasks] = useState<IncompleteTaskClient[]>(ipswClient.getIncompleteTasks());
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listWidthPct, setListWidthPct] = useState(65);
   const [pendingActions, setPendingActions] = useState<Map<string, ControlAction>>(new Map());
@@ -51,10 +51,20 @@ export default function IPSWManager() {
 
   const { t } = useTranslation();
   const location = useLocation();
-  const { product }: { product: ProductId } = location.state;
+  const locState = location.state as
+    | { product: ProductId; globalSearch?: undefined }
+    | { globalSearch: true; product?: undefined }
+    | null;
+  const product: ProductId | undefined = locState?.product;
+  const isGlobalSearch = locState?.globalSearch === true;
   const navigate = useNavigate();
 
-  useEffect(() => { state.currentProduct = product }, [product]);
+  const debouncedQuery = useSearchStore((s) => s.debouncedQuery);
+  const customDevices = useSearchStore((s) => s.customDevices);
+
+  useEffect(() => {
+    if (product) state.currentProduct = product;
+  }, [product]);
 
   useEffect(() => { entriesRef.current = entries; }, [entries]);
 
@@ -397,8 +407,8 @@ export default function IPSWManager() {
   }, []);
 
   useEffect(() => {
-    if (loadedProductRef.current === product) return;
-    loadedProductRef.current = product;
+    if (!isGlobalSearch && loadedProductRef.current === product) return;
+    loadedProductRef.current = product ?? null;
 
     let cancelled = false;
     setLoading(true);
@@ -414,9 +424,15 @@ export default function IPSWManager() {
     setIdentifierToGroup(new Map());
 
     async function load() {
-      const devices: Device[] = (await window.api.getDevices())
-        .filter(d => d.identifier.toLocaleLowerCase().startsWith(product))
-        .reverse();
+      let devices: Device[];
+      if (customDevices) {
+        devices = customDevices;
+      } else {
+        const allDevices = await window.api.getDevices();
+        devices = isGlobalSearch
+          ? [...allDevices].reverse()
+          : allDevices.filter(d => d.identifier.toLocaleLowerCase().startsWith(product!)).reverse();
+      }
 
       const [initialFiles, activeTasks] = await Promise.all([
         ipswClient.getFiles(),
@@ -448,15 +464,15 @@ export default function IPSWManager() {
     });
 
     return () => { cancelled = true; };
-  }, [product]);
+  }, [product, isGlobalSearch, customDevices]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return entries;
-    const q = search.toLowerCase();
+    if (!debouncedQuery.trim()) return entries;
+    const q = debouncedQuery.toLowerCase();
     return entries.filter(
       e => e.device.name.toLowerCase().includes(q) || e.device.identifier.toLowerCase().includes(q)
     );
-  }, [entries, search]);
+  }, [entries, debouncedQuery]);
 
   const groupedEntries = useMemo(() => {
     const selectedGroups = DEVICE_GROUPS
@@ -472,7 +488,9 @@ export default function IPSWManager() {
     return { selectedGroups, ungroupedEntries };
   }, [filtered]);
 
-  const ungroupedTitle = `${product.charAt(0).toUpperCase()}${product.slice(1)} Series`;
+  const ungroupedTitle = product
+    ? `${product.charAt(0).toUpperCase()}${product.slice(1)} Series`
+    : "All Devices";
 
   const selectedEntry = useMemo(
     () => entries.find(e => e.device.identifier === selectedId) ?? null,
@@ -749,6 +767,10 @@ export default function IPSWManager() {
   }, [getEffectiveTask, setPending, applyTaskMap, clearPendingForGroup, updateAllFiles, t]);
 
   const handleRedundantFiles = useCallback(async () => {
+    if (!product) {
+      utils.showErrorMessage("Tính năng này chỉ khả dụng khi chọn một dòng sản phẩm.");
+      return;
+    }
     const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
 
     if (oldFiles.length === 0 && duplicateFiles.length === 0) {
@@ -786,49 +808,36 @@ export default function IPSWManager() {
         >
           <div className="flex items-center gap-2 px-3! h-11 border-b border-white/6 shrink-0 bg-apple-tile-3">
             <div className="flex items-center gap-2 shrink-0 min-w-0">
-              <span className="text-[16px] font-bold text-gray-200 whitespace-nowrap">{entries.length} thiết bị</span>
+              <span className="text-[16px] font-bold text-gray-200 whitespace-nowrap">{filtered.length} thiết bị</span>
+              {debouncedQuery && (
+                <span className="text-[11px] text-apple-primary bg-apple-primary/10 px-2 py-0.5 rounded-full">
+                  "{debouncedQuery}"
+                </span>
+              )}
             </div>
-            <div className="flex-1 flex justify-center px-2!">
-              <div className="flex items-center gap-2 px-2.5! py-1.5! rounded-lg bg-white/4 border border-white/6 w-full max-w-xs hover:border-white/10 focus-within:border-apple-primary/45 transition-colors">
-                <svg className="w-3 h-3 text-gray-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" strokeLinecap="round" />
-                </svg>
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Tìm thiết bị…"
-                  role="searchbox"
-                  aria-label="Tìm kiếm thiết bị"
-                  className="flex-1 bg-transparent text-[11px] text-white placeholder-gray-600 outline-none min-w-0"
-                />
-                {search && (
-                  <button onClick={() => setSearch("")} className="text-gray-600 hover:text-gray-400 transition-colors shrink-0">
-                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
+            <div className="flex-1" />
             <div className="flex items-center justify-between gap-1.5 shrink-0">
-              <Tooltip label={t("tooltip.updateFirmware")} position="bottom">
-                <button
-                  className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
-                  onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
-                >
-                  {TASKBAR_ICON.update}
-                </button>
-              </Tooltip>
+              {!isGlobalSearch && (
+                <Tooltip label={t("tooltip.updateFirmware")} position="bottom">
+                  <button
+                    className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
+                    onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
+                  >
+                    {TASKBAR_ICON.update}
+                  </button>
+                </Tooltip>
+              )}
 
-              <Tooltip label={t("tooltip.removeRedundantFiles")} position="bottom">
-                <button
-                  onClick={async () => handleRedundantFiles()}
-                  className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
-                >
-                  {TASKBAR_ICON.delete}
-                </button>
-              </Tooltip>
+              {!isGlobalSearch && (
+                <Tooltip label={t("tooltip.removeRedundantFiles")} position="bottom">
+                  <button
+                    onClick={async () => handleRedundantFiles()}
+                    className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
+                  >
+                    {TASKBAR_ICON.delete}
+                  </button>
+                </Tooltip>
+              )}
 
               <Tooltip label={t("tooltip.downloads")} position="bottom">
                 <button
@@ -840,7 +849,7 @@ export default function IPSWManager() {
               </Tooltip>
 
                 <button
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate("/", { replace: true })}
                   className="w-10 h-8 rounded-lg bg-white/4 hover:bg-[#ff3b30]/15 border border-white/6 hover:border-[#ff3b30]/25 text-apple-ink-muted-48 hover:text-[#ff453a] flex items-center justify-center transition-all"
                 >
                   {TASKBAR_ICON.close}
@@ -875,7 +884,7 @@ export default function IPSWManager() {
                 <svg className="w-6 h-6 opacity-40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                   <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" />
                 </svg>
-                <span className="text-[12px]">{search ? "Không tìm thấy thiết bị" : "Không có thiết bị"}</span>
+                <span className="text-[12px]">{debouncedQuery ? "Không tìm thấy thiết bị" : "Không có thiết bị"}</span>
               </div>
             ) : (
               <div className="space-y-4">
