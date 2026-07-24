@@ -9,6 +9,7 @@ import { ipswClient } from "@/init";
 import { state as globalState } from "@/data";
 import { useSearchStore } from "@/stores/search-store";
 import utils from "@/core/utils";
+import { downloader } from "@/core/downloader";
 import { DeviceCard } from "./DeviceCard";
 import { DetailPanel } from "./DetailPanel";
 import { Resizer } from "./Resizer";
@@ -277,8 +278,7 @@ export default function IPSWManager() {
   }, []);
 
   useEffect(() => {
-    const d = window.downloader;
-    if (!d) return;
+    const d = downloader;
 
     const timers = pendingTimersRef.current;
 
@@ -436,7 +436,7 @@ export default function IPSWManager() {
 
       const [initialFiles, activeTasks] = await Promise.all([
         ipswClient.getFiles(),
-        window.downloader.getAllTask().catch(() => [] as Task[]),
+        downloader.getAllTask().catch(() => [] as Task[]),
       ]);
 
       if (cancelled) return;
@@ -530,7 +530,7 @@ export default function IPSWManager() {
     action: ControlAction,
     fw?: Firmware,
   ) => {
-    const d = window.downloader;
+    const d = downloader;
     const entry = entriesRef.current.find(e => e.device.identifier === deviceIdentifier);
     if (!entry) return;
 

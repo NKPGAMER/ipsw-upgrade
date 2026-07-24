@@ -9,6 +9,7 @@ import type { Task, TaskStatus } from "@custom-type/downloader";
 import type { DownloadFilter } from "../stores/download-store";
 import { getFileNameFromUrl } from "../core/helper";
 import utils from "../core/utils";
+import { downloader } from "@/core/downloader";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -326,27 +327,40 @@ export default function DownloadPage() {
 
   useEffect(() => {
     if (hydrated) return;
-    window.downloader.getAllTask().then(setTasks).catch(console.error);
+    downloader.getAllTask().then(setTasks).catch(console.error);
     markHydrated();
   }, [hydrated, markHydrated, setTasks]);
 
   useEffect(() => {
-    const subs = [
-      window.downloader.onAdded((_id, task) => upsertTask(task)),
-      window.downloader.onProgress((_id, task) => upsertTask(task)),
-      window.downloader.onCompleted((_id, task) => upsertTask(task)),
-      window.downloader.onPaused((_id, task) => upsertTask(task)),
-      window.downloader.onResumed((_id, task) => {
-        if (task) upsertTask(task);
-        else patchTask(_id, { status: "downloading" as TaskStatus });
-      }),
-      window.downloader.onCancelled((id) => removeTask(id)),
-      window.downloader.onIncompleteDeleted((id) => removeTask(id)),
-      window.downloader.onError((_id, _error, task) => upsertTask(task)),
-    ];
+    const upsertTaskCall = (_: any, task: Task) => upsertTask(task);
+    const removeTaskCall = (id: string) => removeTask(id);
+    const resumeTaskCall = (id: string, task?: Task) => {
+      if (task) upsertTask(task);
+      else patchTask(id, { status: "downloading" })
+    };
+    const errorTaskCall = (id: string, error: string, task: Task) => {
+      upsertTask(task);
+    }
+
+    downloader.on("added", upsertTaskCall);
+    downloader.on("completed", upsertTaskCall);
+    downloader.on("progress", upsertTaskCall);
+    downloader.on("paused", upsertTaskCall);
+    downloader.on("resumed", resumeTaskCall);
+    downloader.on("cancelled", removeTaskCall);
+    downloader.on("incomplete_deleted", removeTaskCall);
+    downloader.on("error", errorTaskCall);
 
     return () => {
-      subs.forEach((s) => s.unsubscribe());
+      downloader
+        .off("added", upsertTaskCall)
+        .off("completed", upsertTaskCall)
+        .off("progress", upsertTaskCall)
+        .off("paused", upsertTaskCall)
+        .off("resumed", resumeTaskCall)
+        .off("cancelled", removeTaskCall)
+        .off("incomplete_deleted", removeTaskCall)
+        .off("error", errorTaskCall)
     };
   }, [upsertTask, removeTask, patchTask]);
 
@@ -354,7 +368,7 @@ export default function DownloadPage() {
 
   const handlePause = useCallback(async (id: string) => {
     patchTask(id, { status: "paused" as TaskStatus });
-    const result = await window.downloader.pause(id);
+    const result = await downloader.pause(id);
     if (!result.success) {
       if (result.error === "NOT_FOUND") {
         utils.showErrorMessage(t("message.downloader.lifecycle.pause.not_found"));
@@ -368,7 +382,7 @@ export default function DownloadPage() {
 
   const handleResume = useCallback(async (id: string) => {
     patchTask(id, { status: "downloading" as TaskStatus });
-    const result = await window.downloader.resume(id);
+    const result = await downloader.resume(id);
     if (!result.success) {
       if (result.error === "NOT_FOUND") {
         utils.showErrorMessage(t("message.downloader.lifecycle.resume.not_found"));
@@ -383,7 +397,7 @@ export default function DownloadPage() {
   const handleCancel = useCallback(async (id: string) => {
     try { await utils.customConfirm("Huỷ tác vụ này? Tiến độ tải sẽ bị mất."); } catch { return; }
     removeTask(id);
-    const result = await window.downloader.cancel(id);
+    const result = await downloader.cancel(id);
     if (!result.success) {
       if (result.error === "NOT_FOUND") {
         utils.showErrorMessage(t("message.downloader.lifecycle.cancel.not_found"));
@@ -452,8 +466,8 @@ export default function DownloadPage() {
                 <span className="flex-1">{t(labelKey as any)}</span>
                 {count > 0 && (
                   <span className={`font-mono text-[11px] px-1.5! py-0.5! rounded leading-none ${isActive
-                      ? "bg-apple-primary/22 text-apple-primary-on-dark"
-                      : "bg-white/6 text-[#5d7284]"
+                    ? "bg-apple-primary/22 text-apple-primary-on-dark"
+                    : "bg-white/6 text-[#5d7284]"
                     }`}>
                     {count}
                   </span>

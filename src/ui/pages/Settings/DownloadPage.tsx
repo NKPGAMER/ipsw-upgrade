@@ -9,6 +9,7 @@ import { Toggle } from "./Toggle";
 import { Select } from "./Select";
 import { IconDownload, IconNetwork, IconZap, IconShield, IconRefresh } from "./icons";
 import type { DownloadManagerOptions } from "@custom-type/downloader";
+import { downloader } from "@/core/downloader";
 
 type PartialConfig = Partial<{
   [K in keyof DownloadManagerOptions]: DownloadManagerOptions[K] extends object
@@ -42,7 +43,7 @@ const DownloadPage: FC = () => {
   }, []);
 
   useEffect(() => {
-    window.downloader.getConfig().then((cfg) => {
+    downloader.getConfig().then((cfg) => {
       setUseTmp(cfg.paths.useTmp ?? true);
       setMaxConnections(cfg.network?.maxConnections ?? 8);
       setBandwidthLimit(cfg.network?.bandwidthLimit ?? 0);
@@ -55,7 +56,7 @@ const DownloadPage: FC = () => {
   }, []);
 
   const saveConfig = useCallback(async (partial: PartialConfig) => {
-    await window.downloader.setConfig(partial as DownloadManagerOptions);
+    await downloader.setConfig(partial as DownloadManagerOptions);
   }, []);
 
   const handleSetDownloadPath = (path: string) => {

@@ -1,3 +1,5 @@
+import { downloader } from "./downloader";
+
 type ReloadListener = (files: IPSWFile[]) => void;
 type IncompleteTasksListener = (tasks: IncompleteTaskClient[]) => void;
 
@@ -65,7 +67,7 @@ export class IPSWClient {
      */
     async initIncompleteTasks(): Promise<void> {
         const load = async () => {
-            const tasks = await window.downloader.getIncompleteTasks() as unknown as IncompleteTaskClient[];
+            const tasks = await downloader.getIncompleteTasks() as unknown as IncompleteTaskClient[];
             if (!Array.isArray(tasks)) return;
             this.incompleteTasks = new Map(tasks.map((t) => [t.id, t]));
             this.emitIncompleteTasks();

@@ -1,6 +1,7 @@
 import { t } from "i18next";
 import { ipswClient } from "../init";
 import utils from "./utils";
+import { downloader } from "./downloader";
 
 // ─── Semaphore helper ─────────────────────────────────────────────────────────
 class Semaphore {
@@ -120,7 +121,7 @@ export async function getRedundantFilesFromProduct(
 export async function download(firmware: Firmware): Promise<{ success: boolean }> {
   try {
     utils.showSuccessMessage(t("message.downloader.sendRequest"));
-    const result = await window.downloader.add(firmware);
+    const result = await downloader.add(firmware);
     if (!result.success) {
       utils.showErrorMessage(
         t(`message.downloader.error.${result.error || "UNKNOWN"}`)

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Shell(npm:*)"
+      "Shell(npm:*)",
+      "Shell(npx tsc --noEmit --project tsconfig.app.json 2 >& 1)",
+      "powershell"
     ],
     "deny": [],
     "defaultMode": "default"

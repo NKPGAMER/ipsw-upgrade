@@ -87,7 +87,7 @@ interface DownloaderAPI {
   getIncompleteTasks: () => Promise<IncompleteTask>;
   deleteIncomplete: (id: string) => Promise<{ success: boolean; error?: string }>;
   getConfig: () => Promise<DownloadManagerOptions>;
-  setConfig: (partial: DownloadManagerOptions) => Promise<void>;
+  setConfig: (partial: Partial<DownloadManagerOptions>) => Promise<void>;
 
   verifyChecksum: (identifier: string, filePath: string, firmware: Firmware) => Promise<void>;
   cancelVerify: (identifier: string) => Promise<void>;

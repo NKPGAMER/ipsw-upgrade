@@ -13,6 +13,7 @@ import { ipswClient } from "../init";
 import { parseIPSW, getFileNameFromUrl } from "../core/helper";
 import { state as globalState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
+import { downloader } from "@/core/downloader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -384,7 +385,7 @@ export default function IPSWUpdateManager() {
     if (scannedProductsRef.current.has(prod)) return;
     scannedProductsRef.current.add(prod);
 
-    const downloaderTasks = await window.downloader.getAllTask().catch(() => []);
+    const downloaderTasks = await downloader.getAllTask().catch(() => []);
     const activeUrlSet = new Set([
       ...getActiveDownloadUrls(),
       ...downloaderTasks.map((task) => task.firmware.url),
@@ -588,7 +589,7 @@ export default function IPSWUpdateManager() {
     abortRef.current = false;
     setRunning(true);
 
-    const d = window.downloader;
+    const d = downloader;
     const subs = [
       d.onStarted((id, task) => {
         updateState(task.firmware.url, { status: "downloading", taskId: id, progress: 0 });

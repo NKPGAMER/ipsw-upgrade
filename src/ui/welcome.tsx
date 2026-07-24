@@ -11,6 +11,7 @@ import {
     IconShield,
 } from "@/ui/pages/Settings/icons";
 import type { DownloadManagerOptions } from "@custom-type/downloader";
+import { downloader } from "@/core/downloader";
 import "./welcome.css";
 
 const SETTING_VERSION = "2.0.0";
@@ -329,7 +330,7 @@ export default function App(): JSX.Element {
             if (savedCleanInvalid != null) setAutoRemoveInvalid(savedCleanInvalid);
         });
 
-        window.downloader.getConfig().then((cfg) => {
+        downloader.getConfig().then((cfg) => {
             if (cfg.paths?.saveDir) setSaveDir(cfg.paths.saveDir);
             if (cfg.integrity?.enable !== undefined) setSkipVerify(!cfg.integrity.enable);
         }).catch(() => {});
@@ -355,7 +356,7 @@ export default function App(): JSX.Element {
             window.store.set("cleanup_remove_duplicate", autoRemoveDupe),
             window.store.set("cleanup_remove_invalid", autoRemoveInvalid),
             window.store.set("settingVersion", SETTING_VERSION),
-            window.downloader.setConfig({
+            downloader.setConfig({
                 paths: { saveDir, stateDir: "", useTmp: true },
                 integrity: { enable: !skipVerify, algorithm: "SHA256" },
             } as DownloadManagerOptions),
