@@ -6,16 +6,21 @@ import { Section } from "./Section";
 import { Row } from "./Row";
 import { Toggle } from "./Toggle";
 import { IconSoftware } from "./icons";
+import { app, store } from "@/services/api";
 
 const FirmwarePage: FC = () => {
   const { t } = useTranslation();
-  const [normalizeName, setNormalizeName] = useState<boolean>(state.normalizeName);
+  const [normalizeName, setNormalizeName] = useState<boolean>(
+    state.normalizeName,
+  );
   const [linkOutDir, setLinkOutDir] = useState<string>("IPSW_FILES");
   const [deleteOld, setDeleteOld] = useState<boolean>(state.autoRemoveOldFiles);
-  const [deleteDuplicate, setDeleteDuplicate] = useState<boolean>(state.autoRemoveDuplicateFiles);
+  const [deleteDuplicate, setDeleteDuplicate] = useState<boolean>(
+    state.autoRemoveDuplicateFiles,
+  );
 
   useEffect(() => {
-    window.store.get("link_out_dir").then((dir: string) => {
+    store.get("link_out_dir").then((dir: string) => {
       if (dir) setLinkOutDir(dir);
     });
   }, []);
@@ -27,31 +32,37 @@ const FirmwarePage: FC = () => {
       variant: "warning",
     });
     if (!warning) return;
-    window.api.relaunch();
+    app.relaunch();
   }, [t]);
 
   const handleSaveLinkConfig = useCallback(async () => {
     state.normalizeName = normalizeName;
     await Promise.all([
-      window.store.set("link_enabled", normalizeName),
-      window.store.set("link_out_dir", linkOutDir),
+      store.set("link_enabled", normalizeName),
+      store.set("link_out_dir", linkOutDir),
     ]);
     await restartAppConfirm();
   }, [normalizeName, linkOutDir, restartAppConfirm]);
 
-  const handleSetDeleteOld = useCallback(async (value: boolean) => {
-    state.autoRemoveOldFiles = value;
-    window.store.set("cleanup_remove_old", value);
-    await restartAppConfirm();
-    setDeleteOld(value);
-  }, [restartAppConfirm]);
+  const handleSetDeleteOld = useCallback(
+    async (value: boolean) => {
+      state.autoRemoveOldFiles = value;
+      store.set("cleanup_remove_old", value);
+      await restartAppConfirm();
+      setDeleteOld(value);
+    },
+    [restartAppConfirm],
+  );
 
-  const handleSetDeleteDuplicate = useCallback(async (value: boolean) => {
-    state.autoRemoveDuplicateFiles = value;
-    window.store.set("cleanup_remove_duplicate", value);
-    await restartAppConfirm();
-    setDeleteDuplicate(value);
-  }, [restartAppConfirm]);
+  const handleSetDeleteDuplicate = useCallback(
+    async (value: boolean) => {
+      state.autoRemoveDuplicateFiles = value;
+      store.set("cleanup_remove_duplicate", value);
+      await restartAppConfirm();
+      setDeleteDuplicate(value);
+    },
+    [restartAppConfirm],
+  );
 
   return (
     <Section icon={IconSoftware} title={t("setting.firmware")}>
@@ -65,7 +76,7 @@ const FirmwarePage: FC = () => {
           <input
             type="text"
             value={linkOutDir}
-            onChange={e => setLinkOutDir(e.target.value)}
+            onChange={(e) => setLinkOutDir(e.target.value)}
             placeholder="IPSW_FILES"
             className="flex-1 min-w-0 bg-white/4 border border-white/6 rounded-lg px-3! py-2! text-[13px] font-mono text-apple-ink-muted-48 outline-none caret-apple-primary transition-all duration-150 focus:border-apple-primary focus:text-white focus:bg-white/6"
           />
@@ -85,7 +96,9 @@ const FirmwarePage: FC = () => {
       <Row
         label={t("app.autoDeleteDuplicate.label")}
         desc={t("app.autoDeleteDuplicate.desc")}
-        right={<Toggle on={deleteDuplicate} onChange={handleSetDeleteDuplicate} />}
+        right={
+          <Toggle on={deleteDuplicate} onChange={handleSetDeleteDuplicate} />
+        }
       />
     </Section>
   );

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Section } from "./Section";
 import { Row } from "./Row";
 import { IconAbout } from "./icons";
+import { app } from "@/services/api";
 
 const AboutPage: FC = memo(function AboutPage() {
   const { t } = useTranslation();
@@ -13,7 +14,7 @@ const AboutPage: FC = memo(function AboutPage() {
         label={t("app.version.title")}
         right={
           <span className="font-bold text-[12px] text-apple-primary-on-dark bg-white/6 border border-white/6 px-3! py-1! rounded-full tracking-[0.04em]">
-            {window.api.getVersion} - Premium Edition - VIP
+            {app.version} - Premium Edition - VIP
           </span>
         }
       />

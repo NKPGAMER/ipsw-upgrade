@@ -9,7 +9,8 @@ import { Toggle } from "./Toggle";
 import { Select } from "./Select";
 import { IconDownload, IconNetwork, IconZap, IconShield, IconRefresh } from "./icons";
 import type { DownloadManagerOptions } from "@custom-type/downloader";
-import { downloader } from "@/core/downloader";
+import { downloader } from "@/services/downloader";
+import { store, dialog } from "@/services/api";
 
 type PartialConfig = Partial<{
   [K in keyof DownloadManagerOptions]: DownloadManagerOptions[K] extends object
@@ -63,7 +64,7 @@ const DownloadPage: FC = () => {
     if (!path) path = "C:\\Downloads";
     setDownloadPath(path);
     state.currentFolder = path;
-    window.store.set("ipswFolder", path);
+    store.set("ipswFolder", path);
     saveConfig({ paths: { saveDir: path, stateDir: "" } });
   };
 
@@ -119,7 +120,7 @@ const DownloadPage: FC = () => {
           desc={t("app.download.savePath.desc")}
           value={downloadPath}
           onBrowse={async () => {
-            const path = await window.api.selectFolder?.();
+            const path = await dialog.selectFolder();
             if (path) handleSetDownloadPath(path);
           }}
           onChange={handleSetDownloadPath}

@@ -245,4 +245,7 @@ export type {
   VerifyCompletedInfo,
   VerifyCancelledInfo,
   VerifyErrorInfo,
+  UpdateStatus,
+  UpdateAvailableData,
+  UpdateProgressData,
 };

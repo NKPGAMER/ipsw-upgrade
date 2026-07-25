@@ -1,3 +1,4 @@
+import { app, updater } from "@/services/api";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -53,11 +54,23 @@ function parseMd(src: string): MdNode[] {
 
     // Headings
     const h3 = /^###\s+(.+)/.exec(trimmed);
-    if (h3) { out.push({ type: "h3", text: h3[1] }); i++; continue; }
+    if (h3) {
+      out.push({ type: "h3", text: h3[1] });
+      i++;
+      continue;
+    }
     const h2 = /^##\s+(.+)/.exec(trimmed);
-    if (h2) { out.push({ type: "h2", text: h2[1] }); i++; continue; }
+    if (h2) {
+      out.push({ type: "h2", text: h2[1] });
+      i++;
+      continue;
+    }
     const h1 = /^#\s+(.+)/.exec(trimmed);
-    if (h1) { out.push({ type: "h1", text: h1[1] }); i++; continue; }
+    if (h1) {
+      out.push({ type: "h1", text: h1[1] });
+      i++;
+      continue;
+    }
 
     // List items
     const li = /^[-*]\s+(.+)/.exec(trimmed);
@@ -71,15 +84,12 @@ function parseMd(src: string): MdNode[] {
     const paraLines: string[] = [];
     while (i < lines.length) {
       const t = lines[i].trim();
-      if (
-        t === "" ||
-        /^(#{1,3}\s|```|[-*]\s)/.test(t)
-      ) break;
+      if (t === "" || /^(#{1,3}\s|```|[-*]\s)/.test(t)) break;
       paraLines.push(t);
       i++;
     }
     if (paraLines.length) {
-      out.push({ type: "p", children: inlineNodes(paraLines.join(" ") ) });
+      out.push({ type: "p", children: inlineNodes(paraLines.join(" ")) });
     }
   }
 
@@ -99,22 +109,34 @@ function inlineNodes(text: string): ReactNode[] {
 
     if (token.startsWith("`") && token.endsWith("`")) {
       nodes.push(
-        <code key={m.index} className="px-1! py-0.5! rounded bg-[#1e1e1e] text-[#e5e5e5] text-[12px]! font-mono">
+        <code
+          key={m.index}
+          className="px-1! py-0.5! rounded bg-[#1e1e1e] text-[#e5e5e5] text-[12px]! font-mono"
+        >
           {token.slice(1, -1)}
-        </code>
+        </code>,
       );
     } else if (token.startsWith("**") && token.endsWith("**")) {
-      nodes.push(<strong key={m.index} className="font-semibold">{token.slice(2, -2)}</strong>);
+      nodes.push(
+        <strong key={m.index} className="font-semibold">
+          {token.slice(2, -2)}
+        </strong>,
+      );
     } else if (token.startsWith("*") && token.endsWith("*")) {
       nodes.push(<em key={m.index}>{token.slice(1, -1)}</em>);
     } else {
       const link = /^\[(.+?)\]\((.+?)\)$/.exec(token);
       if (link) {
         nodes.push(
-          <a key={m.index} href={link[2]} target="_blank" rel="noopener noreferrer"
-            className="text-[#0066cc] underline underline-offset-2">
+          <a
+            key={m.index}
+            href={link[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#0066cc] underline underline-offset-2"
+          >
             {link[1]}
-          </a>
+          </a>,
         );
       } else {
         nodes.push(token);
@@ -132,26 +154,60 @@ function renderMd(src: string): ReactNode[] {
   return nodes.map((n, i) => {
     switch (n.type) {
       case "h1":
-        return <h1 key={i} className="text-[18px]! font-bold text-[#e5e5e5] mt-5! mb-2!">{n.text}</h1>;
+        return (
+          <h1
+            key={i}
+            className="text-[18px]! font-bold text-[#e5e5e5] mt-5! mb-2!"
+          >
+            {n.text}
+          </h1>
+        );
       case "h2":
-        return <h2 key={i} className="text-[15px]! font-semibold text-[#ccc] mt-4! mb-1.5!">{n.text}</h2>;
+        return (
+          <h2
+            key={i}
+            className="text-[15px]! font-semibold text-[#ccc] mt-4! mb-1.5!"
+          >
+            {n.text}
+          </h2>
+        );
       case "h3":
-        return <h3 key={i} className="text-[13px]! font-semibold text-[#bbb] mt-3! mb-1!">{n.text}</h3>;
+        return (
+          <h3
+            key={i}
+            className="text-[13px]! font-semibold text-[#bbb] mt-3! mb-1!"
+          >
+            {n.text}
+          </h3>
+        );
       case "li":
         return (
-          <li key={i} className="flex items-start gap-1.5! text-[12.5px]! text-[#999] leading-relaxed ml-2!">
+          <li
+            key={i}
+            className="flex items-start gap-1.5! text-[12.5px]! text-[#999] leading-relaxed ml-2!"
+          >
             <span className="text-[#0066cc] shrink-0 mt-[5px]! w-1! h-1! rounded-full bg-[#0066cc]" />
             <span>{n.text}</span>
           </li>
         );
       case "code":
         return (
-          <pre key={i} className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg! p-3! my-2! overflow-x-auto text-[11.5px]! text-[#aaa] font-mono leading-relaxed">
+          <pre
+            key={i}
+            className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg! p-3! my-2! overflow-x-auto text-[11.5px]! text-[#aaa] font-mono leading-relaxed"
+          >
             {n.text}
           </pre>
         );
       case "p":
-        return <p key={i} className="text-[12.5px]! text-[#999] leading-relaxed mt-1.5! mb-1.5!">{n.children}</p>;
+        return (
+          <p
+            key={i}
+            className="text-[12.5px]! text-[#999] leading-relaxed mt-1.5! mb-1.5!"
+          >
+            {n.children}
+          </p>
+        );
     }
   });
 }
@@ -159,8 +215,15 @@ function renderMd(src: string): ReactNode[] {
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 const ArrowLeftIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
-    strokeLinecap="round" strokeLinejoin="round" className="w-4.25! h-4.25!">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="w-4.25! h-4.25!"
+  >
     <line x1="19" y1="12" x2="5" y2="12" />
     <polyline points="12 19 5 12 12 5" />
   </svg>
@@ -171,7 +234,11 @@ const ArrowLeftIcon = () => (
 export default function AppUpdate() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [data, setData] = useState<UpdateData | null>(null);
-  const [progress, setProgress] = useState<Progress>({ percent: 0, transferred: "0", total: "0" });
+  const [progress, setProgress] = useState<Progress>({
+    percent: 0,
+    transferred: "0",
+    total: "0",
+  });
   const navigate = useNavigate();
 
   const notes: string | null = useMemo(() => {
@@ -180,34 +247,37 @@ export default function AppUpdate() {
   }, [data]);
 
   useEffect(() => {
-    window.updater.getStatus().then((status) => {
-      if (status.version) setData({ version: status.version, notes: status.notes ?? null });
+    updater.getStatus().then((status) => {
+      if (!status) return;
+      if (status.version)
+        setData({ version: status.version, notes: status.notes ?? null });
       if (status.progress) setProgress(status.progress);
       setPhase(status.phase);
     });
 
     const subs = [
-      window.updater.onUpdateAvailable((d) => {
+      updater.onUpdateAvailable((d) => {
         setData(d);
         setPhase("downloading");
       }),
-      window.updater.onUpdateProgress((p) => setProgress(p)),
-      window.updater.onUpdateReady(() => setPhase("ready")),
-      window.updater.onUpdateNotAvailable(() => setPhase("no-update")),
+      updater.onUpdateProgress((p) => setProgress(p)),
+      updater.onUpdateReady(() => setPhase("ready")),
+      updater.onUpdateNotAvailable(() => setPhase("no-update")),
     ];
-    return () => subs.forEach((s) => s.unsubscribe());
+    return () => subs.forEach((s) => s?.unsubscribe());
   }, []);
 
   return (
     <div className="flex flex-col min-h-screen w-full bg-[#252527] text-white">
-
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="
+      <header
+        className="
         sticky top-0 z-10 shrink-0
         flex items-center gap-3!
         bg-[#252527] border-b border-white/[0.06]
         px-6! h-11!
-      ">
+      "
+      >
         <button
           type="button"
           onClick={() => navigate("/", { replace: true })}
@@ -227,7 +297,6 @@ export default function AppUpdate() {
 
       {/* ── Main ──────────────────────────────────────────────────────────────── */}
       <main className="flex-1 p-6! md:px-8! md:py-7! overflow-y-auto max-w-2xl">
-
         {!data && phase === "idle" && (
           <div className="flex items-center justify-center py-20!">
             <div className="w-8 h-8 animate-spin rounded-full border-3 border-[#1e1e1e] border-t-[#0066cc]" />
@@ -237,14 +306,25 @@ export default function AppUpdate() {
         {phase === "no-update" && (
           <div className="flex flex-col items-center justify-center py-20! text-center">
             <div className="w-14! h-14! rounded-full bg-[#272729] border border-white/[0.06] flex items-center justify-center mb-4!">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}
-                strokeLinecap="round" strokeLinejoin="round" className="w-7! h-7! text-[#555]">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-7! h-7! text-[#555]"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <path d="M9 12l2 2 4-4" />
               </svg>
             </div>
-            <p className="text-[14px]! text-[#aaa] font-medium">Không có bản cập nhật mới</p>
-            <p className="text-[12px]! text-[#666] mt-1!">Bạn đang dùng phiên bản mới nhất.</p>
+            <p className="text-[14px]! text-[#aaa] font-medium">
+              Không có bản cập nhật mới
+            </p>
+            <p className="text-[12px]! text-[#666] mt-1!">
+              Bạn đang dùng phiên bản mới nhất.
+            </p>
           </div>
         )}
 
@@ -266,7 +346,10 @@ export default function AppUpdate() {
               <div className="mb-5!">
                 <div className="flex justify-between text-[11px]! text-[#888] mb-1.5!">
                   <span>Đang tải bản cập nhật</span>
-                  <span>{progress.percent}% — {progress.transferred}/{progress.total} MB</span>
+                  <span>
+                    {progress.percent}% — {progress.transferred}/
+                    {progress.total} MB
+                  </span>
                 </div>
                 <div className="h-1.5! rounded-full bg-white/[0.06] overflow-hidden">
                   <div
@@ -288,7 +371,7 @@ export default function AppUpdate() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => window.api.relaunch()}
+                  onClick={() => app.relaunch()}
                   className="
                     mt-3! w-full py-2.5! rounded-full! text-[13px]! font-semibold
                     bg-[#0066cc] text-white cursor-pointer

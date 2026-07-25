@@ -13,7 +13,8 @@ import { ipswClient } from "../init";
 import { parseIPSW, getFileNameFromUrl } from "../core/helper";
 import { state as globalState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
-import { downloader } from "@/core/downloader";
+import { downloader } from "@/services/downloader";
+import { data, file as fileApi } from "@/services/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -392,7 +393,7 @@ export default function IPSWUpdateManager() {
     ]);
 
     const allFiles = ipswClient.getFiles().filter((file => file.name.toLocaleLowerCase().startsWith(prod)));
-    const devices = await window.api.getDevices(prod);
+    const devices = await data.getDevices(prod);
 
     if (!devices || devices.length === 0 || allFiles.length === 0) {
       setScan({ phase: "done", scanned: 0, total: 0 });
@@ -408,9 +409,13 @@ export default function IPSWUpdateManager() {
       const d = devices[i];
 
       try {
-        const modelData: DeviceResponse = await window.api.getModelData(d.identifier);
+        const modelData = await data.getModelData(d.identifier);
+        if (!modelData) {
+          setScan((s) => ({ ...s, scanned: i + 1 }));
+          continue;
+        }
 
-        if (!modelData?.firmwares?.length) {
+        if (!modelData.firmwares?.length) {
           setScan((s) => ({ ...s, scanned: i + 1 }));
           continue;
         }
@@ -624,7 +629,7 @@ export default function IPSWUpdateManager() {
       try {
         // Delete old files before adding download
         if (entry.oldFiles.length > 0) {
-          await window.api.file.delete(entry.oldFiles);
+          await fileApi.delete(entry.oldFiles);
         }
         const result = await d.add(entry.firmware);
         if (!result.success) {

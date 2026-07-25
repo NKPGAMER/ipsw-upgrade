@@ -1,0 +1,9 @@
+# Architecture
+- Frontend/renderer code must not import Node.js built-in modules (e.g., `events`, `fs`, `path`). When a Node.js API pattern like EventEmitter is needed in the renderer, implement a lightweight custom replacement instead — such as a `Map`-based `EventBus` that works in browser contexts. Confidence: 0.85
+- For performance-critical native operations (disk I/O, OS syscalls, unbuffered writes), prefer implementing in Rust via the i10r-addon rather than pure Node.js workarounds. Confidence: 0.80
+- For file copy/move and full-file hash operations, use Rust native functions (i10r-addon) instead of Node.js fs/crypto. Rust handles the operation; JavaScript manages orchestration, queuing, and event tracking. Confidence: 0.75
+- Do not auto-detect hash algorithm from firmware metadata. Require explicit shaAlgorithm on TaskConfig; if not set, skip stream hash/verify entirely. Confidence: 0.80
+- When the underlying preload/native API is expected to change (e.g., planned migration to Rust), wrap it behind a frontend facade class. The facade becomes the single hub for all operations, insulating downstream code from API churn — only the wrapper changes when the backend is replaced. Confidence: 0.85
+- Every method in an API facade should return `data | void` — never throw. The facade catches all errors internally, so callers always receive a clean result and never need try/catch. Confidence: 0.85
+- Frontend must gracefully degrade when the backend/preload layer is unavailable — the UI should still render and remain functional without crashing, even if backend calls return empty/null results. Confidence: 0.80
+- Do not weaken a parameter's type contract (e.g., making it optional with `?`) just to accommodate a call site that fails to provide it. If a parameter is semantically required, keep it required and fix the call site to supply the value instead. Confidence: 0.70

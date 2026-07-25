@@ -9,7 +9,8 @@ import { ipswClient } from "@/init";
 import { state as globalState } from "@/data";
 import { useSearchStore } from "@/stores/search-store";
 import utils from "@/core/utils";
-import { downloader } from "@/core/downloader";
+import { downloader } from "@/services/downloader";
+import { data } from "@/services/api";
 import { DeviceCard } from "./DeviceCard";
 import { DetailPanel } from "./DetailPanel";
 import { Resizer } from "./Resizer";
@@ -169,24 +170,24 @@ export default function IPSWManager() {
   }, [applyTaskMap]);
 
   useEffect(() => {
-    const unsub = window.api.onDeviceDataUpdated(({ identifier, data }) => {
+    const unsub = data.onDeviceDataUpdated(({ identifier, data: deviceData }) => {
       setEntries(prev => {
         const group = identifierGroupRef.current.get(identifier);
         if (group && group.size > 1) {
           return prev.map(e =>
             group.has(e.device.identifier)
-              ? { ...e, firmwares: data.firmwares ?? [] }
+              ? { ...e, firmwares: deviceData.firmwares ?? [] }
               : e
           );
         }
         return prev.map(e =>
           e.device.identifier === identifier
-            ? { ...e, firmwares: data.firmwares ?? [] }
+            ? { ...e, firmwares: deviceData.firmwares ?? [] }
             : e
         );
       });
     });
-    return () => unsub();
+    return () => unsub?.();
   }, []);
 
   const handleCardVisible = useCallback(async (identifier: string) => {
@@ -199,7 +200,8 @@ export default function IPSWManager() {
         : e
     ));
 
-    const result = await window.api.getDeviceModelData(identifier);
+    const result = await data.getDeviceModelData(identifier);
+    if (!result) return;
     if (result.status === "ready") {
       const newFirmwares: Firmware[] = result.data.firmwares ?? [];
 
@@ -249,7 +251,8 @@ export default function IPSWManager() {
           for (const id of linkedIds) {
             if (id !== identifier && !requestedFwRef.current.has(id)) {
               requestedFwRef.current.add(id);
-              window.api.getDeviceModelData(id).then(reloadResult => {
+              data.getDeviceModelData(id).then(reloadResult => {
+                if (!reloadResult) return;
                 if (reloadResult.status === "ready") {
                   setEntries(prev2 => prev2.map(e =>
                     linkedIds.has(e.device.identifier)
@@ -428,7 +431,8 @@ export default function IPSWManager() {
       if (customDevices) {
         devices = customDevices;
       } else {
-        const allDevices = await window.api.getDevices();
+        const allDevices = await data.getDevices();
+        if (!allDevices) return;
         devices = isGlobalSearch
           ? [...allDevices].reverse()
           : allDevices.filter(d => d.identifier.toLocaleLowerCase().startsWith(product!)).reverse();

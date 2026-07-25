@@ -9,8 +9,15 @@ import { state } from "../data";
 // Định nghĩa ngoài component — không re-create mỗi render
 
 const SettingsIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
-    strokeLinecap="round" strokeLinejoin="round" className="w-4.25! h-4.25!">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="w-4.25! h-4.25!"
+  >
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
@@ -20,8 +27,14 @@ const ICON_STYLE_SM = { width: 16, height: 16, flexShrink: 0 } as const;
 const ICON_STYLE_LG = { width: 40, height: 40, flexShrink: 0 } as const;
 
 const DownloadIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#0066cc" strokeWidth={1.5}
-    strokeLinecap="round" style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#0066cc"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}
+  >
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     <polyline points="7 10 12 15 17 10" />
     <line x1="12" y1="15" x2="12" y2="3" />
@@ -29,8 +42,14 @@ const DownloadIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
 );
 
 const StorageUsedIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#0066cc" strokeWidth={1.5}
-    strokeLinecap="round" style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#0066cc"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}
+  >
     <ellipse cx="12" cy="5" rx="9" ry="3" />
     <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
     <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
@@ -38,8 +57,14 @@ const StorageUsedIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
 );
 
 const StorageFreeIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#0066cc" strokeWidth={1.5}
-    strokeLinecap="round" style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#0066cc"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    style={size === "sm" ? ICON_STYLE_SM : ICON_STYLE_LG}
+  >
     <rect x="2" y="3" width="20" height="14" rx="2" />
     <line x1="8" y1="21" x2="16" y2="21" />
     <line x1="12" y1="17" x2="12" y2="21" />
@@ -49,8 +74,14 @@ const StorageFreeIcon = ({ size = "lg" }: { size?: "sm" | "lg" }) => (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ProductId =
-  | "iphone" | "ipad" | "watch" | "mac"
-  | "realitydevice" | "tv" | "homepod" | "ipod";
+  | "iphone"
+  | "ipad"
+  | "watch"
+  | "mac"
+  | "realitydevice"
+  | "tv"
+  | "homepod"
+  | "ipod";
 
 interface StatItem {
   label: string;
@@ -85,6 +116,7 @@ import visionIcon from "../assets/icon/vision.png";
 import tvIcon from "../assets/icon/tv.png";
 import homepodIcon from "../assets/icon/homepod.png";
 import ipodIcon from "../assets/icon/ipod.png";
+import { disk, app, updater } from "@/services/api";
 
 const PRODUCTS: Product[] = [
   { id: "iphone", name: "iPhone", img: iphoneIcon },
@@ -108,7 +140,14 @@ const ICONS = {
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
 
-const StatCard = memo(function StatCard({ label, value, unit, iconSm, iconLg, color }: StatItem) {
+const StatCard = memo(function StatCard({
+  label,
+  value,
+  unit,
+  iconSm,
+  iconLg,
+  color,
+}: StatItem) {
   return (
     <div className="relative overflow-hidden rounded-xl! bg-apple-tile-1 border border-white/6 p-4! flex flex-col gap-2!">
       <div className="absolute top-0 left-0 right-0 h-0.5! bg-apple-primary opacity-50" />
@@ -121,18 +160,23 @@ const StatCard = memo(function StatCard({ label, value, unit, iconSm, iconLg, co
           {label}
         </span>
       </div>
-      {color
-        ? <span className="text-[22px]! font-semibold leading-none">
+      {color ? (
+        <span className="text-[22px]! font-semibold leading-none">
           <span className={color}>{value}</span>
-          <small className="text-[13px]! text-apple-ink-muted-48 font-normal ml-1!">{unit}</small>
+          <small className="text-[13px]! text-apple-ink-muted-48 font-normal ml-1!">
+            {unit}
+          </small>
         </span>
-        : <span className="text-[22px]! font-semibold text-white leading-none">
+      ) : (
+        <span className="text-[22px]! font-semibold text-white leading-none">
           {value}
-          <small className="text-[13px]! text-apple-ink-muted-48 font-normal ml-1!">{unit}</small>
+          <small className="text-[13px]! text-apple-ink-muted-48 font-normal ml-1!">
+            {unit}
+          </small>
         </span>
-      }
+      )}
     </div>
-  )
+  );
 });
 
 // ── StatCardSkeleton — shimmer khi đang tải ───────────────────────────────────
@@ -141,9 +185,11 @@ const StatCardSkeleton = memo(function StatCardSkeleton() {
   return (
     <div className="relative overflow-hidden rounded-xl! bg-apple-tile-1 border border-white/6 p-4! flex flex-col gap-2!">
       <div className="absolute top-0 left-0 right-0 h-0.5! bg-apple-primary opacity-30" />
-      <div className="absolute inset-0 pointer-events-none animate-ld-shimmer"
+      <div
+        className="absolute inset-0 pointer-events-none animate-ld-shimmer"
         style={{
-          background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%)",
+          background:
+            "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%)",
         }}
       />
       <div className="flex items-center gap-1.5!">
@@ -152,12 +198,18 @@ const StatCardSkeleton = memo(function StatCardSkeleton() {
       </div>
       <div className="h-6! w-16! rounded! bg-white/6" />
     </div>
-  )
+  );
 });
 
 // ── ProductCard ───────────────────────────────────────────────────────────────
 
-const ProductCard = memo(function ProductCard({ product, onClick }: { product: Product; onClick: () => void }) {
+const ProductCard = memo(function ProductCard({
+  product,
+  onClick,
+}: {
+  product: Product;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -181,17 +233,21 @@ const ProductCard = memo(function ProductCard({ product, onClick }: { product: P
           }}
         />
       </div>
-      <span className="text-[14px]! font-semibold text-white leading-snug">{product.name}</span>
+      <span className="text-[14px]! font-semibold text-white leading-snug">
+        {product.name}
+      </span>
       {product.badge && (
         <span className="text-[9.5px]! font-medium tracking-[0.03em] bg-[#0066cc18] text-apple-primary border border-[#0066cc30] rounded-[5px]! px-1.75! py-0.5!">
           {product.badge}
         </span>
       )}
       {!product.badge && product.sub && (
-        <span className="text-[10.5px]! text-apple-ink-muted-48">{product.sub}</span>
+        <span className="text-[10.5px]! text-apple-ink-muted-48">
+          {product.sub}
+        </span>
       )}
     </button>
-  )
+  );
 });
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -203,23 +259,27 @@ export default function Home() {
   const mountedRef = useRef(true);
 
   const reloadStats = useCallback(() => {
-    Promise.all([
-      window.api.getDiskSpace(state.currentFolder),
-      Promise.resolve(ipswClient.getFiles()),
-    ]).then(([freeSpace, allFiles]) => {
-      if (!mountedRef.current || !freeSpace) return;
-      const pct = freeSpace.percentage;
-      setStats({
-        fileCount: allFiles.length,
-        used: utils.formatBytes(allFiles.reduce((sum, f) => sum + f.size, 0)),
-        free: {
-          ...utils.formatBytes(freeSpace.available),
-          color: pct >= 90 ? "text-red-600" : pct >= 60 ? "text-yellow-500" : "text-green-600",
-        },
+    Promise.all([disk.getDiskSpace(state.currentFolder), Promise.resolve(ipswClient.getFiles())])
+      .then(([freeSpace, allFiles]) => {
+        if (!mountedRef.current || !freeSpace) return;
+        const pct = freeSpace.percentage;
+        setStats({
+          fileCount: allFiles.length,
+          used: utils.formatBytes(allFiles.reduce((sum, f) => sum + f.size, 0)),
+          free: {
+            ...utils.formatBytes(freeSpace.available),
+            color:
+              pct >= 90
+                ? "text-red-600"
+                : pct >= 60
+                  ? "text-yellow-500"
+                  : "text-green-600",
+          },
+        });
+      })
+      .catch((err) => {
+        console.error("[Home] reloadStats phase1 failed:", err);
       });
-    }).catch((err) => {
-      console.error("[Home] reloadStats phase1 failed:", err);
-    });
   }, []);
 
   useEffect(() => {
@@ -235,71 +295,80 @@ export default function Home() {
   }, [reloadStats]);
 
   useEffect(() => {
-    const sub = window.updater.onUpdateAvailable(({ version }) => {
+    const sub = updater.onUpdateAvailable(({ version }) => {
       setUpdateVersion(version);
       state.isNewVersion = true;
     });
     return () => {
-      sub.unsubscribe();
+      sub?.unsubscribe();
       state.isNewVersion = false;
     };
   }, []);
 
   // Chỉ rebuild khi stats thay đổi — icons dùng constant references
-  const statItems: StatItem[] = useMemo(() => [
-    {
-      label: "Tệp đã tải xuống",
-      value: stats?.fileCount.toString() ?? "-",
-      unit: "tệp",
-      iconSm: ICONS.downloadSm,
-      iconLg: ICONS.downloadLg,
-    },
-    {
-      label: "Đã sử dụng",
-      value: stats?.used.value ?? "-",
-      unit: stats?.used.unit ?? "Bytes",
-      iconSm: ICONS.usedSm,
-      iconLg: ICONS.usedLg,
-    },
-    {
-      label: "Dung lượng trống",
-      value: stats?.free.value ?? "-",
-      unit: stats?.free.unit ?? "Bytes",
-      iconSm: ICONS.freeSm,
-      iconLg: ICONS.freeLg,
-      color: stats?.free.color,
-    },
-  ], [stats]);
+  const statItems: StatItem[] = useMemo(
+    () => [
+      {
+        label: "Tệp đã tải xuống",
+        value: stats?.fileCount.toString() ?? "-",
+        unit: "tệp",
+        iconSm: ICONS.downloadSm,
+        iconLg: ICONS.downloadLg,
+      },
+      {
+        label: "Đã sử dụng",
+        value: stats?.used.value ?? "-",
+        unit: stats?.used.unit ?? "Bytes",
+        iconSm: ICONS.usedSm,
+        iconLg: ICONS.usedLg,
+      },
+      {
+        label: "Dung lượng trống",
+        value: stats?.free.value ?? "-",
+        unit: stats?.free.unit ?? "Bytes",
+        iconSm: ICONS.freeSm,
+        iconLg: ICONS.freeLg,
+        color: stats?.free.color,
+      },
+    ],
+    [stats],
+  );
 
-  useEffect(() => window.api.ready(), []);
+  useEffect(() => app.ready(), []);
 
   return (
     <div className="flex flex-col size-full bg-apple-tile-3 text-white">
-
       {/* ── Main ────────────────────────────────────────────────────────────── */}
       <main className="flex-1 p-6! md:px-8! md:py-7! overflow-y-auto">
-
         {/* Stats row — skeleton khi chưa load xong */}
         <motion.div
           className="grid grid-cols-3 gap-3! mb-3!"
           initial="hidden"
           animate="show"
-          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.01 } } }}
+          variants={{
+            hidden: {},
+            show: {
+              transition: { staggerChildren: 0.04, delayChildren: 0.01 },
+            },
+          }}
         >
           {stats === null
             ? Array.from({ length: 3 }, (_, i) => <StatCardSkeleton key={i} />)
             : statItems.map((s) => (
-              <motion.div
-                key={s.label}
-                variants={{
-                  hidden: { opacity: 0, y: 8 },
-                  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0, 0, 0.2, 1] } },
-                }}
-              >
-                <StatCard {...s} />
-              </motion.div>
-            ))
-          }
+                <motion.div
+                  key={s.label}
+                  variants={{
+                    hidden: { opacity: 0, y: 8 },
+                    show: {
+                      opacity: 1,
+                      y: 0,
+                      transition: { duration: 0.28, ease: [0, 0, 0.2, 1] },
+                    },
+                  }}
+                >
+                  <StatCard {...s} />
+                </motion.div>
+              ))}
         </motion.div>
 
         {/* Section label */}
@@ -312,24 +381,35 @@ export default function Home() {
           className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3!"
           initial="hidden"
           animate="show"
-          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.12 } } }}
+          variants={{
+            hidden: {},
+            show: {
+              transition: { staggerChildren: 0.04, delayChildren: 0.12 },
+            },
+          }}
         >
           {PRODUCTS.map((p) => (
             <motion.div
               key={p.id}
               variants={{
                 hidden: { opacity: 0, y: 10, scale: 0.985 },
-                show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.28, ease: [0, 0, 0.2, 1] } },
+                show: {
+                  opacity: 1,
+                  y: 0,
+                  scale: 1,
+                  transition: { duration: 0.28, ease: [0, 0, 0.2, 1] },
+                },
               }}
             >
               <ProductCard
                 product={p}
-                onClick={() => navigate("/selectDevice", { state: { product: p.id } })}
+                onClick={() =>
+                  navigate("/selectDevice", { state: { product: p.id } })
+                }
               />
             </motion.div>
           ))}
         </motion.div>
-
       </main>
     </div>
   );

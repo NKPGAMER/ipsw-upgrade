@@ -1,4 +1,5 @@
-import { downloader } from "./downloader";
+import { downloader } from "../services/downloader";
+import { file } from "../services/api";
 
 type ReloadListener = (files: IPSWFile[]) => void;
 type IncompleteTasksListener = (tasks: IncompleteTaskClient[]) => void;
@@ -45,7 +46,7 @@ export class IPSWClient {
     private incompleteListeners: Set<IncompleteTasksListener> = new Set();
 
     constructor() {
-        window.api.file.onReload((f) => this.applyReload(f));
+        file.onReload((f) => this.applyReload(f));
         void this.init().then(() => this.initIncompleteTasks());
     }
 
@@ -57,7 +58,8 @@ export class IPSWClient {
      * Gọi một lần sau khi khởi tạo để đồng bộ trạng thái ban đầu từ main.
      */
     async init(): Promise<void> {
-        const files = await window.api.file.getFiles();
+        const files = await file.getFiles();
+        if (!files) return;
         this.files = new Map(files.map((f) => [f.path, f]));
         this.emit(this.getFiles());
     }
@@ -135,7 +137,7 @@ export class IPSWClient {
      * Main sẽ debounce: chờ task hiện tại xong rồi nhảy sang request cuối nhất.
      */
     changeDir(newDir: string): void {
-        window.api.file.changeDir(newDir);
+        file.changeDir(newDir);
     }
 
     /**
@@ -145,7 +147,7 @@ export class IPSWClient {
     async deleteFile(
         target: string | string[] | IPSWFile | IPSWFile[]
     ): Promise<void> {
-        await window.api.file.delete(target);
+        await file.delete(target);
     }
 
     // ─────────────────────────────────────────
@@ -213,8 +215,9 @@ export class IPSWClient {
             }
             this.emit(this.getFiles());
         } else {
-            window.api.file.getFiles()
-                .then((files: IPSWFile[]) => {
+            file.getFiles()
+                .then((files: IPSWFile[] | void) => {
+                    if (!files) return;
                     this.files = new Map(files.map((f) => [f.path, f]));
                     this.emit(this.getFiles());
                 })

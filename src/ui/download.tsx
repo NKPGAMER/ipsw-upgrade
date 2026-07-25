@@ -9,7 +9,7 @@ import type { Task, TaskStatus } from "@custom-type/downloader";
 import type { DownloadFilter } from "../stores/download-store";
 import { getFileNameFromUrl } from "../core/helper";
 import utils from "../core/utils";
-import { downloader } from "@/core/downloader";
+import { downloader } from "@/services/downloader";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

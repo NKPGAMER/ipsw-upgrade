@@ -4,13 +4,14 @@ import { Section } from "./Section";
 import { Row } from "./Row";
 import { IconLanguage } from "./icons";
 import type { Language } from "./types";
+import { store } from "@/services/api";
 
 const LanguagePage: FC = () => {
   const [language, setLanguage] = useState<Language>("vi");
   const { t, i18n } = useTranslation();
 
   useEffect(() => {
-    window.store.get("language").then((lang: string) => {
+    store.get("language").then((lang: string) => {
       if (lang) setLanguage(lang as Language);
     });
   }, []);
@@ -18,7 +19,7 @@ const LanguagePage: FC = () => {
   const handleSetLanguage = (lang: Language) => {
     setLanguage(lang);
     i18n.changeLanguage(lang);
-    window.store.set("language", lang);
+    store.set("language", lang);
   };
 
   return (

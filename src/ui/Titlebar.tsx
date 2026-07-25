@@ -2,6 +2,7 @@ import { JSX, memo, useEffect, useCallback } from "react"
 import { NavigateOptions, useLocation, useNavigate } from "react-router-dom";
 import { useSearchStore, getSearchState } from "@/stores/search-store";
 import { useDebounce } from "@/hooks/useDebounce";
+import { app } from "@/services/api";
 
 const SettingsIcon = memo(function setiingsIcon() {
     return (
@@ -101,7 +102,7 @@ export default function Titlebar() {
             <div className="text-[13px]! font-semibold text-white leading-tight">
               <span className="text-apple-primary">IPSW</span> Manager
             </div>
-            <div className="text-[10px]! text-[#5a5a5e] leading-tight">v{window.api.getVersion}</div>
+            <div className="text-[10px]! text-[#5a5a5e] leading-tight">v{app.version}</div>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from "r
 import { SETTING_VERSION } from "./ui/welcome";
 import { useNetworkStatus } from "./core/useNetworkStatus";
 import { ErrorBoundarySection } from "./ui/ErrorBoundarySection";
+import { store } from "./services/api";
 import Titlebar from "./ui/Titlebar";
 import Sidebar from "./ui/Sidebar";
 
@@ -99,7 +100,7 @@ function AppContent() {
     const showSidebar = useShowSidebar();
 
     useEffect(() => {
-        window.store.get('settingVersion').then((storedVersion: string) => {
+        store.get('settingVersion').then((storedVersion: string) => {
             setNeedSetup(storedVersion !== SETTING_VERSION);
         }).catch(() => setNeedSetup(false));
     }, []);

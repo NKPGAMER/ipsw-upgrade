@@ -1,7 +1,8 @@
 import { t } from "i18next";
 import { ipswClient } from "../init";
 import utils from "./utils";
-import { downloader } from "./downloader";
+import { downloader } from "../services/downloader";
+import { data } from "../services/api";
 
 // ─── Semaphore helper ─────────────────────────────────────────────────────────
 class Semaphore {
@@ -51,7 +52,8 @@ export function getFileNameFromUrl(url: Firmware["url"]): string {
 
 export async function getFiles(identifier: Device["identifier"],
 ): Promise<IPSWFile[]> {
-  const modelData = await window.api.getModelData(identifier);
+  const modelData = await data.getModelData(identifier);
+  if (!modelData) return [];
   const files = ipswClient.getFiles();
   const lastFirmware = modelData.firmwares[0];
   const info = parseIPSW(getFileNameFromUrl(lastFirmware.url));
@@ -74,9 +76,10 @@ export async function getRedundantFiles(
   files?: IPSWFile[]
 ): Promise<RedundantFileResponse> {
   const [modelData, modelFiles] = await Promise.all([
-    window.api.getModelData(identifier),
+    data.getModelData(identifier),
     files ? Promise.resolve(files) : getFiles(identifier),
   ]);
+  if (!modelData) return { oldFiles: [], duplicateFiles: [] };
 
   if (modelFiles.length === 0) return { oldFiles: [], duplicateFiles: [] };
 
@@ -91,7 +94,8 @@ export async function getRedundantFiles(
 export async function getRedundantFilesFromProduct(
   product: Product
 ): Promise<RedundantFileResponse> {
-  const productData = await window.api.getDevices(product);
+  const productData = await data.getDevices(product);
+  if (!productData) return { oldFiles: [], duplicateFiles: [] };
   const results = await Promise.all(
     productData.map(async (device) => {
       const files = await getFiles(device.identifier);
@@ -171,14 +175,16 @@ export async function updateFirmware(
 }
 
 export async function updateFirmwareOfProduct(product: Product) {
-  const devices = await window.api.getDevices(product);
+  const devices = await data.getDevices(product);
+  if (!devices) return;
 
   // Fetch allFiles một lần cho toàn bộ product
   const allFiles = ipswClient.getFiles();
 
   await Promise.all(
     devices.map(async (device) => {
-      const modelData = await window.api.getModelData(device.identifier);
+      const modelData = await data.getModelData(device.identifier);
+      if (!modelData) return;
       const lastFirmware = modelData.firmwares[0];
       const lastFirmwareInfo = parseIPSW(getFileNameFromUrl(lastFirmware.url));
 
