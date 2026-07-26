@@ -8,14 +8,15 @@
     "publish": "node publish/server.mjs",
     "build": "vite build",
     "build:main": "npx tsc -p tsconfig.main.json",
-    "dev": "npm run build:main && concurrently \"vite\" \"electron .\"",
+    "dev": "vite",
     "dev:electron": "npx tsc -p tsconfig.main.json -w",
     "dist": "npm run build:main && npm run build && electron-builder",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:src": "eslint src/",
     "lint:electron": "eslint electron/",
-    "t": "electron ."
+    "t": "electron .",
+    "tauri": "tauri"
   },
   "keywords": [],
   "author": "NKPGAMER",

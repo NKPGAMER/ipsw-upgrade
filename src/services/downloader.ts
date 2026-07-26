@@ -55,7 +55,10 @@ class Downloader {
     private api = window.downloader;
 
     constructor() {
-        if (!this.api) throw new Error("The 'window.downloader' API does not exist.");
+        if (!this.api) {
+            console.error("The 'window.downloader' API does not exist.");
+            return;
+        }
 
         this.registerApiEvents();
     }
