@@ -28,7 +28,7 @@ interface UpdateInfoResult {
 interface ElectronApi {
   relaunch: () => Promise<void>;
   ready: () => void;
-  getDiskSpace: (targetPath?: string) => Promise<DiskSpace>;
+  getDiskInfo: (targetPath?: string) => Promise<DiskInfo | null>;
   getAllDisk: () => Promise<DiskInfo[]>;
   formatBytes: (bytes: number, decimals?: number) => Promise<string>;
   getVersion: string;
@@ -169,14 +169,6 @@ declare global {
     device: string;
     files: IPSWFile[];
     count: number;
-  }
-
-  interface DiskSpace {
-    total: number;
-    used: number;
-    available: number;
-    percentage: number;
-    mount: string;
   }
 
   interface Device {

@@ -7,6 +7,7 @@ See [architecture/taste.md](architecture/taste.md)
 # Communication
 See [communication/taste.md](communication/taste.md)
 # Workflow
+- Prefers immediately deleting dead/unreferenced code when identified, rather than leaving orphaned files in the codebase. When told a file has zero imports, the expected action is to delete it without further hesitation. Confidence: 0.75
 - When performing a multi-file refactor, uses todo_write to track progress across files — each file is a separate todo item, checked off as work is completed. Confidence: 0.70
 - After completing a significant refactor or writing a new file, runs the project's typecheck command (e.g., `npx tsc --noEmit`) to verify type correctness before declaring the task done. Confidence: 0.65
 - After a mass find-and-replace migration (e.g., replacing all `window.*` calls with a facade), grep the codebase for the old pattern to confirm zero remaining direct calls before declaring the migration complete. Confidence: 0.70

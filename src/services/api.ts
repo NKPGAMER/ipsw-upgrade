@@ -24,9 +24,9 @@ export const app = {
 // ── Disk ─────────────────────────────────────────────────────────────────────────
 
 export const disk = {
-  async getDiskSpace(path?: string): Promise<DiskSpace | void> {
-    try { return await window.api?.getDiskSpace(path); }
-    catch (error) { sendError("disk::getDiskSpace", error); }
+  async getDiskInfo(path?: string): Promise<DiskInfo | null> {
+    try { return await window.api?.getDiskInfo(path) ?? null; }
+    catch (error) { sendError("disk::getDiskInfo", error); return null; }
   },
 
   async getAllDisk(): Promise<DiskInfo[] | void> {

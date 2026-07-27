@@ -1,7 +1,7 @@
 import fs from "fs-extra";
 import path from "path";
 import { BrowserWindow } from "electron";
-import { DataHandle } from "../service/ipswData";
+import { DataHandle } from "../services/ipswData";
 import { IPSWFile, IPSWWatcher } from "./ipswWatcher";
 
 export interface HardLinkManagerConfig {

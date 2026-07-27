@@ -259,15 +259,15 @@ export default function Home() {
   const mountedRef = useRef(true);
 
   const reloadStats = useCallback(() => {
-    Promise.all([disk.getDiskSpace(state.currentFolder), Promise.resolve(ipswClient.getFiles())])
-      .then(([freeSpace, allFiles]) => {
-        if (!mountedRef.current || !freeSpace) return;
-        const pct = freeSpace.percentage;
+    Promise.all([disk.getDiskInfo(state.currentFolder), Promise.resolve(ipswClient.getFiles())])
+      .then(([diskInfo, allFiles]) => {
+        if (!mountedRef.current || !diskInfo) return;
+        const pct = (diskInfo.usedSpace / diskInfo.totalSpace) * 100;
         setStats({
           fileCount: allFiles.length,
           used: utils.formatBytes(allFiles.reduce((sum, f) => sum + f.size, 0)),
           free: {
-            ...utils.formatBytes(freeSpace.available),
+            ...utils.formatBytes(diskInfo.freeSpace),
             color:
               pct >= 90
                 ? "text-red-600"

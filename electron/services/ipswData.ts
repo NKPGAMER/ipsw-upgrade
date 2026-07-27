@@ -1,6 +1,7 @@
 import { BrowserWindow } from "electron";
 import config from "../config";
-import { ipswAPI } from "./api";
+
+import { FetchResult, ipswAPI } from "./api";
 import metadata from "./metadata";
 import userData from "./userData";
 
@@ -167,7 +168,7 @@ export class DataHandle {
   // ── Fetch with retry ───────────────────────────────────────────────────────
 
   private async fetchWithRetry<T>(
-    fn: () => Promise<{ success: boolean; data: T | null; status: number; error?: string }>
+    fn: () => Promise<FetchResult<T>>
   ): Promise<T | null> {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {

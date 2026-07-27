@@ -1,11 +1,9 @@
 import type { DeviceWithIPSWs, DeviceWithOTAs, IPSWFirmware, OTAFirmware, Releases } from "@custom-type/ipswAPI";
 
-interface FetchResult<T = any> {
-  success: boolean;
-  data: T | null;
-  status: number;
-  error?: string;
-};
+export type FetchResult<T> =
+  | { success: true, data: T, status: number }
+  | { success: false, error: unknown, status: number }
+;
 
 async function safeFetch<T = any>(url: string): Promise<FetchResult<T>> {
   try {
@@ -14,7 +12,6 @@ async function safeFetch<T = any>(url: string): Promise<FetchResult<T>> {
     if (!response.ok) {
       return {
         success: false,
-        data: null,
         status: response.status,
         error: `HTTP error! Status: ${response.status} ${response.statusText}`
       }
@@ -29,7 +26,6 @@ async function safeFetch<T = any>(url: string): Promise<FetchResult<T>> {
   } catch (err) {
     return {
       success: false,
-      data: null,
       status: -1,
       error: err instanceof Error ? err.message : String(err)
     }
