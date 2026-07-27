@@ -15,3 +15,7 @@
 
 - Cache large static CSS/style strings as a `static` class property (or module-level constant) rather than generating them anew each time a dialog/modal is rendered. This avoids unnecessary string allocation and GC pressure. Confidence: 0.70
 - When a user says "replace completely" (thay hoàn toàn) an API, perform a full vertical sweep across all layers — type definitions, preload, IPC handler, service facade, UI consumer — and delete the old implementation along with its barrel re-exports. Do not leave the old module, re-export, or any remnants behind. Confidence: 0.75
+
+- Higher-level configuration presets (e.g., "performance mode") should override granular custom settings (e.g., `maxConnections`). A preset represents an explicit user intent that supersedes individual knobs — it's correct behavior, not a bug, when a preset overwrites custom values. Confidence: 0.70
+
+- During active download, write to a temporary file with a non-final extension (e.g., `.i10r`) rather than the target extension. Rename to the final extension only after the download completes successfully. This prevents file watchers, indexers, or other processes from consuming incomplete files. Confidence: 0.80

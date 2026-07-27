@@ -720,7 +720,8 @@ export class IPSWDownloader extends EventEmitter {
       let tmpPath: string | null = null;
 
       if (isSaveOnSSD) {
-        downloadPath = path.join(task.savePath, fileName);
+        downloadPath = path.join(task.savePath, fileName + ".i10r");
+        tmpPath = downloadPath;
       } else if (this.config.useTmp) {
         const ssdTmp = await this.diskManager.findTmpDir(task.firmware.filesize);
         if (ssdTmp) {
@@ -855,7 +856,11 @@ export class IPSWDownloader extends EventEmitter {
     const tmpDrive = this.diskManager.driveKey(tmpPath);
     const saveDrive = this.diskManager.driveKey(task.savePath);
 
-    if (tmpDrive === saveDrive) {
+    if (path.normalize(tmpPath) === path.normalize(i10rPath)) {
+      try { fs.unlinkSync(finalPath); } catch { }
+      fs.renameSync(tmpPath, finalPath);
+      task.progress = 100;
+    } else if (tmpDrive === saveDrive) {
       try { fs.unlinkSync(i10rPath); } catch { }
       fs.renameSync(tmpPath, i10rPath);
       try { fs.unlinkSync(finalPath); } catch { }
@@ -928,14 +933,6 @@ export class IPSWDownloader extends EventEmitter {
       lastCheckpoint: Date.now(),
       lastWriteTime: 0,
     };
-  }
-
-  private buildFinalPath(firmware: Firmware, savePath: string): string {
-    const filename = this.extractFilename(firmware);
-    if (fs.existsSync(savePath) && fs.statSync(savePath).isDirectory()) {
-      return path.join(savePath, filename);
-    }
-    return savePath;
   }
 
   private buildI10rPath(firmware: Firmware, savePath: string): string {

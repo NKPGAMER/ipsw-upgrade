@@ -25,3 +25,4 @@ See [ui-patterns/taste.md](ui-patterns/taste.md)
 # Downloader Design
 - Use compact arrays `[start, end, downloaded]` (CompactChunk type) for chunk state instead of objects. Only track incomplete chunks; completed chunks are removed from the array entirely (no need for index or completed flag). Confidence: 0.70
 - The `chunks` array in DownloadState should only contain incomplete chunks (not yet completed). Remove completed chunks to keep the persisted state small. Confidence: 0.80
+- Pause/resume must faithfully preserve and restore all download progress — resuming a paused download must never restart from the beginning. The chunk state persisted to disk must be complete and correctly restorable. Confidence: 0.80

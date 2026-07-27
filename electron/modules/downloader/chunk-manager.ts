@@ -129,7 +129,11 @@ export class ChunkManager {
   // ─── Queue ───────────────────────────────────────────────────────────────────
 
   private buildQueue(): void {
-    this.totalDownloaded = this.state.chunks.reduce((sum, c) => sum + c[2], 0);
+    const remaining = this.state.chunks.reduce(
+      (sum, c) => sum + (c[1] - c[0] + 1 - c[2]),
+      0,
+    );
+    this.totalDownloaded = this.state.totalSize - remaining;
     this.pendingQueue = [...this.state.chunks];
   }
 

@@ -50,6 +50,9 @@ let initialized = false;
 const hashPending = new Map<string, HashPending>();
 const transferPending = new Map<string, TransferPending>();
 
+const HASH_TIMEOUT_MS = 7200_000;     // 2 hours
+const TRANSFER_TIMEOUT_MS = 600_000;  // 10 minutes
+
 export function initNativeOps(): void {
   if (initialized) return;
   initialized = true;
@@ -104,6 +107,13 @@ export function startHash(
   const id = nativeCreateHash(filePath, hashType);
   const promise = new Promise<string>((resolve, reject) => {
     hashPending.set(id, { resolve, reject, onProgress });
+    setTimeout(() => {
+      if (hashPending.has(id)) {
+        cancelHash(id);
+        hashPending.delete(id);
+        reject(new Error(`Hash operation timed out after ${HASH_TIMEOUT_MS}ms`));
+      }
+    }, HASH_TIMEOUT_MS);
   });
   return { id, promise };
 }
@@ -116,6 +126,13 @@ export function startMove(
   return new Promise((resolve, reject) => {
     const id = nativeMoveFile(from, to);
     transferPending.set(id, { resolve, reject, onProgress });
+    setTimeout(() => {
+      if (transferPending.has(id)) {
+        cancelTransfer(id);
+        transferPending.delete(id);
+        reject(new Error(`Move operation timed out after ${TRANSFER_TIMEOUT_MS}ms`));
+      }
+    }, TRANSFER_TIMEOUT_MS);
   });
 }
 
@@ -127,6 +144,13 @@ export function startCopy(
   return new Promise((resolve, reject) => {
     const id = nativeCopyFile(filePath, toFolder);
     transferPending.set(id, { resolve, reject, onProgress });
+    setTimeout(() => {
+      if (transferPending.has(id)) {
+        cancelTransfer(id);
+        transferPending.delete(id);
+        reject(new Error(`Copy operation timed out after ${TRANSFER_TIMEOUT_MS}ms`));
+      }
+    }, TRANSFER_TIMEOUT_MS);
   });
 }
 
