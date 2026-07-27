@@ -69,27 +69,26 @@ export class IPSWClient {
      */
     async initIncompleteTasks(): Promise<void> {
         const load = async () => {
+            if (!window.downloader?.getIncompleteTasks) {
+                throw new Error("downloader API not ready");
+            }
             const tasks = await downloader.getIncompleteTasks() as unknown as IncompleteTaskClient[];
             if (!Array.isArray(tasks)) return;
             this.incompleteTasks = new Map(tasks.map((t) => [t.id, t]));
             this.emitIncompleteTasks();
         };
 
-        try {
-            await load();
-        } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            if (message.includes("No handler registered for 'dm:getIncompleteTasks'")) {
-                await new Promise((resolve) => setTimeout(resolve, 150));
-                try {
-                    await load();
-                    return;
-                } catch (retryErr) {
-                    console.error("[IPSWClient] initIncompleteTasks retry failed:", retryErr);
-                    return;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                await load();
+                return;
+            } catch {
+                if (attempt === 0) {
+                    await new Promise((resolve) => setTimeout(resolve, 150));
+                    continue;
                 }
+                console.error("[IPSWClient] initIncompleteTasks failed:", "downloader API not ready after retry");
             }
-            console.error("[IPSWClient] initIncompleteTasks failed:", err);
         }
     }
 

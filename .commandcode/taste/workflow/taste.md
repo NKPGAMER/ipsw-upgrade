@@ -1,0 +1,7 @@
+# Workflow
+- Prefers proactive, comprehensive codebase auditing before optimization work — scan the entire `src/` holistically for UX blockers, performance bottlenecks, and core logic issues, then prioritize fixes by severity. Do not fix individual symptoms reactively without first surveying the full landscape. Confidence: 0.80
+- Prefers immediately deleting dead/unreferenced code when identified, rather than leaving orphaned files in the codebase. When told a file has zero imports, the expected action is to delete it without further hesitation. Confidence: 0.75
+- When performing a multi-file refactor, uses todo_write to track progress across files — each file is a separate todo item, checked off as work is completed. Confidence: 0.70
+- After completing a significant refactor or writing a new file, runs the project's typecheck command (e.g., `npx tsc --noEmit`) to verify type correctness before declaring the task done. Confidence: 0.65
+- After completing a comprehensive multi-file optimization or performance audit, runs the full project build (both main and renderer, e.g. `npm run build:main && npm run build`) to verify no runtime or bundling regressions — not just a typecheck. Confidence: 0.70
+- After a mass find-and-replace migration (e.g., replacing all `window.*` calls with a facade), grep the codebase for the old pattern to confirm zero remaining direct calls before declaring the migration complete. Confidence: 0.70

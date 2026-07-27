@@ -22,9 +22,7 @@ import type { DownloadManagerOptions } from "@custom-type/downloader";
 import { downloader } from "@/services/downloader";
 import "./welcome.css";
 import { app, store, dialog } from "@/services/api";
-
-const SETTING_VERSION = "2.0.0";
-export { SETTING_VERSION };
+import { SETTING_VERSION } from "@/constants";
 
 // ─── Welcome-specific Icons ──────────────────────────────────────────────────
 

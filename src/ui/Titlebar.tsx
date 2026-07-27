@@ -1,4 +1,4 @@
-import { JSX, memo, useEffect, useCallback } from "react"
+import { JSX, memo, useEffect, useCallback, useRef } from "react"
 import { NavigateOptions, useLocation, useNavigate } from "react-router-dom";
 import { useSearchStore, getSearchState } from "@/stores/search-store";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -24,6 +24,7 @@ const ControlButton = memo(function ControlButton({ icon, goTo, gotoOptions, onC
     const location = useLocation();
     const navigate = useNavigate();
     const isActive = location.pathname.startsWith(goTo ?? "");
+    const { setFromSelectDevice } = useSearchStore();
 
     return (
         <button
@@ -36,6 +37,8 @@ const ControlButton = memo(function ControlButton({ icon, goTo, gotoOptions, onC
                 if (onClick) {
                     onClick();
                 } else if (goTo) {
+                    const wasOnSelect = location.pathname.startsWith("/selectDevice");
+                    if (wasOnSelect) setFromSelectDevice(true);
                     const alreadyOnTitlebarPage = titlebarPages.some((p) => location.pathname.startsWith(p));
                     navigate(goTo, { replace: alreadyOnTitlebarPage, ...gotoOptions })
                 }
@@ -51,7 +54,8 @@ export default function Titlebar() {
     const isSelectDevice = location.pathname.startsWith("/selectDevice");
 
     const query = useSearchStore((s) => s.query);
-    const { setQuery, setDebouncedQuery, setGlobalMode, reset } = useSearchStore();
+    const searchVisible = useSearchStore((s) => s.searchVisible);
+    const { setQuery, setDebouncedQuery, setGlobalMode, clearSearchQuery, reset, setFromSelectDevice } = useSearchStore();
 
     const debouncedQuery = useDebounce(query, 300);
 
@@ -59,27 +63,30 @@ export default function Titlebar() {
         setDebouncedQuery(debouncedQuery);
     }, [debouncedQuery, setDebouncedQuery]);
 
-    useEffect(() => {
-        if (debouncedQuery.trim() && !isSelectDevice) {
-            setGlobalMode(true);
-            navigate("/selectDevice", { state: { globalSearch: true } });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedQuery]);
-
+    // Reset search state trước — chạy trước navigation effect
     useEffect(() => {
         if (!isSelectDevice) {
             reset();
         }
     }, [isSelectDevice, reset]);
 
-    const handleClear = useCallback(() => {
-        const wasGlobal = getSearchState().isGlobalMode;
-        reset();
-        if (isSelectDevice && wasGlobal) {
-            navigate("/", { replace: true });
+    const lastNavRef = useRef("");
+    useEffect(() => {
+        if (debouncedQuery.trim() && !isSelectDevice) {
+            const s = useSearchStore.getState();
+            if (!s.query?.trim()) return; // reset đã clear query → không navigate
+            const navKey = `/selectDevice?globalSearch=${debouncedQuery}`;
+            if (lastNavRef.current === navKey) return;
+            lastNavRef.current = navKey;
+            setGlobalMode(true);
+            navigate("/selectDevice", { state: { globalSearch: true } });
         }
-    }, [isSelectDevice, navigate, reset]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedQuery]);
+
+    const handleClear = useCallback(() => {
+        clearSearchQuery();
+    }, [clearSearchQuery]);
 
     return (
         <header className="drag-region flex items-center justify-between bg-apple-ink text-[14px] font-bold text-slate-200 select-none pl-3!"
@@ -110,7 +117,7 @@ export default function Titlebar() {
 
             {/* Center — search bar */}
             <div className="flex-1 flex justify-center px-4">
-                <div className="topbar-search">
+                <div className={`topbar-search ${searchVisible ? "" : "opacity-0 pointer-events-none"}`}>
                     <div className="search-icon">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <circle cx="11" cy="11" r="8" />

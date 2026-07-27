@@ -1,6 +1,7 @@
 import { useState, type JSX } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useSearchStore } from "@/stores/search-store";
 import { Sidebar } from "./Sidebar";
 import { AboutPage } from "./AboutPage";
 import { LanguagePage } from "./LanguagePage";
@@ -19,6 +20,7 @@ export default function SettingsApp(): JSX.Element {
   const [activePage, setActivePage] = useState<SettingsPage>("about");
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const fromSelectDevice = useSearchStore((s) => s.fromSelectDevice);
 
   return (
     <div className="fixed bottom-0 right-0 flex bg-apple-tile-3 text-white overflow-hidden" style={{ top: "var(--titlebar-height)", left: "var(--sidebar-w, 0px)" }}>
@@ -31,8 +33,8 @@ export default function SettingsApp(): JSX.Element {
             {t("setting.title")}
           </h1>
           <button
-            onClick={() => window.history.length > 1 ? navigate(-1) : navigate("/", { replace: true })}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/6 bg-white/4 text-apple-ink-muted-48 transition-all duration-150 hover:bg-white/8 hover:border-white/10 hover:text-white cursor-pointer shrink-0"
+            onClick={() => fromSelectDevice ? navigate("/selectDevice", { replace: true }) : navigate("/", { replace: true })}
+            className={`w-9 h-9 flex items-center justify-center rounded-lg border border-white/6 bg-white/4 text-apple-ink-muted-48 transition-all duration-150 hover:bg-white/8 hover:border-white/10 hover:text-white cursor-pointer shrink-0 ${fromSelectDevice ? "" : "hidden"}`}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />

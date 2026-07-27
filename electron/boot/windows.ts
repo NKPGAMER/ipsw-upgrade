@@ -26,7 +26,7 @@ export function createSplashWindow(): BrowserWindow {
 export function createMainWindow(width: number, height: number): BrowserWindow {
   const win = new BrowserWindow({
     width: Math.round(width * 0.92),
-    height: Math.round(height * 0.95),
+    height: Math.round(height * 0.9),
     show: false,
     transparent: false,
     titleBarStyle: "hidden",

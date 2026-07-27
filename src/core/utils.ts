@@ -243,7 +243,7 @@ reject(false);
 
   }
 
-  private css = `
+  private static cssCache = `
   .md-body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.7; color: #cdd6f4;}
   .md-h1 { font-size: 1.75em; font-weight: 700; color: #cba6f7; margin: 1.2em 0 0.5em; border-bottom: 2px solid #313244; padding-bottom: 0.3em; }
   .md-h2 { font-size: 1.4em; font-weight: 600; color: #89b4fa; margin: 1em 0 0.4em; border-bottom: 1px solid #313244; padding-bottom: 0.2em; }
@@ -398,7 +398,7 @@ reject(false);
     }
 
     flush();
-    return `<style>${this.css}</style><div class="md-body">${html.join("")}</div>`;
+    return `<style>${ConfirmService.cssCache}</style><div class="md-body">${html.join("")}</div>`;
   }
 }
 

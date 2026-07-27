@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ipswClient } from "../init";
 import utils from "../core/utils";
 import { state } from "../data";
+import { useSearchStore } from "@/stores/search-store";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 // Định nghĩa ngoài component — không re-create mỗi render
@@ -282,17 +283,21 @@ export default function Home() {
       });
   }, []);
 
+  const setSearchVisible = useSearchStore((s) => s.setSearchVisible);
+
   useEffect(() => {
     mountedRef.current = true;
+    setSearchVisible(true);
 
     const unsub = ipswClient.onReload(reloadStats);
     reloadStats();
 
     return () => {
       mountedRef.current = false;
+      setSearchVisible(false);
       unsub();
     };
-  }, [reloadStats]);
+  }, [reloadStats, setSearchVisible]);
 
   useEffect(() => {
     const sub = updater.onUpdateAvailable(({ version }) => {

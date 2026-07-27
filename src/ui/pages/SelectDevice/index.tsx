@@ -71,6 +71,13 @@ export default function IPSWManager() {
   useEffect(() => { entriesRef.current = entries; }, [entries]);
 
   useEffect(() => {
+    const store = useSearchStore.getState();
+    store.setSearchVisible(true);
+    store.setFromSelectDevice(false);
+    return () => store.setSearchVisible(false);
+  }, []);
+
+  useEffect(() => {
     const unsub = ipswClient.onIncompleteTasksChanged((tasks) => {
       setIncompleteTasks([...tasks]);
     });
@@ -775,26 +782,31 @@ export default function IPSWManager() {
       utils.showErrorMessage("Tính năng này chỉ khả dụng khi chọn một dòng sản phẩm.");
       return;
     }
-    const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
+    try {
+      const { oldFiles, duplicateFiles } = await getRedundantFilesFromProduct(product);
 
-    if (oldFiles.length === 0 && duplicateFiles.length === 0) {
-      utils.showSuccessMessage(t("confirm.removeRedundantFiles.message.notFound"));
-      return;
+      if (oldFiles.length === 0 && duplicateFiles.length === 0) {
+        utils.showSuccessMessage(t("confirm.removeRedundantFiles.message.notFound"));
+        return;
+      }
+
+      const result = await utils.customConfirm(t("confirm.removeRedundantFiles.body", {
+        old: oldFiles.length,
+        duplicate: duplicateFiles.length
+      }), {
+        variant: "danger",
+        title: t("confirm.default.title"),
+        confirmText: t("confirm.removeRedundantFiles.confirm"),
+        cancelText: t("confirm.default.cancel")
+      });
+
+      if (!result) return;
+
+      await ipswClient.deleteFile([...oldFiles, ...duplicateFiles]);
+    } catch (err) {
+      console.error("[IPSWManager] handleRedundantFiles failed:", err);
+      utils.showErrorMessage("Không thể xoá file dư thừa.");
     }
-
-    const result = await utils.customConfirm(t("confirm.removeRedundantFiles.body", {
-      old: oldFiles.length,
-      duplicate: duplicateFiles.length
-    }), {
-      variant: "danger",
-      title: t("confirm.default.title"),
-      confirmText: t("confirm.removeRedundantFiles.confirm"),
-      cancelText: t("confirm.default.cancel")
-    });
-
-    if (!result) return;
-
-    ipswClient.deleteFile([...oldFiles, ...duplicateFiles]);
   }, [product, t]);
 
   return (

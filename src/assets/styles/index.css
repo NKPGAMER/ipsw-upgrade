@@ -82,6 +82,7 @@ html, body, #root {
   width: 100dvw;
   height: 100dvh;
   overflow: hidden;
+  background: #252527;
   scrollbar-color: rgba(0, 102, 204, 0.5) rgba(0, 0, 0, 0.2);
   scrollbar-width: thin;
 }

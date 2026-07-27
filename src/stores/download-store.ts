@@ -65,8 +65,7 @@ export const useDownloadStore = create<DownloadStoreState>((set, get) => ({
       const task = state.tasksById[id];
       if (!task) return state;
       const newTask = mergeTask(task, patch);
-      const tasksById = { ...state.tasksById, [id]: newTask };
-      return { tasksById, activeUrls: buildActiveUrls(state.taskIds, tasksById) };
+      return { tasksById: { ...state.tasksById, [id]: newTask } };
     }),
   updateProgress: (id, progress, speed, eta) =>
     set((state) => {

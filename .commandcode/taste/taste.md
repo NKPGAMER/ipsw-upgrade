@@ -7,17 +7,16 @@ See [architecture/taste.md](architecture/taste.md)
 # Communication
 See [communication/taste.md](communication/taste.md)
 # Workflow
-- Prefers immediately deleting dead/unreferenced code when identified, rather than leaving orphaned files in the codebase. When told a file has zero imports, the expected action is to delete it without further hesitation. Confidence: 0.75
-- When performing a multi-file refactor, uses todo_write to track progress across files — each file is a separate todo item, checked off as work is completed. Confidence: 0.70
-- After completing a significant refactor or writing a new file, runs the project's typecheck command (e.g., `npx tsc --noEmit`) to verify type correctness before declaring the task done. Confidence: 0.65
-- After a mass find-and-replace migration (e.g., replacing all `window.*` calls with a facade), grep the codebase for the old pattern to confirm zero remaining direct calls before declaring the migration complete. Confidence: 0.70
-
+See [workflow/taste.md](workflow/taste.md)
 # Search & Filter UX
 - Search/filter state should be cleared (reset) when the user navigates away from the search context, rather than persisting stale queries across routes. Confidence: 0.65
 
 # UI Patterns
-- Prefers debounced search inputs (~300ms delay) rather than filtering on every keystroke. Confidence: 0.85
-- Designs UI components to accept custom/external data lists (via props or store) rather than being tightly coupled to internal API calls, so they can be reused in different contexts (e.g., global search). Confidence: 0.75
+See [ui-patterns/taste.md](ui-patterns/taste.md)
+# CSS / Styling Discipline
+- Never modify CSS classes, style objects, theme variables, or any visual/styling code when performing logic, performance, or bug-fix refactors — unless explicitly asked to change the UI. The user expects visual appearance to remain identical after functional changes. Confidence: 0.70
+- The project uses **TailwindCSS** via className attributes rather than traditional CSS files for most styling. Be aware of this when analyzing or modifying UI code. Confidence: 0.90
+- When extracting shared constants/logic from a module that imports a CSS file containing global styles (e.g., `html, body, #root` rules), check whether that CSS file's global rules are duplicated in a central entry-point CSS file. If the extracted module was previously imported eagerly (via a static import chain), the CSS was loading app-wide; after extraction, the original module may become lazy-loaded and its global styles lost — breaking the app's visual appearance. Always safeguard global styles in a centrally-imported CSS file before refactoring import chains. Confidence: 0.80
 
 # TypeScript Patterns
 - Prefers type-safe EventEmitter wrappers using the event-map pattern: an interface mapping event names to callback signatures, with a generic `on<E extends keyof Map>(event: E, callback: Map[E])` so TypeScript infers callback parameter types from the event name. Also prefers returning `this` (not the underlying emitter) for chainable calls. Confidence: 0.75

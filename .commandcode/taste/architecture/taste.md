@@ -10,4 +10,8 @@
 - Do not weaken a parameter's type contract (e.g., making it optional with `?`) just to accommodate a call site that fails to provide it. If a parameter is semantically required, keep it required and fix the call site to supply the value instead. Confidence: 0.70
 - Values a clean, well-organized project structure — proactively requests restructuring to make the codebase "gọn hơn" (more compact) and "dễ bảo trì chỉnh sửa hơn" (easier to maintain and edit). Favors logical file organization (no single-file subdirectories, barrel exports, separation of concerns). Confidence: 0.75
 - When renaming or replacing an IPC API, keep naming consistent across all layers — IPC channel name, preload method name, type definitions, and service method should all use the same name. Do not leave the old IPC channel name in place while renaming only the preload/service side. Confidence: 0.70
+
+- When iterating over a list of items that each require an async IPC call, use `Promise.all` with a concurrency limit (e.g., 4) and batch state updates (once per batch) rather than a sequential `for` loop with per-iteration `setState`. This avoids blocking the event loop and reduces re-renders. Confidence: 0.75
+
+- Cache large static CSS/style strings as a `static` class property (or module-level constant) rather than generating them anew each time a dialog/modal is rendered. This avoids unnecessary string allocation and GC pressure. Confidence: 0.70
 - When a user says "replace completely" (thay hoàn toàn) an API, perform a full vertical sweep across all layers — type definitions, preload, IPC handler, service facade, UI consumer — and delete the old implementation along with its barrel re-exports. Do not leave the old module, re-export, or any remnants behind. Confidence: 0.75

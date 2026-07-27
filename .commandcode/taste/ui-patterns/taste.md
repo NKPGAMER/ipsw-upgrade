@@ -1,0 +1,8 @@
+# UI Patterns
+- Prefers debounced search inputs (~300ms delay) rather than filtering on every keystroke. Confidence: 0.85
+- Designs UI components to accept custom/external data lists (via props or store) rather than being tightly coupled to internal API calls, so they can be reused in different contexts (e.g., global search). Confidence: 0.75
+- Search bar visibility should be controlled by a store flag — hidden by default (via opacity/pointer-events), toggled on only when a search-relevant page mounts (e.g., Home, SelectDevice), and toggled off on unmount. Prevents UI setup issues from components that mount before search infrastructure is ready. Confidence: 0.80
+- When displaying a list of cards/items in a confined sidebar section, paginate with a small fixed number per page (e.g., 2) and provide `< >` navigation controls with a page counter for overflow, rather than scrolling through a long list. Confidence: 0.70
+- Avoid using `navigate(-1)` for back-button navigation in multi-tab contexts — it creates navigation loops. Instead, track the origin via a store flag and navigate to an explicit route (e.g., `/selectDevice`). Confidence: 0.75
+- Separate the "clear search query" action from "close/navigate away" — clear should only reset query text without any navigation side effects. Confidence: 0.70
+- When a close/exit button is pressed on a search-triggered page, **navigate home first, then let route-change effects clear search state** — don't clear search before navigating. This avoids races where debounced navigation effects see stale query text and navigate back. The exit action should be instant; cleanup should be reactive (triggered by leaving the route), not imperative in the click handler. Confidence: 0.80

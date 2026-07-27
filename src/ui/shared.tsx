@@ -1,9 +1,11 @@
 import { memo } from "react";
 
 export function formatBytes(bytes: number, decimals = 1): string {
-  if (bytes >= 1e9) return (bytes / 1e9).toFixed(decimals) + " GB";
-  if (bytes >= 1e6) return (bytes / 1e6).toFixed(decimals) + " MB";
-  return (bytes / 1e3).toFixed(0) + " KB";
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + " " + sizes[i];
 }
 
 export function formatEta(sec?: number): string {

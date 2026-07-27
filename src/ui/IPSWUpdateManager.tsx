@@ -404,108 +404,63 @@ export default function IPSWUpdateManager() {
 
     const newEntries: UpdateEntry[] = [];
     const seenUrls = new Set<string>();
+    const CONCURRENCY = 4;
+    let completed = 0;
 
-    for (let i = 0; i < devices.length; i++) {
-      const d = devices[i];
-
+    const processDevice = async (d: Device): Promise<void> => {
       try {
         const modelData = await data.getModelData(d.identifier);
-        if (!modelData) {
-          setScan((s) => ({ ...s, scanned: i + 1 }));
-          continue;
-        }
-
-        if (!modelData.firmwares?.length) {
-          setScan((s) => ({ ...s, scanned: i + 1 }));
-          continue;
-        }
+        if (!modelData || !modelData.firmwares?.length) return;
 
         const latestFw = modelData.firmwares.filter(fw => fw.signed)[0] ?? modelData.firmwares[0];
+        if (!latestFw.signed || seenUrls.has(latestFw.url)) return;
 
-        if (!latestFw.signed) {
-          setScan((s) => ({ ...s, scanned: i + 1 }));
-          continue;
-        }
-
-        // ✅ Lọc trùng URL ngay từ đầu
-        if (seenUrls.has(latestFw.url)) {
-          setScan((s) => ({ ...s, scanned: i + 1 }));
-          continue;
-        }
-
-        const buildIdMap = new Set(
-          modelData.firmwares.map((fw) => fw.buildid)
-        );
-
-        const fileName = getFileNameFromUrl(latestFw.url);
-        const info = parseIPSW(fileName);
-
-        if (!info) {
-          setScan((s) => ({ ...s, scanned: i + 1 }));
-          continue;
-        }
+        const buildIdMap = new Set(modelData.firmwares.map((fw) => fw.buildid));
+        const info = parseIPSW(getFileNameFromUrl(latestFw.url));
+        if (!info) return;
 
         const deviceFiles = allFiles.filter((file) => {
           const parsed = parseIPSW(file.name);
-          return (
-            parsed &&
-            parsed.id === info.id &&
-            buildIdMap.has(parsed.build)
-          );
+          return parsed && parsed.id === info.id && buildIdMap.has(parsed.build);
         });
 
-        if (deviceFiles.length === 0) {
-          setScan((s) => ({ ...s, scanned: i + 1 }));
-          continue;
-        }
+        if (deviceFiles.length === 0) return;
 
         const latestFile = deviceFiles.find((file) => {
           const parsed = parseIPSW(file.name);
           return parsed?.build === latestFw.buildid;
         });
 
-        if (latestFile) {
-          if (latestFw.filesize > 0 && latestFile.size < latestFw.filesize) {
-            // corrupted → vẫn xử lý tiếp
-          } else {
-            setScan((s) => ({ ...s, scanned: i + 1 }));
-            continue;
-          }
-        }
+        if (latestFile && !(latestFw.filesize > 0 && latestFile.size < latestFw.filesize)) return;
 
-        // ✅ Check duplicate với entries hiện tại và task đang có trong downloader store
-        const alreadyAdded = entriesRef.current.some(
-          (e) => e.firmware.url === latestFw.url
-        );
-        const existsInDownloader = activeUrlSet.has(latestFw.url);
+        if (entriesRef.current.some((e) => e.firmware.url === latestFw.url)) return;
+        if (activeUrlSet.has(latestFw.url)) return;
 
-        if (!alreadyAdded && !existsInDownloader) {
-          seenUrls.add(latestFw.url);
-
-          newEntries.push({
-            firmware: latestFw,
-            deviceName: modelData.name,
-            identifier: d.identifier,
-            oldFiles: deviceFiles,
-            product: prod,
-          });
-        }
+        seenUrls.add(latestFw.url);
+        newEntries.push({
+          firmware: latestFw,
+          deviceName: modelData.name,
+          identifier: d.identifier,
+          oldFiles: deviceFiles,
+          product: prod,
+        });
       } catch (err) {
-        console.error(
-          `[IPSWUpdateManager] Failed to process ${d.identifier}:`,
-          err
-        );
+        console.error(`[IPSWUpdateManager] Failed to process ${d.identifier}:`, err);
       }
+    };
 
-      setScan((s) => ({ ...s, scanned: i + 1 }));
+    // Chạy concurrent với limit
+    for (let i = 0; i < devices.length; i += CONCURRENCY) {
+      const batch = devices.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(processDevice));
+      completed += batch.length;
+      setScan((s) => ({ ...s, scanned: completed }));
     }
 
     if (newEntries.length > 0) {
       setEntries((prev) => {
         const existingUrls = new Set(prev.map((e) => e.firmware.url));
-        const toAdd = newEntries.filter(
-          (e) => !existingUrls.has(e.firmware.url)
-        );
+        const toAdd = newEntries.filter((e) => !existingUrls.has(e.firmware.url));
         return [...prev, ...toAdd];
       });
 
@@ -513,22 +468,14 @@ export default function IPSWUpdateManager() {
         const next = new Map(prev);
         for (const e of newEntries) {
           if (!next.has(e.firmware.url)) {
-            next.set(e.firmware.url, {
-              status: "pending",
-              progress: 0,
-              speed: 0,
-            });
+            next.set(e.firmware.url, { status: "pending", progress: 0, speed: 0 });
           }
         }
         return next;
       });
     }
 
-    setScan({
-      phase: "done",
-      scanned: devices.length,
-      total: devices.length,
-    });
+    setScan({ phase: "done", scanned: devices.length, total: devices.length });
   }, [getActiveDownloadUrls]);
 
   // Scan khi product thay đổi

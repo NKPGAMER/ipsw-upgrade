@@ -201,6 +201,8 @@ const DiskBar = memo(function DiskBar({ disk }: { disk: DiskInfo }) {
 
 const DiskSection = memo(function DiskSection() {
   const [disks, setDisks] = useState<DiskInfo[]>([]);
+  const [page, setPage] = useState(0);
+  const itemsPerPage = 2;
 
   useEffect(() => {
     disk
@@ -211,18 +213,45 @@ const DiskSection = memo(function DiskSection() {
 
   if (disks.length === 0) return null;
 
+  const totalPages = Math.ceil(disks.length / itemsPerPage);
+  const safePage = Math.min(page, totalPages - 1);
+  const pageDisks = disks.slice(safePage * itemsPerPage, (safePage + 1) * itemsPerPage);
+
   return (
     <div className="flex flex-col gap-1.5!">
-      <div className="flex items-center gap-1.5! px-1! mb-0.5!">
-        <span className="text-[#5a5a5e]">
-          <IconDisk />
-        </span>
-        <span className="text-[10px] font-semibold text-[#5a5a5e] uppercase tracking-[0.08em]">
-          Ổ đĩa
-        </span>
+      <div className="flex items-center justify-between px-1! mb-0.5!">
+        <div className="flex items-center gap-1.5!">
+          <span className="text-[#5a5a5e]">
+            <IconDisk />
+          </span>
+          <span className="text-[10px] font-semibold text-[#5a5a5e] uppercase tracking-[0.08em]">
+            Ổ đĩa
+          </span>
+        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+              className="flex items-center justify-center w-5 h-5 rounded-md border-none bg-white/4 hover:bg-white/8 disabled:opacity-20 disabled:pointer-events-none text-[#8a8a8e] cursor-pointer transition-colors text-[11px] font-mono"
+            >
+              ‹
+            </button>
+            <span className="text-[10px] font-mono text-[#5a5a5e] min-w-[18px] text-center">
+              {safePage + 1}/{totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={safePage >= totalPages - 1}
+              className="flex items-center justify-center w-5 h-5 rounded-md border-none bg-white/4 hover:bg-white/8 disabled:opacity-20 disabled:pointer-events-none text-[#8a8a8e] cursor-pointer transition-colors text-[11px] font-mono"
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
-      <AnimatePresence>
-        {disks.map((disk, i) => (
+      <AnimatePresence mode="wait">
+        {pageDisks.map((disk, i) => (
           <motion.div
             key={disk.id || `disk-${i}`}
             initial={{ opacity: 0, y: 6 }}

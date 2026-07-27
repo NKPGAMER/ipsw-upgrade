@@ -1,7 +1,7 @@
 import { lazy, memo, Suspense, useState, useEffect, Component } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { SETTING_VERSION } from "./ui/welcome";
+import { SETTING_VERSION } from "./constants";
 import { useNetworkStatus } from "./core/useNetworkStatus";
 import { ErrorBoundarySection } from "./ui/ErrorBoundarySection";
 import { store } from "./services/api";
@@ -135,8 +135,8 @@ function AppContent() {
                                 <motion.div
                                     key={location.pathname}
                                     initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1, transition: { duration: 0.18, ease: [0.4, 0, 0.2, 1] } }}
-                                    exit={{ opacity: 0, transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } }}
+                                    animate={{ opacity: 1, transition: { duration: 0.12, ease: [0.4, 0, 0.2, 1] } }}
+                                    exit={{ opacity: 0, transition: { duration: 0.04, ease: [0.4, 0, 1, 1] } }}
                                     style={{ minHeight: '100%' }}
                                 >
                                     <Routes location={location}>

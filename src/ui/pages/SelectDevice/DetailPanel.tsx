@@ -1,4 +1,4 @@
-import { useMemo, memo, useState, useEffect } from "react";
+import { useMemo, memo, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { IncompleteTaskClient } from "@/core/ipswClient";
@@ -83,15 +83,16 @@ export const DetailPanel = memo(function DetailPanel({
   verifyState?: VerifyState;
 }) {
   const { t } = useTranslation();
-  const [showContent, setShowContent] = useState(false);
+  const prevIdentifierRef = useRef(entry.device.identifier);
+  const [showContent, setShowContent] = useState(true);
 
   useEffect(() => {
-    const reset = setTimeout(() => setShowContent(false), 0);
-    const timer = setTimeout(() => setShowContent(true), 180);
-    return () => {
-      clearTimeout(reset);
-      clearTimeout(timer);
-    };
+    if (prevIdentifierRef.current !== entry.device.identifier) {
+      prevIdentifierRef.current = entry.device.identifier;
+      setShowContent(false);
+      const timer = setTimeout(() => setShowContent(true), 180);
+      return () => clearTimeout(timer);
+    }
   }, [entry.device.identifier]);
 
   const latest = entry.firmwares?.[0] ?? null;
