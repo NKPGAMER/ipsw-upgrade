@@ -3,12 +3,7 @@ import type { DriveCategory } from "./disk-manager";
 
 export type { DriveCategory };
 
-export interface SchedulerTask {
-  id: string;
-  driveCategory: DriveCategory;
-  connectionsNeeded: number;
-  run: () => Promise<void>;
-}
+// ─── Common ─────────────────────────────────────────────────────────────────
 
 interface SchedulerConfig {
   maxSsdTasks: number;
@@ -26,7 +21,16 @@ const DEFAULT_CONFIG: SchedulerConfig = {
   maxConnections: 0,
 };
 
-export class Scheduler extends EventEmitter {
+// ─── TaskScheduler (download / verify) ──────────────────────────────────────
+
+export interface SchedulerTask {
+  id: string;
+  driveCategory: DriveCategory;
+  connectionsNeeded: number;
+  run: () => Promise<void>;
+}
+
+export class TaskScheduler extends EventEmitter {
   private config: SchedulerConfig;
   private queue: SchedulerTask[] = [];
   private paused = new Set<string>();
@@ -179,3 +183,82 @@ export class Scheduler extends EventEmitter {
     if (set?.size === 0) this.activeByCategory.delete(task.driveCategory);
   }
 }
+
+// ─── TransferScheduler (tmp → saveDir moves) ────────────────────────────────
+
+export interface TransferTask {
+  id: string;
+  run: () => Promise<void>;
+}
+
+export class TransferScheduler extends EventEmitter {
+  private maxTransfers: number;
+  private queue: TransferTask[] = [];
+  private active = new Map<string, TransferTask>();
+  private runGens = new Map<string, number>();
+
+  constructor(maxTransfers: number) {
+    super();
+    this.maxTransfers = maxTransfers;
+  }
+
+  updateMaxTransfers(n: number): void {
+    this.maxTransfers = n;
+    this.drain();
+  }
+
+  // ─── Public API ───────────────────────────────────────────────────────────
+
+  enqueue(task: TransferTask): void {
+    if (this.active.has(task.id) || this.queue.some(t => t.id === task.id)) return;
+    this.queue.push(task);
+    this.drain();
+  }
+
+  drain(): void {
+    while (this.active.size < this.maxTransfers && this.queue.length > 0) {
+      const task = this.queue.shift()!;
+      this.startTask(task);
+    }
+  }
+
+  cancelTask(id: string): void {
+    this.queue = this.queue.filter(t => t.id !== id);
+    const entry = this.active.get(id);
+    if (entry) {
+      this.emit("cancel", id);
+      this.runGens.delete(id);
+      this.active.delete(id);
+      this.drain();
+    }
+  }
+
+  // ─── Read-only queries ────────────────────────────────────────────────────
+
+  isActive(id: string): boolean { return this.active.has(id); }
+  isQueued(id: string): boolean { return this.queue.some(t => t.id === id); }
+  getQueueLength(): number { return this.queue.length; }
+  getActiveCount(): number { return this.active.size; }
+
+  // ─── Internal ─────────────────────────────────────────────────────────────
+
+  private startTask(task: TransferTask): void {
+    this.active.set(task.id, task);
+    this.runGens.set(task.id, 1);
+    this.emit("started", task.id);
+
+    task.run()
+      .catch(() => { /* error emitted separately by the run wrapper */ })
+      .finally(() => {
+        this.active.delete(task.id);
+        this.runGens.delete(task.id);
+        this.emit("slot_open", task.id);
+        this.drain();
+      });
+  }
+}
+
+// ─── Backward compatibility alias ───────────────────────────────────────────
+
+/** @deprecated Use TaskScheduler */
+export { TaskScheduler as Scheduler };

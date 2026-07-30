@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useState, useEffect, memo } from "react";
 import { formatBytes, formatDate } from "@/ui/shared";
 import { useTranslation } from "react-i18next";
 
@@ -8,6 +8,8 @@ export const FirmwareTable = memo(function FirmwareTable({ firmwares, onDownload
   const totalPages = Math.ceil(firmwares.length / PER_PAGE);
   const items = firmwares.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
   const { t } = useTranslation();
+
+  useEffect(() => { setPage(0); }, [firmwares]);
 
   return (
     <div>

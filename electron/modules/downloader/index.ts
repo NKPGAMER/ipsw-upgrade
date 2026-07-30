@@ -3,7 +3,8 @@ export { DownloaderMain } from "./downloader-main";
 export { DiskManager } from "./disk-manager";
 export { StateManager } from "./state-manager";
 export { ChunkManager } from "./chunk-manager";
-export { Scheduler } from "./scheduler";
+export { TaskScheduler, TransferScheduler, TaskScheduler as Scheduler } from "./scheduler";
+export type { SchedulerTask, TransferTask } from "./scheduler";
 export { IntegrityChecker } from "./integrity";
 
 export type {

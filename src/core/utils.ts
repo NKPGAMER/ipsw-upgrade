@@ -73,35 +73,30 @@ class ConfirmService {
   }
 
   closeAll() {
-    return new Promise((resolve, reject) => {
-      try {
-        for (const item of this.queue) {
-      item.resolve(false)
-    }
-    this.queue = []
-
-    this.active = false
-
-    // Close the currently open dialog (if any)
-    const wrap = this.root.querySelector(".confirm-wrap") as HTMLElement
-    if (wrap) {
-      const backdrop = wrap.querySelector(".confirm-backdrop") as HTMLElement
-      const dialog = wrap.querySelector(".confirm-dialog") as HTMLElement
-
-      backdrop?.classList.replace("backdrop-in", "backdrop-out")
-      dialog?.classList.replace("dialog-in", "dialog-out")
-
-      setTimeout(() => {
-        wrap.remove()
-      }, 180)
-    } else {
-      this.active = false
-    }
-
-    resolve(true)
-      } catch {
-reject(false);
+    return new Promise<void>((resolve) => {
+      for (const item of this.queue) {
+        item.resolve(false)
       }
+      this.queue = []
+
+      this.active = false
+
+      const wrap = this.root.querySelector(".confirm-wrap") as HTMLElement
+      if (wrap) {
+        const backdrop = wrap.querySelector(".confirm-backdrop") as HTMLElement
+        const dialog = wrap.querySelector(".confirm-dialog") as HTMLElement
+
+        backdrop?.classList.replace("backdrop-in", "backdrop-out")
+        dialog?.classList.replace("dialog-in", "dialog-out")
+
+        setTimeout(() => {
+          wrap.remove()
+        }, 180)
+      } else {
+        this.active = false
+      }
+
+      resolve()
     })
   }
 
@@ -428,7 +423,7 @@ export default {
     }, timeout);
   },
 
-  showSuccessMessage(message: string | { id: any }, timeout = 4000) {
+  showSuccessMessage(message: string | { id: string }, timeout = 4000) {
     const successDiv = document.createElement('div');
     successDiv.className = 'message success-message';
     successDiv.textContent = typeof message === 'string' ? message : t(message.id);

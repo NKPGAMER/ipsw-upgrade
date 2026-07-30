@@ -25,43 +25,51 @@ const FirmwarePage: FC = () => {
     });
   }, []);
 
-  const restartAppConfirm = useCallback(async () => {
-    const warning = await utils.customConfirm(t("setting.restartWarning"), {
+  const handleSaveLinkConfig = useCallback(async () => {
+    const confirmed = await utils.customConfirm(t("setting.restartWarning"), {
       confirmText: t("setting.restartConfirm"),
       cancelText: t("setting.restartCancel"),
       variant: "warning",
     });
-    if (!warning) return;
-    app.relaunch();
-  }, [t]);
-
-  const handleSaveLinkConfig = useCallback(async () => {
+    if (!confirmed) return;
     state.normalizeName = normalizeName;
     await Promise.all([
       store.set("link_enabled", normalizeName),
       store.set("link_out_dir", linkOutDir),
     ]);
-    await restartAppConfirm();
-  }, [normalizeName, linkOutDir, restartAppConfirm]);
+    app.relaunch();
+  }, [normalizeName, linkOutDir, t]);
 
   const handleSetDeleteOld = useCallback(
     async (value: boolean) => {
+      const confirmed = await utils.customConfirm(t("setting.restartWarning"), {
+        confirmText: t("setting.restartConfirm"),
+        cancelText: t("setting.restartCancel"),
+        variant: "warning",
+      });
+      if (!confirmed) return;
       state.autoRemoveOldFiles = value;
       store.set("cleanup_remove_old", value);
-      await restartAppConfirm();
       setDeleteOld(value);
+      app.relaunch();
     },
-    [restartAppConfirm],
+    [t],
   );
 
   const handleSetDeleteDuplicate = useCallback(
     async (value: boolean) => {
+      const confirmed = await utils.customConfirm(t("setting.restartWarning"), {
+        confirmText: t("setting.restartConfirm"),
+        cancelText: t("setting.restartCancel"),
+        variant: "warning",
+      });
+      if (!confirmed) return;
       state.autoRemoveDuplicateFiles = value;
       store.set("cleanup_remove_duplicate", value);
-      await restartAppConfirm();
       setDeleteDuplicate(value);
+      app.relaunch();
     },
-    [restartAppConfirm],
+    [t],
   );
 
   return (

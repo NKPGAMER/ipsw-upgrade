@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { formatBytes } from "./shared";
+import { formatBytes, formatEta } from "./shared";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useDownloadStore } from "../stores/download-store";
@@ -18,13 +18,6 @@ const fmtSpeed = (bps: number): string => {
   if (bps >= 1e6) return (bps / 1e6).toFixed(1) + " MB/s";
   if (bps >= 1e3) return (bps / 1e3).toFixed(0) + " KB/s";
   return "0 B/s";
-};
-
-const fmtEta = (s?: number): string => {
-  if (!s || s <= 0) return "--";
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
-  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 };
 
 const STATUS_ORDER: Record<TaskStatus, number> = {
@@ -289,7 +282,7 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
               ↓ {isActive ? fmtSpeed(speed) : "—"}
             </span>
             <span className={`font-mono text-[11px] ${isActive ? "text-[#7a96b0]" : "text-[#4a6478]"}`}>
-              {t("card.eta")} {isActive ? fmtEta(eta) : "—"}
+              {t("card.eta")} {isActive ? (formatEta(eta) || "—") : "—"}
             </span>
           </div>
           <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-apple-primary" : "text-[#4a6478]"}`}>
@@ -340,8 +333,8 @@ export default function DownloadPage() {
       if (task) upsertTask(task);
       else patchTask(id, { status: "downloading" })
     };
-    const errorTaskCall = (id: string, error: string, task: Task) => {
-      upsertTask(task);
+    const errorTaskCall = (_id: string, error: string, task: Task) => {
+      upsertTask({ ...task, error: task.error || error });
     }
 
     downloader.on("added", upsertTaskCall);
@@ -397,7 +390,8 @@ export default function DownloadPage() {
   }, [patchTask, t]);
 
   const handleCancel = useCallback(async (id: string) => {
-    try { await utils.customConfirm("Huỷ tác vụ này? Tiến độ tải sẽ bị mất."); } catch { return; }
+    const confirmed = await utils.customConfirm("Huỷ tác vụ này? Tiến độ tải sẽ bị mất.");
+    if (!confirmed) return;
     removeTask(id);
     const result = await downloader.cancel(id);
     if (!result.success) {

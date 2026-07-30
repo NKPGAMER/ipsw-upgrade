@@ -18,4 +18,10 @@
 
 - Higher-level configuration presets (e.g., "performance mode") should override granular custom settings (e.g., `maxConnections`). A preset represents an explicit user intent that supersedes individual knobs — it's correct behavior, not a bug, when a preset overwrites custom values. Confidence: 0.70
 
+- Prefers specialized, single-responsibility schedulers over a monolithic scheduler — separate scheduler classes for different task types (e.g., download/verify scheduling vs. file transfer/move scheduling), each with its own queue and independent concurrency limits. Confidence: 0.85
+
+- When a multi-phase task pipeline uses temporary storage (e.g., download to SSD tmp then move to HDD saveDir), completion of one phase must immediately free its slot so the next queued task can begin — phases should not block each other. The downstream phase (transfer) has its own independent scheduler and concurrency cap, enabling parallel pipelining (e.g., 3 concurrent downloads + 1 concurrent transfer). Confidence: 0.85
+
+- When resource pools are categorized by location (e.g., per-drive-type concurrency slots), an operation's category must reflect where the resource-intensive work actually happens, not where the final output lands. E.g., a download writing to an SSD tmp dir must consume an SSD slot even when the file will ultimately be moved to an HDD saveDir. Confidence: 0.75
+
 - During active download, write to a temporary file with a non-final extension (e.g., `.i10r`) rather than the target extension. Rename to the final extension only after the download completes successfully. This prevents file watchers, indexers, or other processes from consuming incomplete files. Confidence: 0.80

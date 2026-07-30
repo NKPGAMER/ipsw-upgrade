@@ -16,9 +16,10 @@ import {
   AddOptions,
 } from "@custom-type/downloader";
 import { DiskManager, DiskEnvironmentInfo } from "./disk-manager";
+import type { DriveCategory } from "./scheduler";
 import { StateManager } from "./state-manager";
 import { ChunkManager } from "./chunk-manager";
-import { Scheduler } from "./scheduler";
+import { TaskScheduler, TransferScheduler } from "./scheduler";
 import { IntegrityChecker } from "./integrity";
 import { initNativeOps, startMove } from "./native-ops";
 
@@ -39,61 +40,6 @@ const PERF_HIGH = {
   chunkSize: 64 * 1024 * 1024,
   writeHighWater: 16 * 1024 * 1024,
 };
-
-// ─── TransferQueue ────────────────────────────────────────────────────────────
-
-class TransferQueue {
-  private queue: Array<{
-    src: string;
-    dest: string;
-    driveKey: string;
-    onProgress?: (info: { pct: number; speed: number; eta: number }) => void;
-    resolve: () => void;
-    reject: (err: Error) => void;
-  }> = [];
-  private active = 0;
-  private maxTransfers: number;
-
-  constructor(maxTransfers: number) {
-    this.maxTransfers = maxTransfers;
-  }
-
-  enqueue(
-    src: string,
-    dest: string,
-    driveKey: string,
-    onProgress?: (info: { pct: number; speed: number; eta: number }) => void,
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.queue.push({ src, dest, driveKey, onProgress, resolve, reject });
-      this.drain();
-    });
-  }
-
-  private drain(): void {
-    while (this.active < this.maxTransfers && this.queue.length > 0) {
-      const item = this.queue.shift()!;
-      this.active++;
-      this.runTransfer(item).finally(() => {
-        this.active--;
-        this.drain();
-      });
-    }
-  }
-
-  private async runTransfer(
-    item: { src: string; dest: string; driveKey: string; onProgress?: (info: { pct: number; speed: number; eta: number }) => void; resolve: () => void; reject: (err: Error) => void },
-  ): Promise<void> {
-    try {
-      await startMove(item.src, item.dest, item.onProgress
-        ? (info) => item.onProgress!({ pct: info.pct, speed: info.speed, eta: info.eta })
-        : undefined);
-      item.resolve();
-    } catch (err) {
-      item.reject(err as Error);
-    }
-  }
-}
 
 // ─── Internal config shape (flattened from DownloadManagerOptions) ────────────
 
@@ -207,9 +153,9 @@ export class IPSWDownloader extends EventEmitter {
   private chunkManagers = new Map<string, ChunkManager>();
   private diskManager: DiskManager;
   private stateManager: StateManager;
-  private scheduler!: Scheduler;
+  private taskScheduler!: TaskScheduler;
+  private transferScheduler!: TransferScheduler;
   private integrity: IntegrityChecker;
-  private transferQueue!: TransferQueue;
   private perf!: typeof PERF_NORMAL;
 
   private progressEmitState = new Map<string, {
@@ -243,9 +189,8 @@ export class IPSWDownloader extends EventEmitter {
 
     this.diskManager = new DiskManager();
     this.stateManager = new StateManager(this.config.stateDir);
-    this.transferQueue = new TransferQueue(this.config.maxTransfers);
 
-    this.scheduler = new Scheduler({
+    this.taskScheduler = new TaskScheduler({
       maxSsdTasks: this.config.maxSsdTasks,
       maxHddTasks: this.config.maxHddTasks,
       maxExternalSsdTasks: this.config.maxExternalSsdTasks,
@@ -253,10 +198,20 @@ export class IPSWDownloader extends EventEmitter {
       maxConnections: this.config.maxConnections,
     });
 
+    this.transferScheduler = new TransferScheduler(this.config.maxTransfers);
+
     this.integrity = new IntegrityChecker();
 
-    this.scheduler.on("started", (id: string) => this.updateTaskStatus(id, "downloading"));
-    this.scheduler.on("slot_open", () => this.scheduler.drain());
+    this.taskScheduler.on("started", (id: string) => this.updateTaskStatus(id, "downloading"));
+    this.taskScheduler.on("slot_open", () => this.taskScheduler.drain());
+
+    this.transferScheduler.on("started", (id: string) => this.updateTaskStatus(id, "moving"));
+    this.transferScheduler.on("cancel", (id: string) => {
+      const task = this.tasks.get(id);
+      if (task) {
+        this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: false, deleteStateFile: false, deleteTask: true });
+      }
+    });
 
     this.recoverOnStartup().catch(err => {
       console.error("[IPSWDownloader] recoverOnStartup failed:", err);
@@ -319,25 +274,26 @@ export class IPSWDownloader extends EventEmitter {
       this.states.set(state.id, state);
       this.diskManager.reserveSpace(state.id, state.firmware.filesize);
 
-      const downloadDir = this.resolveDownloadDir(state.savePath);
-      const driveCat = await this.diskManager.getDriveCategoryForPath(downloadDir);
+      const driveCat = await this.resolveEffectiveDriveCategory(
+        state.savePath, state.firmware.filesize, state.tmpPath,
+      );
 
       if (state.activeOperation === "verify") {
-        this.scheduler.enqueue({
+        this.taskScheduler.enqueue({
           id: state.id,
           driveCategory: driveCat,
           connectionsNeeded: this.config.maxTaskConnections,
           run: () => this.runVerifyAndMove(state.id),
         });
       } else if (state.activeOperation === "move") {
-        this.scheduler.enqueue({
+        this.taskScheduler.enqueue({
           id: state.id,
           driveCategory: driveCat,
           connectionsNeeded: 0,
           run: () => this.runMoveOnly(state.id),
         });
       } else {
-        this.scheduler.enqueue({
+        this.taskScheduler.enqueue({
           id: state.id,
           driveCategory: driveCat,
           connectionsNeeded: this.config.maxTaskConnections,
@@ -429,6 +385,30 @@ export class IPSWDownloader extends EventEmitter {
     return saveDir;
   }
 
+  private async resolveEffectiveDriveCategory(
+    savePath: string,
+    filesize: number,
+    existingTmpPath?: string | null,
+  ): Promise<DriveCategory> {
+    const saveCat = await this.diskManager.getDriveCategoryForPath(savePath);
+    const isSaveOnSSD = saveCat === "internal_ssd" || saveCat === "external_ssd";
+
+    if (isSaveOnSSD) return saveCat;
+
+    if (existingTmpPath) {
+      return this.diskManager.getDriveCategoryForPath(existingTmpPath);
+    }
+
+    if (this.config.useTmp) {
+      const ssdTmp = await this.diskManager.findTmpDir(filesize);
+      if (ssdTmp) {
+        return this.diskManager.getDriveCategoryForPath(ssdTmp);
+      }
+    }
+
+    return saveCat;
+  }
+
   // ─── PUBLIC API ──────────────────────────────────────────────────────────────
 
   async add(firmware: Firmware, options: AddOptions = {}): Promise<AddResult> {
@@ -455,8 +435,9 @@ export class IPSWDownloader extends EventEmitter {
           }
         }
 
-        const downloadDir = this.resolveDownloadDir(existingState.savePath);
-        const driveCat = await this.diskManager.getDriveCategoryForPath(downloadDir);
+        const driveCat = await this.resolveEffectiveDriveCategory(
+          existingState.savePath, existingState.firmware.filesize, existingState.tmpPath,
+        );
 
         this.diskManager.reserveSpace(options.taskId, existingState.firmware.filesize);
 
@@ -473,7 +454,7 @@ export class IPSWDownloader extends EventEmitter {
         this.tasks.set(options.taskId, resumeTask);
         this.states.set(options.taskId, existingState);
 
-        this.scheduler.enqueue({
+        this.taskScheduler.enqueue({
           id: options.taskId,
           driveCategory: driveCat,
           connectionsNeeded: this.config.maxTaskConnections,
@@ -500,15 +481,14 @@ export class IPSWDownloader extends EventEmitter {
     }
 
     const id = randomUUID();
-    const downloadDir = this.resolveDownloadDir(saveDir);
-    const driveCat = await this.diskManager.getDriveCategoryForPath(downloadDir);
+    const driveCat = await this.resolveEffectiveDriveCategory(saveDir, firmware.filesize);
 
     this.diskManager.reserveSpace(id, firmware.filesize);
 
     const task: Task = { id, firmware, progress: 0, speed: 0, status: "queued", savePath: saveDir };
     this.tasks.set(id, task);
 
-    this.scheduler.enqueue({
+    this.taskScheduler.enqueue({
       id,
       driveCategory: driveCat,
       connectionsNeeded: this.config.maxTaskConnections,
@@ -530,7 +510,7 @@ export class IPSWDownloader extends EventEmitter {
     if (task.status === "paused") return { success: true };
 
     if (task.status === "queued") {
-      this.scheduler.pauseTask(id);
+      this.taskScheduler.pauseTask(id);
       this.updateTaskStatus(id, "paused");
       this.emit("paused", id, task);
       return { success: true };
@@ -545,7 +525,7 @@ export class IPSWDownloader extends EventEmitter {
 
     this.doCheckpoint(id);
 
-    this.scheduler.pauseTask(id);
+    this.taskScheduler.pauseTask(id);
     this.updateTaskStatus(id, "paused");
     this.emit("paused", id, task);
     return { success: true };
@@ -561,7 +541,7 @@ export class IPSWDownloader extends EventEmitter {
     this.runGenerations.set(id, (this.runGenerations.get(id) ?? 0) + 1);
 
     this.updateTaskStatus(id, "queued");
-    this.scheduler.resumeTask(id);
+    this.taskScheduler.resumeTask(id);
     this.emit("resumed", id, this.tasks.get(id)!);
     return { success: true };
   }
@@ -585,7 +565,7 @@ export class IPSWDownloader extends EventEmitter {
     const cm = this.chunkManagers.get(id);
     if (cm) cm.abort();
 
-    this.scheduler.cancelTask(id);
+    this.taskScheduler.cancelTask(id);
     this.cleanupRuntime(id, { releaseSpace: true, deleteTmpFile: true, deleteStateFile: true, deleteTask: true });
 
     this.emit("cancelled", id);
@@ -634,15 +614,33 @@ export class IPSWDownloader extends EventEmitter {
       if (partial.paths.useTmp !== undefined) c.useTmp = partial.paths.useTmp;
     }
     if (partial.network) {
-      if (partial.network.maxConnections !== undefined) c.maxConnections = partial.network.maxConnections;
+      if (partial.network.maxConnections !== undefined) {
+        c.maxConnections = partial.network.maxConnections;
+        this.taskScheduler.updateConfig({ maxConnections: c.maxConnections });
+      }
       if (partial.network.bandwidthLimit !== undefined) c.bandwidthLimit = partial.network.bandwidthLimit;
     }
     if (partial.scheduler) {
-      if (partial.scheduler.maxSsdTasks !== undefined) c.maxSsdTasks = partial.scheduler.maxSsdTasks;
-      if (partial.scheduler.maxHddTasks !== undefined) c.maxHddTasks = partial.scheduler.maxHddTasks;
-      if (partial.scheduler.maxExternalSsdTasks !== undefined) c.maxExternalSsdTasks = partial.scheduler.maxExternalSsdTasks;
-      if (partial.scheduler.maxUsbTasks !== undefined) c.maxUsbTasks = partial.scheduler.maxUsbTasks;
-      if (partial.scheduler.maxTransfers !== undefined) c.maxTransfers = partial.scheduler.maxTransfers;
+      if (partial.scheduler.maxSsdTasks !== undefined) {
+        c.maxSsdTasks = partial.scheduler.maxSsdTasks;
+        this.taskScheduler.updateConfig({ maxSsdTasks: c.maxSsdTasks });
+      }
+      if (partial.scheduler.maxHddTasks !== undefined) {
+        c.maxHddTasks = partial.scheduler.maxHddTasks;
+        this.taskScheduler.updateConfig({ maxHddTasks: c.maxHddTasks });
+      }
+      if (partial.scheduler.maxExternalSsdTasks !== undefined) {
+        c.maxExternalSsdTasks = partial.scheduler.maxExternalSsdTasks;
+        this.taskScheduler.updateConfig({ maxExternalSsdTasks: c.maxExternalSsdTasks });
+      }
+      if (partial.scheduler.maxUsbTasks !== undefined) {
+        c.maxUsbTasks = partial.scheduler.maxUsbTasks;
+        this.taskScheduler.updateConfig({ maxUsbTasks: c.maxUsbTasks });
+      }
+      if (partial.scheduler.maxTransfers !== undefined) {
+        c.maxTransfers = partial.scheduler.maxTransfers;
+        this.transferScheduler.updateMaxTransfers(c.maxTransfers);
+      }
     }
     if (partial.download) {
       if (partial.download.performance !== undefined) {
@@ -816,9 +814,12 @@ export class IPSWDownloader extends EventEmitter {
         }
       }
 
-      // Step 8: Move tmp → final (skip if no tmp)
+      // Step 8: Hand off to transfer if tmp, or complete directly
       if (state.tmpPath !== null) {
-        await this.executeMove(id, task, state);
+        this.transferScheduler.enqueue({
+          id,
+          run: () => this.executeMove(id, task, state),
+        });
       } else {
         task.speed = 0;
         task.eta = 0;
@@ -867,7 +868,7 @@ export class IPSWDownloader extends EventEmitter {
       fs.renameSync(i10rPath, finalPath);
       task.progress = 100;
     } else {
-      await this.transferQueue.enqueue(tmpPath, i10rPath, saveDrive, ({ pct, speed, eta }) => {
+      await startMove(tmpPath, i10rPath, ({ pct, speed, eta }) => {
         task.progress = pct;
         task.speed = speed;
         task.eta = eta;

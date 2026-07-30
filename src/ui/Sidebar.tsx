@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { DiskInfo } from "../../electron/i10r-addon/index";
 import { disk } from "@/services/api";
+import { formatBytes } from "./shared";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -68,16 +69,6 @@ const IconDisk = () => (
     <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
   </svg>
 );
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return (bytes / Math.pow(k, i)).toFixed(i > 2 ? 1 : 0) + " " + sizes[i];
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
