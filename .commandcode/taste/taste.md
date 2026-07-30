@@ -13,6 +13,9 @@ See [workflow/taste.md](workflow/taste.md)
 
 # UI Patterns
 See [ui-patterns/taste.md](ui-patterns/taste.md)
+# Code Documentation
+- When changing a function's logic or behavior, also update its associated JSDoc comment to accurately reflect the new behavior — don't leave documentation stale after a logic change. Confidence: 0.75
+
 # CSS / Styling Discipline
 - Never modify CSS classes, style objects, theme variables, or any visual/styling code when performing logic, performance, or bug-fix refactors — unless explicitly asked to change the UI. The user expects visual appearance to remain identical after functional changes. Confidence: 0.70
 - The project uses **TailwindCSS** via className attributes rather than traditional CSS files for most styling. Be aware of this when analyzing or modifying UI code. Confidence: 0.90

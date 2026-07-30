@@ -113,7 +113,7 @@ export class DataHandle {
    *
    * Trả về `true` (cần update) khi:
    *   1. dataHandleVersion không khớp config.DataVersion — schema thay đổi
-   *   2. lastRelease không khớp latestRelease VÀ identifier nằm trong updateSet
+   *   2. lastRelease không khớp latestRelease
    */
   private needsUpdate(
     identifier: string,
@@ -124,9 +124,7 @@ export class DataHandle {
 
     if (storedRelease === this.latestRelease) return false;
 
-    if (this.updateSet === null) return true;
-
-    return this.updateSet.has(identifier);
+    return true;
   }
 
   private getProductType(identifier: string): Product | undefined {
