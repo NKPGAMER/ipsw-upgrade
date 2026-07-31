@@ -22,7 +22,7 @@ export function computeCardStatus(
 ): CardTask {
   if (entry.firmwares != null || entry.task) {
     const inProgress = !!entry.task &&
-      ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+      ["downloading", "paused", "queued", "verifying", "transferring", "queueTransfer"].includes(entry.task.status);
     if (inProgress) return entry.task!.status as CardTask;
     if (entry.task?.status === "completed") return "completed";
     if (entry.task?.status === "error") return "error";

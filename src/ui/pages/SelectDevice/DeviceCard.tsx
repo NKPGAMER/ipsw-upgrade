@@ -82,7 +82,7 @@ export const DeviceCard = memo(function DeviceCard({
 
   const latestFw = entry.firmwares?.[0] ?? null;
   const inProgress = !!entry.task &&
-    ["downloading", "paused", "queued", "verifying", "moving"].includes(entry.task.status);
+    ["downloading", "paused", "queued", "verifying", "transferring", "queueTransfer"].includes(entry.task.status);
   const isOwner = !entry.task || entry.task.firmware.identifier === entry.device.identifier;
 
   const incompTask = latestFw
@@ -115,7 +115,7 @@ export const DeviceCard = memo(function DeviceCard({
       return {
         value: entry.task!.progress,
         colorClass: STATUS_CONFIG[status].textClass,
-        animated: ["downloading", "verifying", "moving"].includes(entry.task!.status),
+        animated: ["downloading", "verifying", "transferring"].includes(entry.task!.status),
       };
     }
     if (status === "incomplete_dl" && incompTask) {
@@ -227,7 +227,7 @@ export const DeviceCard = memo(function DeviceCard({
                   </span>
                   <span className={`text-[12px] font-medium ${cfg.textClass} opacity-60`}>%</span>
                 </div>
-                {(status === "downloading" || status === "moving") && entry.task!.speed > 0 && (
+                {(status === "downloading" || status === "transferring") && entry.task!.speed > 0 && (
                   <div className="text-right">
                     <p className="text-[12px] text-gray-400 font-mono tabular-nums">
                       {formatBytes(entry.task!.speed, 0)}/s

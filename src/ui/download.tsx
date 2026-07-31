@@ -112,7 +112,8 @@ const StatusBadge = memo(function StatusBadge({ status }: { status: TaskStatus }
     error: { labelKey: "status.error", cls: "bg-[#e04a4a]/12 text-[#e04a4a] border-[#e04a4a]/30" },
     queued: { labelKey: "status.queued", cls: "bg-white/5 text-[#4a6478] border-white/10" },
     verifying: { labelKey: "status.verifying", cls: "bg-[#af52de]/12 text-[#af52de] border-[#af52de]/30" },
-    moving: { labelKey: "status.moving", cls: "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30" },
+    transferring: { labelKey: "status.transferring", cls: "bg-[#e08b1a]/12 text-[#e08b1a] border-[#e08b1a]/30" },
+    queueTransfer: { labelKey: "status.queueTransfer", cls: "bg-yellow-500/12 text-yellow-500 border-yellow-500/30" },
     cancelled: { labelKey: "status.cancelled", cls: "bg-white/5 text-[#4a6478] border-white/10" },
   };
 
@@ -138,10 +139,11 @@ const ProgressBar = memo(function ProgressBar({ progress, status }: { progress: 
     error: "bg-[#e04a4a]",
     queued: "bg-[#4a6478]",
     verifying: "bg-[#af52de]",
-    moving: "bg-[#e08b1a]",
+    transferring: "bg-[#e08b1a]",
+    queueTransfer: "bg-[#eab308]",
     cancelled: "bg-[#4a6478]",
   };
-  const isAnim = status === "verifying" || status === "moving";
+  const isAnim = status === "verifying" || status === "transferring";
   return (
     <div className="w-full h-0.75 bg-white/6 rounded-full overflow-hidden">
       <div

@@ -204,7 +204,8 @@
         "error": "Lỗi",
         "queued": "Đang chờ",
         "verifying": "Đang xác minh",
-        "moving": "Đang di chuyển"
+        "transferring": "Đang di chuyển",
+        "queueTransfer": "Chờ di chuyển"
     },
     "status_label": {
         "none": "Chưa tải",
@@ -215,7 +216,8 @@
         "completed": "Đã tải",
         "error": "Lỗi",
         "verifying": "Đang xác minh",
-        "moving": "Đang di chuyển",
+        "transferring": "Đang di chuyển",
+        "queueTransfer": "Chờ di chuyển",
         "canceled": "Huỷ bỏ",
         "old": "Có phiên bản mới",
         "corrupted": "Không hoàn chỉnh",
@@ -230,7 +232,8 @@
         "downloaded": "Đã tải",
         "error": "Lỗi",
         "verifying": "Đang xác minh",
-        "moving": "Đang di chuyển",
+        "transferring": "Đang di chuyển",
+        "queueTransfer": "Chờ di chuyển",
         "cancelled": "Đã huỷ",
         "old": "Có phiên bản mới",
         "corrupted": "Không hoàn chỉnh",

@@ -1,4 +1,4 @@
-export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "moving" | "cancelled";
+export type TaskStatus = "queued" | "downloading" | "paused" | "completed" | "error" | "verifying" | "transferring" | "queueTransfer" | "cancelled";
 
 export type EventChannel = "started" | "completed" | "added" | "progress" | "paused" | "resumed" | "cancelled" | "incomplete_deleted" | "error";
 
@@ -26,7 +26,7 @@ export interface DownloadState {
   supportsRanges: boolean;
   createdAt: number;
   updatedAt: number;
-  activeOperation: "download" | "verify" | "move" | "transfer";
+  activeOperation: "download" | "verify" | "move";
   lastCheckpoint: number;
   lastWriteTime: number;
 }

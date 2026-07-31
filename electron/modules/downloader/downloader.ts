@@ -205,7 +205,16 @@ export class IPSWDownloader extends EventEmitter {
     this.taskScheduler.on("started", (id: string) => this.updateTaskStatus(id, "downloading"));
     this.taskScheduler.on("slot_open", () => this.taskScheduler.drain());
 
-    this.transferScheduler.on("started", (id: string) => this.updateTaskStatus(id, "moving"));
+    this.transferScheduler.on("queued", (id: string) => {
+      this.updateTaskStatus(id, "queueTransfer");
+      const task = this.tasks.get(id);
+      if (task) this.emitProgressNow(id, task);
+    });
+    this.transferScheduler.on("started", (id: string) => {
+      this.updateTaskStatus(id, "transferring");
+      const task = this.tasks.get(id);
+      if (task) this.emitProgressNow(id, task);
+    });
     this.transferScheduler.on("cancel", (id: string) => {
       const task = this.tasks.get(id);
       if (task) {
@@ -470,8 +479,8 @@ export class IPSWDownloader extends EventEmitter {
       if (
         task.firmware.identifier === firmware.identifier &&
         task.firmware.buildid === firmware.buildid &&
-        (task.status === "downloading" || task.status === "moving" ||
-          task.status === "verifying" || task.status === "queued" || task.status === "paused")
+        (task.status === "downloading" || task.status === "transferring" ||
+          task.status === "queueTransfer" || task.status === "verifying" || task.status === "queued" || task.status === "paused")
       ) return { success: false, error: "ALREADY_IN_LIST" };
     }
 
@@ -503,7 +512,7 @@ export class IPSWDownloader extends EventEmitter {
     const task = this.tasks.get(id);
     if (!task) return { success: false, error: "NOT_FOUND" };
 
-    if (task.status === "moving" || task.status === "verifying") {
+    if (task.status === "transferring" || task.status === "queueTransfer" || task.status === "verifying") {
       return { success: false, error: "INVALID_STATUS" };
     }
 
@@ -550,7 +559,7 @@ export class IPSWDownloader extends EventEmitter {
     const task = this.tasks.get(id);
     if (!task) return { success: false, error: "NOT_FOUND" };
 
-    if (task.status === "moving" || task.status === "verifying") {
+    if (task.status === "transferring" || task.status === "verifying") {
       return { success: false, error: "INVALID_STATUS" };
     }
 
@@ -558,9 +567,15 @@ export class IPSWDownloader extends EventEmitter {
       return { success: true };
     }
 
+    const wasQueueTransfer = task.status === "queueTransfer";
+
     this.runGenerations.set(id, (this.runGenerations.get(id) ?? 0) + 1);
 
     this.updateTaskStatus(id, "cancelled");
+
+    if (wasQueueTransfer) {
+      this.transferScheduler.cancelTask(id);
+    }
 
     const cm = this.chunkManagers.get(id);
     if (cm) cm.abort();
@@ -845,7 +860,6 @@ export class IPSWDownloader extends EventEmitter {
     const i10rPath = this.buildI10rPath(task.firmware, task.savePath);
     const tmpPath = state.tmpPath!;
 
-    this.updateTaskStatus(id, "moving");
     state.activeOperation = "move";
     this.doCheckpoint(id);
 

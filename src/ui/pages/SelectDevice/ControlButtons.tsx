@@ -433,7 +433,7 @@ export const ControlButtons = memo(function ControlButtons({
   }
 
   // ── Đang xác minh / di chuyển ─────────────────────────────────────────────
-  if (status === "verifying" || status === "moving") {
+  if (status === "verifying" || status === "transferring" || status === "queueTransfer") {
     if (readonly) {
       return (
         <div className="bg-white/4 rounded-xl p-3! border border-white/6">

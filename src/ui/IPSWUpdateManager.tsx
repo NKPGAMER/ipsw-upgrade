@@ -41,7 +41,8 @@ type EntryStatus =
   | "downloading"
   | "paused"
   | "verifying"
-  | "moving"
+  | "transferring"
+  | "queueTransfer"
   | "completed"
   | "error";
 
@@ -85,7 +86,8 @@ const STATUS_CFG: Record<EntryStatus, {
   downloading: { label: "Đang tải", pill: "bg-[#0d47a1]/20", dot: "bg-[#0066cc]", text: "text-[#0066cc]", animate: true },
   paused: { label: "Tạm dừng", pill: "bg-orange-500/10", dot: "bg-orange-400", text: "text-orange-400" },
   verifying: { label: "Xác minh", pill: "bg-purple-500/12", dot: "bg-purple-400", text: "text-purple-400", animate: true },
-  moving: { label: "Di chuyển", pill: "bg-cyan-500/10", dot: "bg-cyan-400", text: "text-cyan-400", animate: true },
+  transferring: { label: "Di chuyển", pill: "bg-cyan-500/10", dot: "bg-cyan-400", text: "text-cyan-400", animate: true },
+  queueTransfer: { label: "Chờ chuyển", pill: "bg-yellow-500/10", dot: "bg-yellow-400", text: "text-yellow-400", animate: false },
   completed: { label: "Hoàn thành", pill: "bg-emerald-500/12", dot: "bg-emerald-400", text: "text-emerald-400" },
   error: { label: "Lỗi", pill: "bg-red-500/10", dot: "bg-red-400", text: "text-red-400" },
 };
@@ -95,10 +97,10 @@ const STATUS_CFG: Record<EntryStatus, {
 const ProgressBar = ({ value, status }: { value: number; status: EntryStatus }) => {
   const clr: Partial<Record<EntryStatus, string>> = {
     downloading: "#0066cc", paused: "#f97316", verifying: "#a855f7",
-    moving: "#06b6d4", completed: "#10b981", error: "#ef4444",
+    transferring: "#06b6d4", queueTransfer: "#eab308", completed: "#10b981", error: "#ef4444",
   };
   const c = clr[status] ?? "#0066cc";
-  const anim = ["downloading", "verifying", "moving"].includes(status);
+  const anim = ["downloading", "verifying", "transferring"].includes(status);
   return (
     <div className="h-0.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
       <div
@@ -143,7 +145,7 @@ const UpdateRow = memo(function UpdateRow({
   onRemove: (i: number) => void;
 }) {
   const cfg = STATUS_CFG[entryState.status];
-  const active = ["downloading", "verifying", "moving", "queued"].includes(entryState.status);
+  const active = ["downloading", "verifying", "transferring", "queueTransfer", "queued"].includes(entryState.status);
   const fw = entry.firmware;
   const osLabel = OS_LABEL[entry.product];
 

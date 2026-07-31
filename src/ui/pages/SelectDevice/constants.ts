@@ -17,7 +17,8 @@ export const STATUS_LABEL: Record<CardTask, string> = {
   completed:     "status_label.completed",
   error:         "status_label.error",
   verifying:     "status_label.verifying",
-  moving:        "status_label.moving",
+  transferring:  "status_label.transferring",
+  queueTransfer: "status_label.queueTransfer",
   cancelled:     "status_label.cancelled",
   old:           "status_label.old",
   corrupted:     "status_label.corrupted",
@@ -33,7 +34,8 @@ export const STATUS_COLOR: Record<CardTask, string> = {
   downloaded:    "text-emerald-400",
   error:         "text-red-400",
   verifying:     "text-purple-400",
-  moving:        "text-cyan-400",
+  transferring:  "text-cyan-400",
+  queueTransfer: "text-yellow-400",
   cancelled:     "text-gray-400",
   old:           "text-cyan-400",
   corrupted:     "text-amber-400",
@@ -118,12 +120,19 @@ export const STATUS_CONFIG: Record<CardTask, StatusConfig> = {
     animated: true,
   },
 
-  moving: {
-    labelId: "status_config.moving",
+  transferring: {
+    labelId: "status_config.transferring",
     pillClass: "bg-cyan-400/10",
     dotClass: "bg-cyan-400",
     textClass: "text-cyan-400",
     animated: true,
+  },
+
+  queueTransfer: {
+    labelId: "status_config.queueTransfer",
+    pillClass: "bg-yellow-400/12",
+    dotClass: "bg-yellow-400",
+    textClass: "text-yellow-400",
   },
 
   cancelled: {

@@ -212,6 +212,7 @@ export class TransferScheduler extends EventEmitter {
   enqueue(task: TransferTask): void {
     if (this.active.has(task.id) || this.queue.some(t => t.id === task.id)) return;
     this.queue.push(task);
+    this.emit("queued", task.id);
     this.drain();
   }
 

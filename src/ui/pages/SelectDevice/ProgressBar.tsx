@@ -5,7 +5,8 @@ const PROGRESS_COLOR_MAP: Partial<Record<string, string>> = {
   downloading: "bg-[#0066cc]",
   paused: "bg-orange-400",
   verifying: "bg-violet-400",
-  moving: "bg-cyan-400",
+  transferring: "bg-cyan-400",
+  queueTransfer: "bg-yellow-400",
   completed: "bg-emerald-400",
   error: "bg-red-400",
   incomplete_dl: "bg-sky-400",
@@ -13,7 +14,7 @@ const PROGRESS_COLOR_MAP: Partial<Record<string, string>> = {
 
 export const ProgressBar = memo(function ProgressBar({ value, status }: { value: number; status: TaskStatus | "incomplete_dl" }) {
   const color = PROGRESS_COLOR_MAP[status] ?? "bg-[#0066cc]";
-  const animated = ["downloading", "verifying", "moving"].includes(status);
+  const animated = ["downloading", "verifying", "transferring"].includes(status);
 
   return (
     <div className="w-full h-1 bg-white/8 rounded-full overflow-hidden mt-2.5!">
