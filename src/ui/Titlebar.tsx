@@ -20,15 +20,16 @@ const DownloadIcon = memo(function downloadIcon() {
 
 const titlebarPages = ["/downloads", "/settings"];
 
-const ControlButton = memo(function ControlButton({ icon, goTo, gotoOptions, onClick }: { icon: JSX.Element, goTo?: string, gotoOptions?: NavigateOptions, onClick?: () => void }) {
+const ControlButton = memo(function ControlButton({ icon, goTo, gotoOptions, onClick, visible }: { icon: JSX.Element, goTo?: string, gotoOptions?: NavigateOptions, onClick?: () => void, visible?: boolean }) {
     const location = useLocation();
     const navigate = useNavigate();
     const isActive = location.pathname.startsWith(goTo ?? "");
     const { setFromSelectDevice } = useSearchStore();
+    const noDrag = visible !== false ? "no-drag" : "";
 
     return (
         <button
-            className={`no-drag rounded-lg! flex items-center justify-center cursor-pointer transition-all duration-150 gap-2 p-1.5!
+            className={`${noDrag} rounded-lg! flex items-center justify-center cursor-pointer transition-all duration-150 gap-2 p-1.5!
                 ${isActive
                     ? "text-apple-primary border-[#0066cc44] bg-white/8"
                     : "hover:border-[#0066cc44] hover:text-apple-primary hover:bg-white/8"}
@@ -125,7 +126,7 @@ export default function Titlebar() {
                         </svg>
                     </div>
                     <input
-                        className="search-input no-drag"
+                        className={`search-input ${searchVisible ? "no-drag" : ""}`}
                         role="searchbox"
                         aria-label="Tìm kiếm thiết bị"
                         type="text"
@@ -135,7 +136,7 @@ export default function Titlebar() {
                     />
                     {query && (
                         <button
-                            className="search-clear no-drag"
+                            className={`search-clear ${searchVisible ? "no-drag" : ""}`}
                             onClick={handleClear}
                             style={{ display: "flex" }}
                             aria-label="Xoá tìm kiếm"
@@ -150,8 +151,8 @@ export default function Titlebar() {
 
             {/* Right */}
             <div className={`flex items-center justify-start transition-opacity duration-150 ${isSelectDevice ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
-                <ControlButton icon={<DownloadIcon />} goTo="/downloads" />
-                <ControlButton icon={<SettingsIcon />} goTo="/settings" />
+                <ControlButton icon={<DownloadIcon />} goTo="/downloads" visible={isSelectDevice} />
+                <ControlButton icon={<SettingsIcon />} goTo="/settings" visible={isSelectDevice} />
             </div>
         </header>
     )

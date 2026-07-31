@@ -27,3 +27,5 @@
 - During active download, write to a temporary file with a non-final extension (e.g., `.i10r`) rather than the target extension. Rename to the final extension only after the download completes successfully. This prevents file watchers, indexers, or other processes from consuming incomplete files. Confidence: 0.80
 
 - When backend state mutations (e.g., task status transitions via `updateTaskStatus`) must be observable by the renderer, always emit an IPC event (e.g., `emitProgressNow`) immediately after the in-memory mutation. In-memory updates alone will not propagate to the UI — the renderer only sees state that arrives via IPC events. Confidence: 0.75
+
+- When a shared rendering utility used in multiple contexts (e.g., `renderMd`) needs different sizing or styling per context, prefers adding a parameter (e.g., `size: "sm" | "md"`) over duplicating the component or creating separate variants. The default parameter value should preserve existing backward-compatible behavior. Confidence: 0.60

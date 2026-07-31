@@ -502,7 +502,7 @@ export default function App(): JSX.Element {
 
   return (
     <>
-      <div className="flex h-screen min-h-140 flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-[#272729]">
+      <div className="flex h-full min-h-140 flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-[#272729]">
         <div className="flex flex-1 overflow-hidden">
           <div className="flex flex-1 flex-col overflow-hidden bg-[#272729]">
             <div

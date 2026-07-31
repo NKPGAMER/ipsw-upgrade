@@ -2,7 +2,8 @@ import { memo, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { DiskInfo } from "../../electron/i10r-addon/index";
-import { disk } from "@/services/api";
+import { disk, updater, app } from "@/services/api";
+import type { UpdateStatus } from "../../@types/preload";
 import { formatBytes } from "./shared";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -261,7 +262,82 @@ const DiskSection = memo(function DiskSection() {
   );
 });
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
+// ── UpdateBanner ──────────────────────────────────────────────────────────────
+
+function UpdateBanner() {
+  const [status, setStatus] = useState<UpdateStatus | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    updater.getStatus().then((s) => { if (s && s.phase !== "idle" && s.phase !== "no-update") setStatus(s); });
+    const subs = [
+      updater.onUpdateAvailable((d) => setStatus({ phase: "downloading", version: d.version, notes: d.notes })),
+      updater.onUpdateProgress((p) => setStatus((prev) => prev ? { ...prev, progress: p } : null)),
+      updater.onUpdateReady(() => setStatus((prev) => prev ? { ...prev, phase: "ready" } : null)),
+    ];
+    return () => subs.forEach((s) => s?.unsubscribe?.());
+  }, []);
+
+  if (!status) return null;
+
+  return (
+    <div className="px-2! pb-2! shrink-0">
+      <button
+        type="button"
+        onClick={() => navigate("/appUpdate")}
+        className="w-full rounded-xl! bg-[#0066cc]/8 border border-[#0066cc]/20 hover:bg-[#0066cc]/12 transition-colors cursor-pointer text-left"
+      >
+        <div className="px-3! py-2.5!">
+          <div className="flex items-center justify-between gap-2!">
+            <span className="text-[10px] font-semibold text-[#5a5a5e] uppercase tracking-[0.08em]">
+              Cập nhật
+            </span>
+            <span className="text-[#2997ff] text-[10px] font-mono font-semibold">
+              {status.version || ""}
+            </span>
+          </div>
+
+          {status.phase === "downloading" && status.progress && (
+            <div className="mt-2!">
+              <div className="flex justify-between text-[9px]! text-[#888] mb-1!">
+                <span>{status.progress.percent}%</span>
+                <span>{status.progress.transferred}/{status.progress.total} MB</span>
+              </div>
+              <div className="h-1! rounded-full bg-white/[0.06] overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full bg-[#0066cc]"
+                  animate={{ width: `${status.progress.percent}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+            </div>
+          )}
+
+          {status.phase === "ready" && (
+            <div className="mt-2!">
+              <div className="flex items-center gap-1.5!">
+                <div className="w-1.5! h-1.5! rounded-full bg-green-500 shrink-0" />
+                <span className="text-[10px]! text-[#888]">Đã tải xong</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {status.phase === "ready" && (
+          <div className="px-3! pb-2.5!">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); app.relaunch(); }}
+              className="w-full py-1.5! rounded-lg! text-[11px]! font-semibold bg-[#0066cc] text-white border-none cursor-pointer hover:bg-[#0071e3] transition-colors active:scale-[0.98]"
+            >
+              Khởi động lại ngay
+            </button>
+          </div>
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default memo(function Sidebar() {
   const location = useLocation();
@@ -281,10 +357,10 @@ export default memo(function Sidebar() {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       className="
-        w-[200px]! shrink-0 h-full
+        w-50! shrink-0 h-full
         flex flex-col
         bg-[#1c1c1e]/80 backdrop-blur-xl
-        border-r border-white/[0.06]
+        border-r border-white/6
         select-none no-drag
       "
     >
@@ -305,7 +381,7 @@ export default memo(function Sidebar() {
         ))}
 
         {/* Separator */}
-        <div className="my-3! mx-2! h-px bg-white/[0.06]" />
+        <div className="my-3! mx-2! h-px bg-white/6" />
 
         {/* Disks */}
         <div className="px-1!">
@@ -313,8 +389,11 @@ export default memo(function Sidebar() {
         </div>
       </nav>
 
+      {/* Update banner */}
+      <UpdateBanner />
+
       {/* Bottom fade */}
-      <div className="shrink-0 h-4! bg-gradient-to-t from-[#1c1c1e]/80 to-transparent pointer-events-none" />
+      <div className="shrink-0 h-4! bg-linear-to-t from-[#1c1c1e]/80 to-transparent pointer-events-none" />
     </motion.aside>
   );
 });

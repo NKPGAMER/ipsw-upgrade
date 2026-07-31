@@ -18,7 +18,7 @@ const Welcome = lazy(() => import("./ui/welcome"));
 
 // ─── Sidebar visibility ──────────────────────────────────────────────────────
 
-const SIDEBAR_ROUTES = ["/", "/downloads", "/settings"];
+const SIDEBAR_ROUTES = ["/", "/downloads", "/settings", "/appUpdate"];
 
 function useShowSidebar() {
     const location = useLocation();
@@ -49,7 +49,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
     render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-screen flex items-center justify-center bg-apple-tile-3 text-white font-sans">
+                <div className="h-full flex items-center justify-center bg-apple-tile-3 text-white font-sans">
                     <div className="w-full max-w-105 rounded-2xl border border-white/6 bg-apple-tile-1 px-7! py-8! text-center">
                         <div className="mx-auto! mb-4.5! h-14 w-14 rounded-full bg-[#ff3b30]/15 flex items-center justify-center">
                             <span className="text-3xl">&#9888;</span>
@@ -75,7 +75,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
 }
 
 const LoadingScreen = memo(() => (
-    <div className="min-h-screen flex items-center justify-center bg-apple-tile-3 text-white font-sans">
+    <div className="h-full flex items-center justify-center bg-apple-tile-3 text-white font-sans">
         <div className="w-full max-w-105 rounded-2xl border border-white/6 bg-apple-tile-1 px-7! py-8! text-center">
             <div className="mx-auto! mb-4.5! h-14 w-14 animate-spin rounded-full border-4 border-white/6 border-t-apple-primary" />
 
