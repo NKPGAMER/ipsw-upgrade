@@ -149,7 +149,6 @@ export default function Titlebar() {
     setDebouncedQuery(debouncedQuery);
   }, [debouncedQuery, setDebouncedQuery]);
 
-  // Reset search state trước — chạy trước navigation effect
   useEffect(() => {
     if (!isSelectDevice) {
       reset();

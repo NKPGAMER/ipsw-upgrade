@@ -2,6 +2,7 @@ import { app, updater } from "@/services/api";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { renderMd } from "@/ui/shared/renderMd";
+import { usePageLayout } from "./layout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ function PhaseReady({ version, notes }: { version: string; notes: string | null 
 // ── AppUpdate ─────────────────────────────────────────────────────────────────
 
 export default function AppUpdate() {
+  usePageLayout("default");
   const [phase, setPhase] = useState<Phase>("idle");
   const [data, setData] = useState<UpdateData | null>(null);
   const [progress, setProgress] = useState<Progress>({ percent: 0, transferred: "0", total: "0" });
@@ -148,12 +150,12 @@ export default function AppUpdate() {
   const version = data?.version || "";
 
   return (
-    <div className="flex flex-col size-full bg-apple-tile-3 text-white">
+    <div className="flex flex-col size-full bg-apple-tile-3 text-white overflow-hidden">
       <div className="flex items-center px-8! py-5! border-b border-white/6 bg-apple-tile-3 shrink-0">
         <h1 className="text-[18px] font-bold text-[#e5e5e5] tracking-tight">Cập nhật ứng dụng</h1>
       </div>
 
-      <main className="flex-1 overflow-y-auto px-8! pt-6! pb-10!">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden px-8! pt-6! pb-10!">
         <AnimatePresence mode="wait">
           {!data && phase === "idle" && <PhaseIdle key="idle" />}
 

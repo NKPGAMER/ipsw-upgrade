@@ -10,6 +10,7 @@ import type { Task, TaskStatus } from "@custom-type/downloader";
 import type { DownloadFilter } from "../stores/download-store";
 import { getFileNameFromUrl } from "../core/helper";
 import utils from "../core/utils";
+import { usePageLayout } from "./layout";
 import { downloader } from "@/services/downloader";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -306,6 +307,7 @@ const DownloadCard = memo(function DownloadCard({ task, onPause, onResume, onCan
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function DownloadPage() {
+  usePageLayout("default");
   const { t } = useTranslation();
   const navigate = useNavigate();
   const fromSelectDevice = useSearchStore((s) => s.fromSelectDevice);
@@ -435,9 +437,9 @@ export default function DownloadPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="fixed bottom-0 right-0 flex bg-apple-tile-3 text-white overflow-hidden" style={{ top: "var(--titlebar-height)", left: "var(--sidebar-w, 0px)" }}>
+    <div className="size-full flex bg-apple-tile-3 text-white overflow-hidden">
       {/* Sidebar — same style as Settings */}
-      <nav className="w-52 shrink-0 self-stretch sticky top-0 bg-[#1e1e20] border-r border-white/6 flex flex-col pt-6! pb-4!">
+      <nav className="w-52 shrink-0 h-full overflow-y-auto bg-[#1e1e20] border-r border-white/6 flex flex-col pt-6! pb-4!">
         <div className="px-4! mb-6!">
           <h2 className="text-[13px] font-semibold text-[#5a6a7a] uppercase tracking-[0.08em]">
             {t("setting.sidebar.download")}
@@ -494,7 +496,7 @@ export default function DownloadPage() {
         </div>
 
         {/* List */}
-        <main className="flex-1 overflow-y-auto px-8! pt-6! pb-10!">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-8! pt-6! pb-10!">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-apple-ink-muted-48">
               <div className="text-4xl opacity-20">↓</div>

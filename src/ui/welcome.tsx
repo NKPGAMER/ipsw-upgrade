@@ -23,6 +23,7 @@ import { downloader } from "@/services/downloader";
 import "./welcome.css";
 import { app, store, dialog } from "@/services/api";
 import { SETTING_VERSION } from "@/constants";
+import { usePageLayout } from "./layout";
 
 // ─── Welcome-specific Icons ──────────────────────────────────────────────────
 
@@ -403,6 +404,7 @@ const PROGRESS: Record<Page, string> = {
 };
 
 export default function App(): JSX.Element {
+  usePageLayout("fullContent");
   const [page, setPage] = useState<Page>("welcome");
   const [saveDir, setSaveDir] = useState<string>("");
   const [skipVerify, setSkipVerify] = useState<boolean>(false);

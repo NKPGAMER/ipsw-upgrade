@@ -5,6 +5,7 @@ import { ipswClient } from "../init";
 import utils from "../core/utils";
 import { state } from "../data";
 import { useSearchStore } from "@/stores/search-store";
+import { usePageLayout } from "./layout";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 // Định nghĩa ngoài component — không re-create mỗi render
@@ -254,6 +255,7 @@ const ProductCard = memo(function ProductCard({
 // ── Home ──────────────────────────────────────────────────────────────────────
 
 export default function Home() {
+  usePageLayout("default");
   const [stats, setStats] = useState<Stats | null>(null);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -342,9 +344,9 @@ export default function Home() {
   useEffect(() => app.ready(), []);
 
   return (
-    <div className="flex flex-col size-full bg-apple-tile-3 text-white">
+    <div className="flex flex-col size-full bg-apple-tile-3 text-white overflow-hidden">
       {/* ── Main ────────────────────────────────────────────────────────────── */}
-      <main className="flex-1 p-6! md:px-8! md:py-7! overflow-y-auto">
+      <main className="flex-1 p-6! md:px-8! md:py-7! overflow-y-auto overflow-x-hidden">
         {/* Stats row — skeleton khi chưa load xong */}
         <motion.div
           className="grid grid-cols-3 gap-3! mb-3!"

@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ProductId } from "@/ui/home";
 import { ipswClient } from "@/init";
 import { useSearchStore } from "@/stores/search-store";
+import { usePageLayout } from "@/ui/layout";
 import utils from "@/core/utils";
 import { downloader } from "@/services/downloader";
 import { data } from "@/services/api";
@@ -25,6 +26,7 @@ import type { ControlAction, DeviceEntry, VerifyState } from "./types";
 const PENDING_TIMEOUT_MS = 15000;
 
 export default function IPSWManager() {
+  usePageLayout("fullContent");
   const [entries, setEntries] = useState<DeviceEntry[]>([]);
   const [allFiles, setAllFiles] = useState<IPSWFile[]>([]);
   const [incompleteTasks, setIncompleteTasks] = useState<IncompleteTaskClient[]>(ipswClient.getIncompleteTasks());
@@ -810,10 +812,10 @@ export default function IPSWManager() {
   }, [product, t]);
 
   return (
-    <div className="fixed inset-x-0 bottom-0" style={{ top: "var(--titlebar-height)" }}>
+    <div className="size-full">
       <div
         ref={containerRef}
-        className="flex h-full bg-apple-tile-3 text-white overflow-hidden"
+        className="flex size-full bg-apple-tile-3 text-white overflow-hidden"
       >
         <div
           className="flex flex-col overflow-hidden shrink-0"

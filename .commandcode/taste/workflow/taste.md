@@ -1,5 +1,7 @@
 # Workflow
 - Prefers proactive, comprehensive codebase auditing before optimization work — scan the entire `src/` holistically for UX blockers, performance bottlenecks, and core logic issues, then prioritize fixes by severity. Do not fix individual symptoms reactively without first surveying the full landscape. Confidence: 0.80
+
+- Prefers writing a plan file to `.commandcode/plans/<feature>.md` before starting implementation on non-trivial features. The plan should cover: problem statement, goal, architecture diagram, new/modified files table, edge cases, and verification steps. The agent then exits plan mode and only begins coding after plan approval. Confidence: 0.85
 - Prefers immediately deleting dead/unreferenced code when identified, rather than leaving orphaned files in the codebase. When told a file has zero imports, the expected action is to delete it without further hesitation. Confidence: 0.75
 - When performing a multi-file refactor, uses todo_write to track progress across files — each file is a separate todo item, checked off as work is completed. Confidence: 0.70
 - After completing a significant refactor or writing a new file, runs the project's typecheck command (e.g., `npx tsc --noEmit`) to verify type correctness before declaring the task done. Confidence: 0.65

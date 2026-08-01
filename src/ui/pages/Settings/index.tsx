@@ -1,7 +1,8 @@
 import { useState, type JSX } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useSearchStore } from "@/stores/search-store";
+import { usePageLayout } from "@/ui/layout";
 import { Sidebar } from "./Sidebar";
 import { AboutPage } from "./AboutPage";
 import { LanguagePage } from "./LanguagePage";
@@ -19,13 +20,14 @@ const pages: Record<SettingsPage, JSX.Element> = {
 };
 
 export default function SettingsApp(): JSX.Element {
+  usePageLayout("default");
   const [activePage, setActivePage] = useState<SettingsPage>("about");
   const { t } = useTranslation();
   const navigate = useNavigate();
   const fromSelectDevice = useSearchStore((s) => s.fromSelectDevice);
 
   return (
-    <div className="fixed bottom-0 right-0 flex bg-apple-tile-3 text-white overflow-hidden" style={{ top: "var(--titlebar-height)", left: "var(--sidebar-w, 0px)" }}>
+    <div className="size-full flex bg-apple-tile-3 text-white overflow-hidden">
       <Sidebar active={activePage} onNavigate={setActivePage} />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -45,7 +47,7 @@ export default function SettingsApp(): JSX.Element {
         </div>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto px-8! pt-6! pb-10!">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-8! pt-6! pb-10!">
           {pages[activePage]}
         </main>
       </div>

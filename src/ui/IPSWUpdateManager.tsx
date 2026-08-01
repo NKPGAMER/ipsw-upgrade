@@ -15,6 +15,7 @@ import { state as globalState } from "../data";
 import { useDownloadStore } from "../stores/download-store";
 import { downloader } from "@/services/downloader";
 import { data, file as fileApi } from "@/services/api";
+import { usePageLayout } from "./layout";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -353,6 +354,7 @@ const EmptyState = ({ product }: { product: Product }) => (
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function IPSWUpdateManager() {
+  usePageLayout("fullContent");
   const location = useLocation();
   const navigate = useNavigate();
   const product: Product = location.state?.product as Product || globalState.currentProduct || "iphone";
@@ -624,13 +626,7 @@ export default function IPSWUpdateManager() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      className="fixed inset-0 z-1000 flex flex-col overflow-hidden"
-      style={{
-        background: "#252527",
-        color: "white",
-      }}
-    >
+    <div className="size-full flex flex-col overflow-hidden bg-[#252527] text-white">
       {/* ── Top bar ── */}
       <div
         className="shrink-0 flex items-center gap-3 px-4! h-12 border-b"

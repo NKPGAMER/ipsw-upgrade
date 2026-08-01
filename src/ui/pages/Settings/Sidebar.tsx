@@ -21,7 +21,7 @@ const Sidebar: FC<SidebarProps> = memo(function Sedebar({ active, onNavigate }) 
   const { t } = useTranslation();
 
   return (
-    <nav className="w-52 shrink-0 self-stretch sticky top-0 bg-[#1e1e20] border-r border-white/6 flex flex-col pt-6! pb-4!">
+    <nav className="w-52 shrink-0 h-full overflow-y-auto bg-[#1e1e20] border-r border-white/6 flex flex-col pt-6! pb-4!">
       <div className="px-4! mb-6!">
         <h2 className="text-[13px] font-semibold text-[#5a6a7a] uppercase tracking-[0.08em]">
           {t("setting.title")}
