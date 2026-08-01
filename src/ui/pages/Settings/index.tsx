@@ -7,6 +7,7 @@ import { AboutPage } from "./AboutPage";
 import { LanguagePage } from "./LanguagePage";
 import { DownloadPage } from "./DownloadPage";
 import { FirmwarePage } from "./FirmwarePage";
+import { ThemePage } from "./ThemePage";
 import type { SettingsPage } from "./types";
 
 const pages: Record<SettingsPage, JSX.Element> = {
@@ -14,6 +15,7 @@ const pages: Record<SettingsPage, JSX.Element> = {
   language: <LanguagePage />,
   download: <DownloadPage />,
   firmware: <FirmwarePage />,
+  theme: <ThemePage />,
 };
 
 export default function SettingsApp(): JSX.Element {

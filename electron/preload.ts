@@ -25,6 +25,10 @@ const api: ElectronApi = {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   selectFile: (options?: FileFilter[]) => ipcRenderer.invoke('select-file', options),
 
+  minimize: () => ipcRenderer.invoke('win:minimize'),
+  maximize: () => ipcRenderer.invoke('win:maximize'),
+  close: () => ipcRenderer.invoke('win:close'),
+
   file: {
     getFiles: () => ipcRenderer.invoke("ipsw:get-files"),
     delete: (t) => ipcRenderer.invoke("ipsw:delete-file", t),
@@ -64,7 +68,8 @@ const storeApi: ElectronStoreApi = {
   set: (key: string, value?: any) => ipcRenderer.invoke('store', 'set', key, value),
   get: (key: string) => ipcRenderer.invoke('store', 'get', key),
   has: (key: string) => ipcRenderer.invoke('store', 'has', key),
-  delete: (key: string) => ipcRenderer.invoke('store', 'delete', key)
+  delete: (key: string) => ipcRenderer.invoke('store', 'delete', key),
+  onChange: (cb: (key: string, value: any) => void) => listen("store:changed", cb),
 };
 
 const updaterApi: ElectronUpdaterApi = {

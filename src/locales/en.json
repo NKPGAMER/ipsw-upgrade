@@ -24,6 +24,7 @@
     "setting.sidebar.language": "Language",
     "setting.sidebar.download": "Download",
     "setting.sidebar.firmware": "Firmware",
+    "setting.sidebar.theme": "Theme",
     "setting.about": "About",
     "setting.about.version": "Version",
     "setting.about.checkUpdate": "Check",
@@ -169,5 +170,13 @@
     "setting.turboWarning": "This feature will maximize hardware usage for faster downloads.\n> May cause device heating.\nAre you sure you want to continue?",
     "setting.turboWarningTitle": "Warning",
     "setting.turboConfirm": "Agree",
-    "setting.turboCancel": "Cancel"
+    "setting.turboCancel": "Cancel",
+    "setting.theme": "Theme",
+    "setting.theme.controlStyle.label": "Control button style",
+    "setting.theme.controlStyle.desc": "Choose the visual style for window control buttons",
+    "setting.theme.controlPosition.title": "Control position",
+    "setting.theme.controlPosition.label": "Control button position",
+    "setting.theme.controlPosition.desc": "Show control buttons on the left or right side",
+    "setting.theme.controlPosition.left": "Left",
+    "setting.theme.controlPosition.right": "Right"
 }

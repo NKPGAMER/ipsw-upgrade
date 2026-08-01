@@ -6,7 +6,6 @@ import { state, DEVICE_GROUPS } from "@/data";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ProductId } from "@/ui/home";
 import { ipswClient } from "@/init";
-import { state as globalState } from "@/data";
 import { useSearchStore } from "@/stores/search-store";
 import utils from "@/core/utils";
 import { downloader } from "@/services/downloader";
@@ -835,17 +834,6 @@ export default function IPSWManager() {
             <div className="flex-1" />
             <div className="flex items-center justify-between gap-1.5 shrink-0">
               {!isGlobalSearch && (
-                <Tooltip label={t("tooltip.updateFirmware")} position="bottom">
-                  <button
-                    className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
-                    onClick={() => navigate("/ipswUpdate", { state: { product: globalState.currentProduct } })}
-                  >
-                    {TASKBAR_ICON.update}
-                  </button>
-                </Tooltip>
-              )}
-
-              {!isGlobalSearch && (
                 <Tooltip label={t("tooltip.removeRedundantFiles")} position="bottom">
                   <button
                     onClick={async () => handleRedundantFiles()}
@@ -856,21 +844,12 @@ export default function IPSWManager() {
                 </Tooltip>
               )}
 
-              <Tooltip label={t("tooltip.downloads")} position="bottom">
-                <button
-                  onClick={() => navigate("/downloads")}
-                  className="w-10 h-8 p-2! rounded-lg bg-white/4 hover:bg-white/8 border border-white/6 text-apple-ink-muted-48 hover:text-white flex items-center justify-center transition-colors shrink-0"
-                >
-                  {TASKBAR_ICON.download}
-                </button>
-              </Tooltip>
-
-                <button
-                  onClick={() => navigate("/", { replace: true })}
-                  className="w-10 h-8 rounded-lg bg-white/4 hover:bg-[#ff3b30]/15 border border-white/6 hover:border-[#ff3b30]/25 text-apple-ink-muted-48 hover:text-[#ff453a] flex items-center justify-center transition-all"
-                >
-                  {TASKBAR_ICON.close}
-                </button>
+              <button
+                onClick={() => navigate("/", { replace: true })}
+                className="w-10 h-8 rounded-lg bg-white/4 hover:bg-[#ff3b30]/15 border border-white/6 hover:border-[#ff3b30]/25 text-apple-ink-muted-48 hover:text-[#ff453a] flex items-center justify-center transition-all"
+              >
+                {TASKBAR_ICON.close}
+              </button>
             </div>
           </div>
 

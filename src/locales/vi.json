@@ -61,6 +61,7 @@
     "setting.sidebar.language": "Ngôn ngữ",
     "setting.sidebar.download": "Tải xuống",
     "setting.sidebar.firmware": "Phần mềm",
+    "setting.sidebar.theme": "Chủ đề",
     "setting.about": "Giới thiệu",
     "setting.about.version": "Phiên bản",
     "setting.about.checkUpdate": "Kiểm tra",
@@ -354,5 +355,13 @@
     "setting.turboWarning": "Chức năng này sẽ sử dụng tối đa phần cứng để tải xuống nhanh hơn.\n> Có thể gây nóng máy.\nBạn có chắc chắn muốn tiếp tục?",
     "setting.turboWarningTitle": "Cảnh báo",
     "setting.turboConfirm": "Đồng ý",
-    "setting.turboCancel": "Hủy"
+    "setting.turboCancel": "Hủy",
+    "setting.theme": "Chủ đề",
+    "setting.theme.controlStyle.label": "Kiểu nút điều khiển",
+    "setting.theme.controlStyle.desc": "Chọn phong cách hiển thị cho các nút điều khiển cửa sổ",
+    "setting.theme.controlPosition.title": "Vị trí điều khiển",
+    "setting.theme.controlPosition.label": "Vị trí nút điều khiển",
+    "setting.theme.controlPosition.desc": "Hiển thị các nút điều khiển ở bên trái hoặc bên phải",
+    "setting.theme.controlPosition.left": "Trái",
+    "setting.theme.controlPosition.right": "Phải"
 }

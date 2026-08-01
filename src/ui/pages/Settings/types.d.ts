@@ -2,7 +2,7 @@ import type { FC, ReactNode } from "react";
 
 export type Language = "en" | "vi";
 
-export type SettingsPage = "about" | "language" | "download" | "firmware";
+export type SettingsPage = "about" | "language" | "download" | "firmware" | "theme";
 
 export interface ToggleProps {
   on: boolean;

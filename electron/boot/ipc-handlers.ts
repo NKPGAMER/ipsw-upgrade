@@ -1,4 +1,4 @@
-import { app, ipcMain, type OpenDialogOptions, type IpcMainInvokeEvent } from "electron";
+import { app, ipcMain, type OpenDialogOptions, type IpcMainInvokeEvent, BrowserWindow } from "electron";
 import { state, s } from "./app-state";
 import { getUpdateStatus } from "./auto-updater";
 import { selectFolder, selectFile } from "../utils/system";
@@ -20,9 +20,17 @@ const handlers: IpcHandler[] = [
   ["store", (_, method: string, key: string, value?: any) => {
     switch (method) {
       case "get": return s.get(key);
-      case "set": return s.set(key, value);
+      case "set": {
+        const result = s.set(key, value);
+        state.mainWindow?.webContents.send("store:changed", key, value);
+        return result;
+      }
       case "has": return s.has(key);
-      case "delete": return s.delete(key);
+      case "delete": {
+        const result = s.delete(key);
+        state.mainWindow?.webContents.send("store:changed", key, undefined);
+        return result;
+      }
       default:
         console.warn("[store] unknown method:", method);
         return undefined;
@@ -38,6 +46,25 @@ const handlers: IpcHandler[] = [
   ["dh:getDeviceModelData", (_, identifier) => state.dh?.get(identifier)],
   ["dh:getDevices", (_, product) => state.dh?.getDevices(product)],
   ["dh:getModelData", (_, identifier) => state.dh?.getModelData(identifier)],
+
+  ["win:minimize", (_) => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.minimize();
+    return undefined;
+  }],
+  ["win:maximize", (_) => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) {
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+    }
+    return undefined;
+  }],
+  ["win:close", (_) => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.close();
+    return undefined;
+  }],
 ];
 
 handlers.forEach(([channel, handler]) => ipcMain.handle(channel, handler));

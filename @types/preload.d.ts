@@ -36,6 +36,10 @@ interface ElectronApi {
   selectFolder: () => Promise<string | null>;
   selectFile: (options?: FileFilter[]) => Promise<string | null>;
 
+  minimize: () => Promise<void>;
+  maximize: () => Promise<void>;
+  close: () => Promise<void>;
+
   file: {
     getFiles: () => Promise<IPSWFile[]>,
     delete: (target: string | string[] | IPSWFile | IPSWFile[]) => Promise<void>;
@@ -61,6 +65,7 @@ interface ElectronStoreApi {
   get: (key: string) => Promise<any>;
   has: (key: string) => Promise<boolean>;
   delete: (key: string) => Promise<void>;
+  onChange: (cb: (key: string, value: any) => void) => EventResponse;
 }
 
 interface UpdateStatus {

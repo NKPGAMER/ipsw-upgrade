@@ -31,3 +31,9 @@
 - When backend state mutations (e.g., task status transitions via `updateTaskStatus`) must be observable by the renderer, always emit an IPC event (e.g., `emitProgressNow`) immediately after the in-memory mutation. In-memory updates alone will not propagate to the UI — the renderer only sees state that arrives via IPC events. Confidence: 0.75
 
 - When a shared rendering utility used in multiple contexts (e.g., `renderMd`) needs different sizing or styling per context, prefers adding a parameter (e.g., `size: "sm" | "md"`) over duplicating the component or creating separate variants. The default parameter value should preserve existing backward-compatible behavior. Confidence: 0.60
+
+- Adding a new settings page follows a canonical full-stack recipe: (1) add the page name to the `SettingsPage` union type, (2) add an SVG icon in `icons.tsx`, (3) create the page component using the `Section` + `Row` layout primitives, (4) add i18n keys to both locale files with the `setting.<section>.<key>` naming convention, (5) import and wire the page into the `pages` Record in `index.tsx`, and (6) add the sidebar nav item. Confidence: 0.80
+
+- When a persistent store value needs to trigger real-time UI updates across components (e.g., titlebar reacting to theme settings), broadcast an IPC event (`store:changed`) from the main process store `set`/`delete` handlers, expose an `onChange` subscription in the preload + type definitions, and subscribe in the renderer via the service facade. Do not rely solely on reading the value once at mount time. Confidence: 0.75
+
+- When the app needs full programmatic control over window chrome (custom drag regions, custom control buttons like Apple-style traffic lights), use `frame: false` on the BrowserWindow rather than `titleBarStyle: "hidden"` with `titleBarOverlay`. The latter constrains button styling to what the OS overlay allows; the former gives complete freedom over button rendering and behavior. Confidence: 0.70

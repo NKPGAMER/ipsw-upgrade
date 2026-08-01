@@ -1,6 +1,6 @@
 import { type FC, memo } from "react";
 import { useTranslation } from "react-i18next";
-import { IconAbout, IconLanguage, IconDownload, IconSoftware } from "./icons";
+import { IconAbout, IconLanguage, IconDownload, IconSoftware, IconTheme } from "./icons";
 import type { SidebarProps, SettingsPage } from "./types";
 
 interface NavItem {
@@ -14,6 +14,7 @@ const navItems: NavItem[] = [
   { id: "language", icon: IconLanguage, labelKey: "setting.sidebar.language" },
   { id: "download", icon: IconDownload, labelKey: "setting.sidebar.download" },
   { id: "firmware", icon: IconSoftware, labelKey: "setting.sidebar.firmware" },
+  { id: "theme", icon: IconTheme, labelKey: "setting.sidebar.theme" },
 ];
 
 const Sidebar: FC<SidebarProps> = memo(function Sedebar({ active, onNavigate }) {

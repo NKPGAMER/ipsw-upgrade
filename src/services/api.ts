@@ -96,6 +96,11 @@ export const store = {
     try { await window.store?.delete(key); }
     catch (error) { sendError("store::delete", error); }
   },
+
+  onChange(cb: (key: string, value: any) => void): EventResponse | void {
+    try { return window.store?.onChange(cb); }
+    catch (error) { sendError("store::onChange", error); }
+  },
 };
 
 // ── Updater ───────────────────────────────────────────────────────────────────────
@@ -162,6 +167,23 @@ export const dialog = {
   async selectFile(options?: Electron.FileFilter[]): Promise<string | void> {
     try { return await window.api?.selectFile?.(options) ?? undefined; }
     catch (error) { sendError("dialog::selectFile", error); }
+  },
+};
+
+// ── Window Controls ───────────────────────────────────────────────────────────────
+
+export const win = {
+  async minimize(): Promise<void> {
+    try { await window.api?.minimize(); }
+    catch (error) { sendError("win::minimize", error); }
+  },
+  async maximize(): Promise<void> {
+    try { await window.api?.maximize(); }
+    catch (error) { sendError("win::maximize", error); }
+  },
+  async close(): Promise<void> {
+    try { await window.api?.close(); }
+    catch (error) { sendError("win::close", error); }
   },
 };
 
