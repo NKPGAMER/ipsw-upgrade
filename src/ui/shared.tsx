@@ -15,11 +15,17 @@ export function formatEta(sec?: number): string {
   return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
 }
 
+const dateFormat = (() => {
+  try {
+    return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return new Intl.DateTimeFormat("en", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+})();
+
 export function formatDate(dateStr: string): string {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("vi-VN", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
+  return dateFormat.format(new Date(dateStr));
 }
 
 export const Spinner = memo(function Spinner({ className = "w-3.5 h-3.5" }: { className?: string }) {

@@ -99,6 +99,40 @@ export const DetailPanel = memo(function DetailPanel({
   const status = computeCardStatus(entry, allFiles, incompleteTasks, linkedGroup);
   const isBorrowed = entry.task != null && entry.task.firmware.identifier !== entry.device.identifier;
 
+  const downloadedBuildid = (() => {
+    if (!entry.firmwares || entry.firmwares.length === 0 || allFiles.length === 0) return null;
+    const buildIdSet = new Set(entry.firmwares.map(fw => fw.buildid));
+    let bestBuildid: string | null = null;
+    let bestIdx = Infinity;
+    for (const file of allFiles) {
+      const parsed = parseIPSW(file.name);
+      if (!parsed || !buildIdSet.has(parsed.build)) continue;
+      const idx = entry.firmwares.findIndex(fw => fw.buildid === parsed.build);
+      if (idx >= 0 && idx < bestIdx) {
+        bestIdx = idx;
+        bestBuildid = parsed.build;
+      }
+    }
+    return bestBuildid;
+  })();
+
+  const { signedCount, hasReleaseDate, firstSignedFw } = useMemo(() => {
+    if (!entry.firmwares) return { signedCount: 0, hasReleaseDate: false, firstSignedFw: null };
+    let signed = 0;
+    let hasDate = false;
+    let firstSigned: Firmware | null = null;
+    for (const fw of entry.firmwares) {
+      if (fw.signed) {
+        signed++;
+        if (!firstSigned) firstSigned = fw;
+      }
+      if (fw.releasedate) hasDate = true;
+    }
+    return { signedCount: signed, hasReleaseDate: hasDate, firstSignedFw: firstSigned };
+  }, [entry.firmwares]);
+
+  const isLegacyModel = !hasReleaseDate && signedCount === 0;
+
   const incompTask = latest
     ? (() => {
         const direct = incompleteTasks.find(
@@ -238,16 +272,36 @@ export const DetailPanel = memo(function DetailPanel({
                       </div>
                     </div>
 
-                    {!latest.signed && (
+                    {isLegacyModel ? (
                       <motion.div
-                        className="w-full flex items-center gap-2 px-3! py-2.5! mb-2! text-left text-amber-400/80 bg-amber-400/20 rounded-xl font-bold"
+                        className="w-full flex items-center gap-2 px-3! py-2.5! mb-2! text-left text-sky-400/80 bg-sky-400/15 rounded-xl font-bold"
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0, transition: { duration: 0.18, delay: 0.08 } }}
                       >
                         <p className="text-2xl">{TASKBAR_ICON.warning}</p>
-                        <p className="text-[12px]">{t("pages.selectDevice.detailPanel.latestFirmwareUnsigned")}</p>
+                        <p className="text-[12px]">Đây là thiết bị đời đầu của Apple — tất cả phiên bản đều có thể khôi phục.</p>
                       </motion.div>
-                    )}
+                    ) : signedCount === 0 && entry.firmwares && entry.firmwares.length > 0 ? (
+                      <motion.div
+                        className="w-full flex items-center gap-2 px-3! py-2.5! mb-2! text-left text-red-400/80 bg-red-400/15 rounded-xl font-bold"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0, transition: { duration: 0.18, delay: 0.08 } }}
+                      >
+                        <p className="text-2xl">{TASKBAR_ICON.warning}</p>
+                        <p className="text-[12px]">{t("pages.selectDevice.detailPanel.modelNoLongerSupported")}</p>
+                      </motion.div>
+                    ) : !latest?.signed && firstSignedFw ? (
+                      <motion.div
+                        className="w-full flex items-center gap-2 px-3! py-2.5! mb-2! text-left text-amber-400/80 bg-amber-400/15 rounded-xl font-bold"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0, transition: { duration: 0.18, delay: 0.08 } }}
+                      >
+                        <p className="text-2xl">{TASKBAR_ICON.warning}</p>
+                        <p className="text-[12px]">
+                          {`Phiên bản mới nhất đã bị thu hồi. Bạn nên chọn phiên bản ${firstSignedFw.version} (còn signed).`}
+                        </p>
+                      </motion.div>
+                    ) : null}
 
                     <motion.div
                       initial={{ opacity: 0, y: 4 }}
@@ -342,7 +396,7 @@ export const DetailPanel = memo(function DetailPanel({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1, transition: { duration: 0.18, delay: 0.05 } }}
                   >
-                    <FirmwareTable firmwares={entry.firmwares} onDownload={(fw) => onAction("download", fw)} />
+                    <FirmwareTable firmwares={entry.firmwares} onAction={onAction} downloadedBuildid={downloadedBuildid} isLegacyModel={isLegacyModel} />
                   </motion.div>
                 ) : (
                   <motion.p

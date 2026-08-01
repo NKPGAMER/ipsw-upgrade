@@ -25,6 +25,9 @@ See [ui-patterns/taste.md](ui-patterns/taste.md)
 - Prefers type-safe EventEmitter wrappers using the event-map pattern: an interface mapping event names to callback signatures, with a generic `on<E extends keyof Map>(event: E, callback: Map[E])` so TypeScript infers callback parameter types from the event name. Also prefers returning `this` (not the underlying emitter) for chainable calls. Confidence: 0.75
 - When a facade method returns `data | void`, avoid explicit type annotations on the assignment (e.g., `const result: SomeType = await facade.method()`) — the `| void` makes the annotation incompatible. Let TypeScript infer, then use a null guard (`if (!result) return`) to narrow. Confidence: 0.70
 
+# Performance Patterns
+- Prefers caching `Intl.DateTimeFormat` instances at module level (module-scoped constant) rather than creating new formatter objects (`new Date().toLocaleDateString(...)`) on every call. Uses `undefined` as the locale parameter so the browser auto-detects the user's locale, with a `try/catch` fallback to `"en"` if the detected locale is unsupported. Confidence: 0.85
+
 # Downloader Design
 - Use compact arrays `[start, end, downloaded]` (CompactChunk type) for chunk state instead of objects. Only track incomplete chunks; completed chunks are removed from the array entirely (no need for index or completed flag). Confidence: 0.70
 - The `chunks` array in DownloadState should only contain incomplete chunks (not yet completed). Remove completed chunks to keep the persisted state small. Confidence: 0.80

@@ -287,7 +287,8 @@
     "pages": {
         "selectDevice": {
             "detailPanel": {
-                "latestFirmwareUnsigned": "Phiên bản này đã bị thu hồi"
+                "latestFirmwareUnsigned": "Phiên bản này đã bị thu hồi",
+                "modelNoLongerSupported": "Model này không còn được Apple hỗ trợ"
             },
             "control": {
                 "button": {

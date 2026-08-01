@@ -1,8 +1,19 @@
 import { useState, useEffect, memo } from "react";
 import { formatBytes, formatDate } from "@/ui/shared";
 import { useTranslation } from "react-i18next";
+import type { ControlAction } from "./types";
 
-export const FirmwareTable = memo(function FirmwareTable({ firmwares, onDownload }: { firmwares: Firmware[]; onDownload: (fw: Firmware) => void }) {
+export const FirmwareTable = memo(function FirmwareTable({
+  firmwares,
+  onAction,
+  downloadedBuildid,
+  isLegacyModel,
+}: {
+  firmwares: Firmware[];
+  onAction: (action: ControlAction, fw?: Firmware) => void;
+  downloadedBuildid: string | null;
+  isLegacyModel?: boolean;
+}) {
   const [page, setPage] = useState(0);
   const PER_PAGE = 5;
   const totalPages = Math.ceil(firmwares.length / PER_PAGE);
@@ -10,6 +21,10 @@ export const FirmwareTable = memo(function FirmwareTable({ firmwares, onDownload
   const { t } = useTranslation();
 
   useEffect(() => { setPage(0); }, [firmwares]);
+
+  const downloadedIndex = downloadedBuildid
+    ? firmwares.findIndex(fw => fw.buildid === downloadedBuildid)
+    : -1;
 
   return (
     <div>
@@ -25,30 +40,49 @@ export const FirmwareTable = memo(function FirmwareTable({ firmwares, onDownload
             </tr>
           </thead>
           <tbody>
-            {items.map((fw, i) => (
-              <tr
-                key={fw.buildid}
-                className={`border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors ${i === 0 && page === 0 ? "bg-white/4" : ""}`}
-              >
-                <td className="px-3! py-2!">
-                  <span className="text-white font-mono font-medium">{fw.version}</span>
-                  <span className="text-gray-600 font-mono ml-1.5 text-[9px]">({fw.buildid})</span>
-                </td>
-                <td className="px-3! py-2! text-gray-400">{formatDate(fw.releasedate)}</td>
-                <td className="px-3! py-2!">
-                  {fw.signed ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>}
-                </td>
-                <td className="px-3! py-2! text-gray-400 font-mono">{formatBytes(fw.filesize)}</td>
-                <td className="px-3! py-2!">
-                  <button
-                    onClick={() => onDownload(fw)}
-                    className="px-2.5! py-1! rounded-lg bg-[#0066cc]/12 hover:bg-[#0066cc]/25 text-[#2997ff] text-[10px] font-semibold border border-[#0066cc]/20 transition-colors"
-                  >
-                    Tải xuống
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {items.map((fw, i) => {
+              const globalIdx = page * PER_PAGE + i;
+              const isDownloaded = fw.buildid === downloadedBuildid;
+              const isNewer = downloadedBuildid != null && downloadedIndex >= 0 && globalIdx < downloadedIndex;
+              const isOlder = downloadedBuildid != null && downloadedIndex >= 0 && globalIdx > downloadedIndex;
+
+              return (
+                <tr
+                  key={fw.buildid}
+                  className={`border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors ${i === 0 && page === 0 ? "bg-white/4" : ""}`}
+                >
+                  <td className="px-3! py-2!">
+                    <span className="text-white font-mono font-medium">{fw.version}</span>
+                  </td>
+                  <td className="px-3! py-2! text-gray-400">{formatDate(fw.releasedate)}</td>
+                  <td className="px-3! py-2!">
+                    {fw.signed || isLegacyModel
+                      ? <span className="text-emerald-400">✓</span>
+                      : <span className="text-gray-600">—</span>}
+                  </td>
+                  <td className="px-3! py-2! text-gray-400 font-mono">{formatBytes(fw.filesize)}</td>
+                  <td className="px-3! py-2!">
+                    {isDownloaded ? (
+                      <span className="text-[10px] text-emerald-400/70 font-medium">Đã tải</span>
+                    ) : isNewer ? (
+                      <button
+                        onClick={() => onAction("update", fw)}
+                        className="px-2.5! py-1! rounded-lg bg-cyan-500/12 hover:bg-cyan-500/20 text-cyan-400 text-[10px] font-semibold border border-cyan-500/20 transition-colors"
+                      >
+                        Cập nhật
+                      </button>
+                    ) : !isOlder ? (
+                      <button
+                        onClick={() => onAction("download", fw)}
+                        className="px-2.5! py-1! rounded-lg bg-[#0066cc]/12 hover:bg-[#0066cc]/25 text-[#2997ff] text-[10px] font-semibold border border-[#0066cc]/20 transition-colors"
+                      >
+                        Tải xuống
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

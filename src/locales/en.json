@@ -113,6 +113,19 @@
     "verify.mismatch": "Verification result does not match",
 
     "placeholder.search": "Search...",
+    "pages": {
+        "selectDevice": {
+            "detailPanel": {
+                "latestFirmwareUnsigned": "This version has been unsigned",
+                "modelNoLongerSupported": "This model is no longer supported by Apple"
+            },
+            "control": {
+                "button": {
+                    "download": "Download"
+                }
+            }
+        }
+    },
     "wizard": {
         "badge.new": "New",
         "btn.back": "Back",

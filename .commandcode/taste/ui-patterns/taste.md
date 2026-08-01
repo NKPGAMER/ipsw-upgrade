@@ -1,4 +1,9 @@
 # UI Patterns
+
+- Prefers multi-tiered warning/info banners computed from multiple data dimensions rather than single boolean `isSigned` checks. For firmware signing status, the user explicitly wanted four distinct states: (1) legacy Apple model (no signed + no release dates) → blue info banner saying all versions are restorable, (2) all firmware unsigned → red error banner saying model unsupported, (3) latest unsigned but older signed → amber warning recommending the signed version, (4) no banner otherwise. Each state gets its own color treatment (sky, red, amber) and distinct message content. Confidence: 0.80
+
+- In data tables where a global state (e.g., "which firmware is already downloaded") affects per-row actions, compute row-local booleans (`isDownloaded`, `isNewer`, `isOlder`) from the row's index relative to the downloaded item's position in the sorted list. Each row then renders context-dependent buttons: "Đã tải" (downloaded label, no button), "Cập nhật" (update action for newer versions), "Tải xuống" (download for older/newest when nothing downloaded), or hidden (older versions hidden when something is already downloaded). Confidence: 0.75
+
 - Prefers debounced search inputs (~300ms delay) rather than filtering on every keystroke. Confidence: 0.85
 - Designs UI components to accept custom/external data lists (via props or store) rather than being tightly coupled to internal API calls, so they can be reused in different contexts (e.g., global search). Confidence: 0.75
 - Search bar visibility should be controlled by a store flag — hidden by default (via opacity/pointer-events), toggled on only when a search-relevant page mounts (e.g., Home, SelectDevice), and toggled off on unmount. Prevents UI setup issues from components that mount before search infrastructure is ready. Confidence: 0.80
