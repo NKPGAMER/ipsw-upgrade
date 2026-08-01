@@ -18,6 +18,8 @@
 
 - Higher-level configuration presets (e.g., "performance mode") should override granular custom settings (e.g., `maxConnections`). A preset represents an explicit user intent that supersedes individual knobs — it's correct behavior, not a bug, when a preset overwrites custom values. Confidence: 0.70
 
+- Prefers `Record<K, V[]>` lookup objects over flat arrays when data is organized by a known discriminant key (e.g., `Product`). Enables O(1) indexed access by key rather than scanning/filtering an array. When no key is selected, provides a fallback that flattens all values. Confidence: 0.70
+
 - Prefers specialized, single-responsibility schedulers over a monolithic scheduler — separate scheduler classes for different task types (e.g., download/verify scheduling vs. file transfer/move scheduling), each with its own queue and independent concurrency limits. Confidence: 0.85
 
 - When a multi-phase task pipeline uses temporary storage (e.g., download to SSD tmp then move to HDD saveDir), completion of one phase must immediately free its slot so the next queued task can begin — phases should not block each other. The downstream phase (transfer) has its own independent scheduler and concurrency cap, enabling parallel pipelining (e.g., 3 concurrent downloads + 1 concurrent transfer). Confidence: 0.85

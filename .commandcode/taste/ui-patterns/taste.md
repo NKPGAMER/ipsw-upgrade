@@ -15,6 +15,7 @@
 - Pages in the Electron app should use `fixed` positioning with CSS custom property offsets (`top: var(--titlebar-height)`, `left: var(--sidebar-w, 0px)`) to sit within the content area, rather than covering the titlebar/sidebar or using viewport-relative positioning that ignores chrome dimensions. This pattern is used across Settings, Downloads, and other main pages. Confidence: 0.80
 
 - Prefers `motion/react` (the Motion library for React) for UI animations — including `AnimatePresence` for mount/unmount transitions, `whileHover`/`whileTap` for micro-interactions, and animated layout properties. The user considers poor or missing animations a quality issue ("hiệu ứng không đẹp"). Confidence: 0.75
+- When `AnimatePresence` wraps a list rendered with `.map()` (multiple children rendered simultaneously), use `mode="popLayout"`. Never use `mode="wait"` with multiple children — `wait` expects a single exiting child and a single entering child, and will produce visual glitches (and a console warning) when multiple items animate in/out at once. Confidence: 0.70
 
 - When creating new pages, match the visual style and structure of existing pages (header layout, spacing, font sizes, border separators). The user values page-to-page visual coherence — inconsistency is perceived as sloppy. Confidence: 0.70
 

@@ -35,6 +35,11 @@
         "removeRedundantFiles": "Xoá tệp không cần thiết",
         "downloads": "Tải xuống"
     },
+    "nav": {
+        "devices": "Thiết bị",
+        "download": "Tải xuống",
+        "settings": "Cài đặt"
+    },
     "confirm.cancelDownload": "Tệp này đang được tải. Bạn chắc chắn muốn hủy?",
     "confirm.btn.delete": "Xóa",
     "confirm.btn.ok": "Ok",

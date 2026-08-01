@@ -1,5 +1,5 @@
 import 'i18next';
-import lang_vi from "./locales/vi.json";
+import lang_vi from "../src/locales/vi.json";
 
 declare module 'i18next' {
     interface CustomTypeOptions {

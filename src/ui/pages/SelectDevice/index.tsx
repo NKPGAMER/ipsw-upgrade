@@ -486,18 +486,19 @@ export default function IPSWManager() {
   }, [entries, debouncedQuery]);
 
   const groupedEntries = useMemo(() => {
-    const selectedGroups = DEVICE_GROUPS
+    const groups = product ? DEVICE_GROUPS[product] ?? [] : Object.values(DEVICE_GROUPS).flat();
+    const selectedGroups = groups
       .map(group => ({
         name: group.name,
         entries: filtered.filter(entry => group.ids.includes(entry.device.identifier)),
       }))
       .filter(group => group.entries.length > 0);
 
-    const groupedIds = new Set(DEVICE_GROUPS.flatMap(group => group.ids));
+    const groupedIds = new Set(groups.flatMap(group => group.ids));
     const ungroupedEntries = filtered.filter(entry => !groupedIds.has(entry.device.identifier));
 
     return { selectedGroups, ungroupedEntries };
-  }, [filtered]);
+  }, [filtered, product]);
 
   const ungroupedTitle = product
     ? `${product.charAt(0).toUpperCase()}${product.slice(1)} Series`

@@ -5,6 +5,7 @@ import type { DiskInfo } from "../../electron/i10r-addon/index";
 import { disk, updater, app } from "@/services/api";
 import type { UpdateStatus } from "../../@types/preload";
 import { formatBytes } from "./shared";
+import { useTranslation } from "react-i18next";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -77,21 +78,24 @@ interface NavItem {
   id: string;
   path: string;
   label: string;
+  label_id: string;
   icon: React.ReactNode;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "devices", path: "/", label: "Devices", icon: <IconDevices /> },
+  { id: "devices", path: "/", label: "Devices", label_id: "nav.devices", icon: <IconDevices /> },
   {
     id: "downloads",
     path: "/downloads",
     label: "Downloads",
+    label_id: "nav.download",
     icon: <IconDownload />,
   },
   {
     id: "settings",
     path: "/settings",
     label: "Settings",
+    label_id: "nav.settings",
     icon: <IconSettings />,
   },
 ];
@@ -107,6 +111,9 @@ const NavButton = memo(function NavButton({
   isActive: boolean;
   onClick: () => void;
 }) {
+
+  const { t } = useTranslation();
+  
   return (
     <button
       onClick={onClick}
@@ -122,7 +129,7 @@ const NavButton = memo(function NavButton({
       `}
     >
       <span
-        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px]! h-4! rounded-r-full bg-apple-primary transition-all duration-250 ease-[cubic-bezier(0.2,0,0,1)]"
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-0.75! h-4! rounded-r-full bg-apple-primary transition-all duration-250 ease-[cubic-bezier(0.2,0,0,1)]"
         style={{ opacity: isActive ? 1 : 0 }}
       />
       <span
@@ -134,7 +141,7 @@ const NavButton = memo(function NavButton({
       >
         {item.icon}
       </span>
-      {item.label}
+      {t(item.label_id as any)}
     </button>
   );
 });
@@ -242,7 +249,7 @@ const DiskSection = memo(function DiskSection() {
           </div>
         )}
       </div>
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         {pageDisks.map((disk, i) => (
           <motion.div
             key={disk.id || `disk-${i}`}
