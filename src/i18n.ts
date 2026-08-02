@@ -3,8 +3,8 @@ import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 
 // Languages
-import lang_vi from "./locales/vi.json";
-import lang_en from "./locales/en.json";
+import lang_vi from "./assets/locales/vi.json";
+import lang_en from "./assets/locales/en.json";
 
 const resources: InitOptions['resources'] = {
   vi: { translation: lang_vi },
