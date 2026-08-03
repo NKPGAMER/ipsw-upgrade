@@ -24,6 +24,7 @@ import type { IncompleteTaskClient } from "@/core/ipswClient";
 import type { ControlAction, DeviceEntry, VerifyState } from "./types";
 
 const PENDING_TIMEOUT_MS = 15000;
+const IDLE_REDIRECT_MS = 60_000;
 
 export default function IPSWManager() {
   usePageLayout("fullContent");
@@ -93,6 +94,36 @@ export default function IPSWManager() {
     });
     return () => unsub();
   }, []);
+
+  // ── Idle auto-redirect: nếu có task đang downloading + 60s không tương tác → /downloads ──
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let idleTimer: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        for (const task of taskMapRef.current.values()) {
+          if (task.status === "downloading") {
+            navigate("/downloads");
+            return;
+          }
+        }
+      }, IDLE_REDIRECT_MS);
+    };
+
+    const events = ["mousedown", "wheel", "keydown", "touchstart"] as const;
+    events.forEach((e) => container.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      clearTimeout(idleTimer);
+      events.forEach((e) => container.removeEventListener(e, resetTimer));
+    };
+  }, [navigate]);
 
   const setPending = useCallback((identifier: string, action: ControlAction | null) => {
     const existing = pendingTimersRef.current.get(identifier);

@@ -34,6 +34,8 @@
 
 - Horizontal scrolling is forbidden across the entire app — enforced via `overflow-x-hidden` on all scrollable content areas and `overscroll-behavior-x: contain` on `html, body, #root`. The user expects zero horizontal overflow under any window size. Confidence: 0.85
 
+- In Electron apps, when implementing idle/activity detection that should ignore window chrome (titlebar controls, etc.), scope event listeners to a `containerRef` from the page content rather than attaching to `document` or `window`. Since the titlebar lives outside the content area in a separate layout shell, container-scoped listeners naturally exclude chrome interactions — no need to manually filter out titlebar events. Events to listen for: `mousedown`, `wheel`, `keydown`, `touchstart` (all with `{ passive: true }`). Confidence: 0.65
+
 - When a page has an internal sub-sidebar (e.g., Settings section nav, Downloads filter sidebar), the sub-sidebar must use `h-full overflow-y-auto` for independent full-height scrolling, not `self-stretch sticky top-0`. The sub-sidebar should be a standalone scroll container decoupled from the main content, not pinned to the top of the flex row. Confidence: 0.80
 
 - Pages with scrollable content follow a consistent container pattern: the root page wrapper gets `overflow-hidden` (to establish a scroll boundary), and the scrollable content area inside gets `overflow-y-auto overflow-x-hidden`. This ensures scrolling works correctly even when the window is shrunk below the content's natural size. Confidence: 0.75

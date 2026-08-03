@@ -1,5 +1,4 @@
 {
-    "extends": "./tsconfig.base.json",
     "compilerOptions": {
         "target": "esnext",
         "module": "commonjs",
@@ -9,7 +8,7 @@
         "strict": true,
         "skipLibCheck": true,
         "paths": {
-            "@root/*": ["./electron/*"],
+            "@/*": ["./electron/*"],
             "@custom-type/*": ["./@types/*"]
         }
     },

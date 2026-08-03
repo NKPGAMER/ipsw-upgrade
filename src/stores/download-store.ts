@@ -9,13 +9,11 @@ interface DownloadStoreState {
   taskIds: string[];
   tasksById: TaskMap;
   filter: DownloadFilter;
-  hydrated: boolean;
   activeUrls: Set<string>;
   setTasks: (tasks: Task[]) => void;
   upsertTask: (task: Task) => void;
   removeTask: (id: string) => void;
   setFilter: (filter: DownloadFilter) => void;
-  markHydrated: () => void;
   patchTask: (id: string, patch: Partial<Task>) => void;
   updateProgress: (id: string, progress: number, speed: number, eta?: number) => void;
   getActiveDownloadUrls: () => string[];
@@ -36,7 +34,6 @@ export const useDownloadStore = create<DownloadStoreState>((set, get) => ({
   taskIds: [],
   tasksById: {},
   filter: "all",
-  hydrated: false,
   activeUrls: new Set<string>(),
   setTasks: (tasks) =>
     set(() => {
@@ -59,7 +56,6 @@ export const useDownloadStore = create<DownloadStoreState>((set, get) => ({
       return { taskIds, tasksById, activeUrls: buildActiveUrls(taskIds, tasksById) };
     }),
   setFilter: (filter) => set({ filter }),
-  markHydrated: () => set({ hydrated: true }),
   patchTask: (id, patch) =>
     set((state) => {
       const task = state.tasksById[id];

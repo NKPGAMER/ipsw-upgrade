@@ -319,48 +319,30 @@ export default function DownloadPage() {
   const removeTask = useDownloadStore((state) => state.removeTask);
   const patchTask = useDownloadStore((state) => state.patchTask);
   const setFilter = useDownloadStore((state) => state.setFilter);
-  const hydrated = useDownloadStore((state) => state.hydrated);
-  const markHydrated = useDownloadStore((state) => state.markHydrated);
-
-  // ── Subscribe events ────────────────────────────────────────────────────────
+  // ── Hydrate from backend + subscribe events ─────────────────────────────────
 
   useEffect(() => {
-    if (hydrated) return;
     downloader.getAllTask().then(setTasks).catch(console.error);
-    markHydrated();
-  }, [hydrated, markHydrated, setTasks]);
+  }, [setTasks]);
 
   useEffect(() => {
-    const upsertTaskCall = (_: any, task: Task) => upsertTask(task);
-    const removeTaskCall = (id: string) => removeTask(id);
-    const resumeTaskCall = (id: string, task?: Task) => {
-      if (task) upsertTask(task);
-      else patchTask(id, { status: "downloading" })
-    };
-    const errorTaskCall = (_id: string, error: string, task: Task) => {
-      upsertTask({ ...task, error: task.error || error });
-    }
+    const unsubs = [
+      downloader.onAdded((_id, task) => upsertTask(task)),
+      downloader.onCompleted((_id, task) => upsertTask(task)),
+      downloader.onProgress((_id, task) => upsertTask(task)),
+      downloader.onPaused((_id, task) => upsertTask(task)),
+      downloader.onResumed((id, task) => {
+        if (task) upsertTask(task);
+        else patchTask(id, { status: "downloading" });
+      }),
+      downloader.onCancelled((id) => removeTask(id)),
+      downloader.onIncompleteDeleted((id) => removeTask(id)),
+      downloader.onError((_id, error, task) => {
+        upsertTask({ ...task, error: task.error || error });
+      }),
+    ];
 
-    downloader.on("added", upsertTaskCall);
-    downloader.on("completed", upsertTaskCall);
-    downloader.on("progress", upsertTaskCall);
-    downloader.on("paused", upsertTaskCall);
-    downloader.on("resumed", resumeTaskCall);
-    downloader.on("cancelled", removeTaskCall);
-    downloader.on("incomplete_deleted", removeTaskCall);
-    downloader.on("error", errorTaskCall);
-
-    return () => {
-      downloader
-        .off("added", upsertTaskCall)
-        .off("completed", upsertTaskCall)
-        .off("progress", upsertTaskCall)
-        .off("paused", upsertTaskCall)
-        .off("resumed", resumeTaskCall)
-        .off("cancelled", removeTaskCall)
-        .off("incomplete_deleted", removeTaskCall)
-        .off("error", errorTaskCall)
-    };
+    return () => unsubs.forEach((s) => s.unsubscribe());
   }, [upsertTask, removeTask, patchTask]);
 
   // ── Action handlers ─────────────────────────────────────────────────────────
