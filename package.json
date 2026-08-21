@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npm run dev",
     "publish": "node publish/server.mjs",
-    "build": "vite build",
+    
     "build:main": "npx tsc -p tsconfig.main.json",
     "dev": "npx tsc -p tsconfig.main.json && concurrently \"vite\" \"electron .\"",
     "dev:electron": "npx tsc -p tsconfig.main.json -w",
@@ -15,7 +15,10 @@
     "lint:fix": "eslint . --fix",
     "lint:src": "eslint src/",
     "lint:electron": "eslint electron/",
-    "t": "electron ."
+    "t": "electron .",
+    
+    "vite": "vite",
+    "build": "vite build"
   },
   "keywords": [],
   "author": "NKPGAMER",
@@ -25,6 +28,7 @@
     "@eslint/js": "^10.0.1",
     "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
@@ -41,7 +45,6 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0",
     "vite": "^8.1.5",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.10"
   },
   "dependencies": {

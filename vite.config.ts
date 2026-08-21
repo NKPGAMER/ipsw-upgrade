@@ -5,6 +5,13 @@ import { resolve } from "path";
 export default defineConfig({
     root: "src",
     base: "./",
+    server: {
+        watch: {
+            ignored: [
+                "**/src-tauri/**"
+            ]
+        }
+    },
     build: {
         outDir: "../dist",
         emptyOutDir: true,
